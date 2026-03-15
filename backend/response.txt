@@ -1,0 +1,1 @@
+﻿{"message":"Erreur lors de l'initiation du paiement","error":"Invalid merchant credentials. Please verify your merchant ID and key."}
