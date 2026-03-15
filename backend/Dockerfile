@@ -6,7 +6,8 @@ FROM php:8.3-cli
 RUN apt-get update && apt-get install -y \
     git unzip libzip-dev libpng-dev libonig-dev libxml2-dev libpq-dev libicu-dev \
     && docker-php-ext-install intl zip pdo_mysql pdo_pgsql mbstring exif pcntl bcmath \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && php -v && php -m | grep -E '^intl$' || (echo "ext-intl missing" && exit 1)
 
 ENV COMPOSER_ALLOW_SUPERUSER=1
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
