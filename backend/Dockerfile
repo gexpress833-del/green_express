@@ -1,11 +1,11 @@
 # Backend Laravel pour Render (runtime Docker)
 # Sur Render : choisir "Docker" comme environnement, Root Directory = backend
 
-FROM php:8.2-cli
+FROM php:8.3-cli
 
 RUN apt-get update && apt-get install -y \
-    git unzip libzip-dev libpng-dev libonig-dev libxml2-dev libpq-dev \
-    && docker-php-ext-install zip pdo_mysql pdo_pgsql mbstring exif pcntl bcmath \
+    git unzip libzip-dev libpng-dev libonig-dev libxml2-dev libpq-dev libicu-dev \
+    && docker-php-ext-install intl zip pdo_mysql pdo_pgsql mbstring exif pcntl bcmath \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENV COMPOSER_ALLOW_SUPERUSER=1
