@@ -1,0 +1,17 @@
+# Ne pas copier dans l'image Docker (sécurité et taille)
+.env
+.env.*
+!.env.example
+node_modules
+vendor
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+.git
+.gitignore
+*.md
+tests
+phpunit.xml
+.env.testing
+.DS_Store
