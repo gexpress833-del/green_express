@@ -256,8 +256,8 @@ export default function EntrepriseSubscriptionsPage() {
             style={{
               backgroundImage: 'linear-gradient(90deg, #22d3ee 0%, #06b6d4 35%, #22c55e 70%, #16a34a 100%)',
               backgroundSize: '100% 100%',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
               letterSpacing: '-0.02em',
             }}
           >
@@ -290,7 +290,7 @@ export default function EntrepriseSubscriptionsPage() {
               ) : (
                 <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200 text-sm mb-4">
                   <strong>Aucune liste d&apos;agents enregistrée.</strong> La souscription n&apos;est possible qu&apos;après enregistrement de la liste des agents (fiche entreprise). Contacter l&apos;administrateur si besoin.
-                </div>
+              </div>
               )}
               <p className="text-white/60 text-xs md:text-sm">
                 L&apos;effectif retenu est celui validé par l&apos;administrateur. Toute mise à jour relève de l&apos;administration.

@@ -2,6 +2,7 @@
 # Les dossiers backend/ et frontend-next/ ont leurs propres .gitignore
 
 .env
+docs/render-env-import.txt
 .env.local
 .env.*.local
 *.log

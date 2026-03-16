@@ -38,8 +38,8 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
     <article
       className="group bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 ease-out hover:-translate-y-1 border border-slate-200 dark:border-slate-700"
     >
-      {/* Image Container */}
-      <div className="relative card-image-fixed w-full overflow-hidden bg-gray-200 dark:bg-slate-700">
+      {/* Image Container : responsive + coins arrondis (voir .card-image-fixed dans globals.css) */}
+      <div className="relative card-image-fixed w-full bg-gray-200 dark:bg-slate-700">
         {menu.image && !imageError ? (
           <img
             src={menu.image}
@@ -48,7 +48,7 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
             onError={() => setImageError(true)}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-slate-300 dark:bg-slate-600">
+          <div className="w-full h-full flex items-center justify-center bg-slate-300 dark:bg-slate-600 rounded-t-2xl">
             <span className="text-slate-500 dark:text-slate-400 text-sm">Pas d'image</span>
           </div>
         )}

@@ -58,6 +58,8 @@ Render va construire l’image à partir du `Dockerfile` dans `backend/` (instal
 
 À définir dans **Environment** du service Render (onglet **Environment**). Ne jamais committer le fichier `.env`.
 
+**Import en un clic :** dans Render, clique sur **« Ajouter depuis .env »**, puis colle le contenu du fichier **`docs/render-env-import.txt`** (template production avec des `REMPLACER_*`). Enregistre, puis édite dans Render chaque variable pour remplacer les `REMPLACER_*` par tes vraies valeurs (URL du service, URL PostgreSQL interne, domaine Vercel, clés Cloudinary et Shwary, `APP_KEY`). Tu peux aussi coller directement le contenu de ton `backend/.env` local et modifier ensuite dans Render : `APP_ENV`=production, `APP_DEBUG`=false, `APP_URL`, `SESSION_SAME_SITE`=none, `SESSION_SECURE_COOKIE`=true, `SANCTUM_STATEFUL_DOMAINS` / `CORS_ALLOWED_ORIGINS` / `FRONTEND_URL`, et `DB_*` ou `DB_URL` si tu passes en PostgreSQL.
+
 #### Liste pas à pas (à remplir dans l’ordre sur Render)
 
 **1. Application Laravel**

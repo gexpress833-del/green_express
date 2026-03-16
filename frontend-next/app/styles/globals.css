@@ -364,13 +364,30 @@ body.nav-open .nav-toggle-bar:nth-child(3) {
   box-shadow: 0 10px 30px rgba(3,6,12,0.6);
 }
 
-/* Fixed image area for cards */
+/* Image des cartes menu : responsive + coins bien arrondis */
 .card-image-fixed {
-  height: 220px;
   overflow: hidden;
+  border-radius: 1rem 1rem 0 0; /* coins supérieurs arrondis (alignés avec la carte) */
+  /* Mobile d’abord : petite hauteur pour petits écrans */
+  height: 150px;
+  min-height: 140px;
+}
+@media (min-width: 640px) {
+  .card-image-fixed { height: 180px; min-height: 170px; }
+}
+@media (min-width: 768px) {
+  .card-image-fixed { height: 200px; min-height: 190px; }
+}
+@media (min-width: 1024px) {
+  .card-image-fixed { height: 220px; min-height: 200px; }
 }
 
-.card-image-fixed img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-image-fixed img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 
 /* Hero Section - Futuristic */
 .landing {

@@ -287,9 +287,14 @@ class OrderController extends Controller
                 'order_id' => $id,
                 'error' => $e->getMessage(),
             ]);
+            $message = $e->getMessage();
+            // Message Shwary/opérateur "destination number invalid" → explication claire pour l'utilisateur
+            if (stripos($message, 'destination number') !== false || stripos($message, 'number you have entered is invalid') !== false) {
+                $message = 'Votre opérateur Mobile Money refuse le numéro. Utilisez exactement 9 chiffres après +243 (ex: +243812345678 ou 0812345678). Si le message apparaît sur votre téléphone après la demande de code, contactez le support.';
+            }
             return response()->json([
-                'message' => 'Erreur lors de l\'initiation du paiement',
-                'error' => $e->getMessage(),
+                'message' => $message,
+                'error' => $message,
             ], 400);
         }
     }

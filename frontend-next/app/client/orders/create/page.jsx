@@ -141,8 +141,9 @@ export default function CreateOrder(){
     const prefix = '+243'
     const phoneNumber = normalizePhoneForDRC(formData.client_phone_number)
 
-    if (!phoneNumber.startsWith(prefix) || phoneNumber.length < 12) {
-      setError('Numéro invalide. Utilisez le format +243 suivi de 9 chiffres (ex: +243812345678).')
+    // RDC : +243 + 9 chiffres = 12 caractères
+    if (!phoneNumber.startsWith(prefix) || phoneNumber.length !== 12 || !/^\+243\d{9}$/.test(phoneNumber)) {
+      setError('Numéro invalide. Utilisez exactement 9 chiffres après +243 (ex: +243812345678 ou 0812345678).')
       return
     }
 
@@ -179,8 +180,10 @@ export default function CreateOrder(){
         let msg = err.message || err.error || err.data?.error || 'Erreur lors de l\'initiation du paiement.'
         if (msg.includes('non configuré') || msg.includes('Service de paiement')) {
           msg = 'Le paiement Mobile Money n\'est pas configuré. Contactez l\'administrateur.'
-        } else if (msg.includes('numéro') || msg.includes('phone') || msg.includes('invalide')) {
-          msg = msg
+        }
+        // Message "destination number invalid" (Shwary/opérateur) : déjà traduit côté backend si besoin
+        if (msg.toLowerCase().includes('destination number') || msg.toLowerCase().includes('number you have entered is invalid')) {
+          msg = 'Votre opérateur Mobile Money indique que le numéro est invalide. Utilisez exactement 9 chiffres (ex: +243812345678 ou 0812345678). Si le problème persiste après avoir reçu la demande de code sur votre téléphone, contactez le support.'
         }
         setError(msg)
         setSubmitting(false)
@@ -266,7 +269,7 @@ export default function CreateOrder(){
                     </h3>
                     
                     {menu.image && (
-                      <div className="mb-4 h-64 rounded-lg overflow-hidden bg-slate-700">
+                      <div className="mb-4 w-full overflow-hidden bg-slate-700 rounded-2xl h-40 sm:h-52 md:h-64">
                         <Image
                           src={menu.image}
                           alt={menu.title}
@@ -380,8 +383,8 @@ export default function CreateOrder(){
                             required
                           />
                         </div>
-                        <p className="text-white/45 text-xs mt-3">
-                          Ex. 812345678 → envoi avec préfixe +243
+                        <p className="text-white/50 text-xs mt-1">
+                          Exactement 9 chiffres (ex: 812345678). Évite l’erreur « numéro de destination invalide » sur votre téléphone.
                         </p>
                       </div>
 
