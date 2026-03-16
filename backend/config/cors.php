@@ -15,7 +15,10 @@ return [
     'allowed_methods' => ['*'],
 
     // For local development, allow the Next.js dev server origins by default.
-    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000')),
+    // Sans slash final : le navigateur envoie "https://domain.com" sans slash, CORS exige une correspondance exacte.
+    'allowed_origins' => array_map(function ($origin) {
+        return trim(rtrim($origin, '/'));
+    }, explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000'))),
 
     'allowed_origins_patterns' => [],
 
