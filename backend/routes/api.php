@@ -27,7 +27,14 @@ use App\Http\Controllers\InvoiceController;
 |
 */
 
-// Test endpoint (no auth required)
+// Racine API (GET /api ou /api/) — pour vérifier que l'API répond
+Route::get('/', function () {
+    return response()->json([
+        'name' => 'Green Express API',
+        'status' => 'ok',
+        'endpoints' => ['/api/ping', '/api/login', '/api/register', '/api/menus/public/browse'],
+    ]);
+});
 Route::get('ping', function() {
     return response()->json(['message' => 'pong']);
 });
