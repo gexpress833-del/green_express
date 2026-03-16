@@ -22,6 +22,9 @@ COPY . .
 
 RUN composer dump-autoload --optimize
 
-# Render fournit PORT au runtime. Cache config/routes au démarrage (avec les vraies variables d'env).
+# Rendre storage et bootstrap/cache inscriptibles (migrations, logs, cache)
+RUN chmod -R 775 storage bootstrap/cache
+
+# Pas de config:cache au build ni au démarrage : Laravel lit les variables Render à la volée.
 EXPOSE 8000
-CMD ["sh", "-c", "php artisan config:cache && php artisan route:cache && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
+CMD ["sh", "-c", "php artisan migrate --force && exec php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
