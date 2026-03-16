@@ -20,10 +20,8 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
 COPY . .
 
-RUN composer dump-autoload --optimize \
-    && php artisan config:cache \
-    && php artisan route:cache
+RUN composer dump-autoload --optimize
 
-# Render fournit PORT au runtime
+# Render fournit PORT au runtime. Cache config/routes au démarrage (avec les vraies variables d'env).
 EXPOSE 8000
-CMD ["sh", "-c", "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
+CMD ["sh", "-c", "php artisan config:cache && php artisan route:cache && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
