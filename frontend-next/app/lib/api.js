@@ -39,8 +39,9 @@ export async function getCsrfCookie() {
       credentials: 'include',
     });
   } catch (err) {
+    const base = typeof window !== 'undefined' ? API_BASE : process.env.NEXT_PUBLIC_API_URL || '(build-time)';
     throw new Error(
-      'Impossible de contacter le serveur. Vérifiez que l\'API Laravel est démarrée (ex. php artisan serve) et que l\'URL est correcte (NEXT_PUBLIC_API_URL).'
+      `Impossible de contacter le serveur. URL utilisée : ${base}. Vérifiez NEXT_PUBLIC_API_URL sur Vercel (ex. https://green-express-rdc.onrender.com) puis redéployez.`
     );
   }
   if (!res.ok) {
