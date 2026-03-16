@@ -288,9 +288,11 @@ class OrderController extends Controller
                 'error' => $e->getMessage(),
             ]);
             $message = $e->getMessage();
-            // Message Shwary/opérateur "destination number invalid" → explication claire pour l'utilisateur
+            // Erreurs Shwary (doc API) : messages clairs pour l'utilisateur
             if (stripos($message, 'destination number') !== false || stripos($message, 'number you have entered is invalid') !== false) {
-                $message = 'Votre opérateur Mobile Money refuse le numéro. Utilisez exactement 9 chiffres après +243 (ex: +243812345678 ou 0812345678). Si le message apparaît sur votre téléphone après la demande de code, contactez le support.';
+                $message = 'Votre opérateur Mobile Money refuse le numéro. Utilisez 9 chiffres après +243 (ex: +243812345678 ou 0812345678).';
+            } elseif (stripos($message, '2900') !== false && stripos($message, 'CDF') !== false) {
+                $message = 'Le montant minimum pour un paiement Mobile Money en RDC est de 2900 FC. Votre commande est en dessous de ce seuil.';
             }
             return response()->json([
                 'message' => $message,

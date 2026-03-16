@@ -123,27 +123,33 @@ export default function CreateOrder(){
     }, 3000)
   }
 
+  /** RDC : extrait uniquement les chiffres, puis forme +243 + 9 chiffres (accepte 0812345678 ou 812345678). */
   function normalizePhoneForDRC(value) {
-    const cleaned = String(value).replace(/[\s\-\(\)]/g, '').replace(/^0+/, '')
-    if (cleaned.startsWith('+')) return cleaned
-    if (cleaned.startsWith('243')) return '+' + cleaned
-    return '+243' + cleaned
+    const digits = String(value).replace(/\D/g, '')
+    if (digits.length === 0) return ''
+    let nine = digits
+    if (digits.startsWith('243')) nine = digits.slice(3)
+    nine = nine.replace(/^0+/, '')
+    if (nine.length > 9) nine = nine.slice(-9)
+    return '+243' + nine
   }
 
   function handlePayment(){
     if (!order) return
 
-    if (!formData.client_phone_number.trim()) {
+    const raw = (formData.client_phone_number || '').trim()
+    if (!raw) {
       setError('Veuillez entrer votre numéro de téléphone Mobile Money.')
       return
     }
 
-    const prefix = '+243'
-    const phoneNumber = normalizePhoneForDRC(formData.client_phone_number)
-
-    // RDC : +243 + 9 chiffres = 12 caractères
-    if (!phoneNumber.startsWith(prefix) || phoneNumber.length !== 12 || !/^\+243\d{9}$/.test(phoneNumber)) {
-      setError('Numéro invalide. Utilisez exactement 9 chiffres après +243 (ex: +243812345678 ou 0812345678).')
+    const phoneNumber = normalizePhoneForDRC(raw)
+    // RDC : on doit avoir exactement 9 chiffres après +243
+    if (phoneNumber.length !== 12 || !/^\+243\d{9}$/.test(phoneNumber)) {
+      const digitCount = (raw.replace(/\D/g, '')).replace(/^0+/, '').length
+      setError(digitCount < 9
+        ? 'Numéro invalide. Il manque des chiffres. Utilisez 9 chiffres (ex: 812345678 ou 0812345678).'
+        : 'Numéro invalide. Utilisez 9 chiffres après +243 (ex: 812345678 ou 0812345678).')
       return
     }
 

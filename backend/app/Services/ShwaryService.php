@@ -113,42 +113,39 @@ class ShwaryService
 
     /**
      * Normaliser le numéro pour l'API (retourne le numéro E.164 avec +).
-     * Pour la RDC : exactement 9 chiffres après +243 (ex: 81 234 5678 → +243812345678).
+     * Pour la RDC : uniquement les chiffres, puis exactement 9 après +243 (accepte 0850167641 ou 850167641).
      */
     public function normalizePhoneNumber(string $phoneNumber, string $countryCode): string
     {
         $countries = self::getSupportedCountries();
         $prefix = $countries[$countryCode]['prefix'] ?? '+243';
-        $digitPrefix = ltrim($prefix, '+'); // ex: 243
-        // Garder uniquement chiffres (et structure E.164)
-        $phoneNumber = trim($phoneNumber);
-        $phoneNumber = preg_replace('/[\s\-\(\)\.]/', '', $phoneNumber);
-        $hasPlus = str_starts_with($phoneNumber, '+');
-        $digitsOnly = preg_replace('/\D/', '', $phoneNumber);
+        $digitPrefix = ltrim($prefix, '+');
+        $digitsOnly = preg_replace('/\D/', '', trim($phoneNumber));
 
-        if ($hasPlus) {
-            // Déjà au format +XXX... : garder + et les chiffres
-            $phoneNumber = '+' . $digitsOnly;
-        } else {
-            // Sans + : enlever indicatif pays en tête pour éviter doublon
-            if ($digitPrefix !== '' && str_starts_with($digitsOnly, $digitPrefix)) {
-                $digitsOnly = substr($digitsOnly, strlen($digitPrefix));
-            }
-            $digitsOnly = ltrim($digitsOnly, '0');
-            $phoneNumber = $prefix . $digitsOnly;
+        if ($digitsOnly === '') {
+            throw new Exception('Numéro de téléphone requis.');
         }
 
-        // RDC : exactement 9 chiffres après +243 (évite refus "destination number invalid" côté opérateur)
+        // Enlever l'indicatif pays en tête (243 ou 0243) pour ne garder que le numéro local
+        if ($digitPrefix !== '' && str_starts_with($digitsOnly, $digitPrefix)) {
+            $digitsOnly = substr($digitsOnly, strlen($digitPrefix));
+        }
+        $digitsOnly = ltrim($digitsOnly, '0');
+
+        // RDC : exactement 9 chiffres (si 10 avec 0 en tête, prendre les 9 derniers)
         if (strtoupper($countryCode) === 'DRC') {
-            $afterPrefix = substr($phoneNumber, strlen($prefix));
-            if (!preg_match('/^\d{9}$/', $afterPrefix)) {
+            if (strlen($digitsOnly) > 9) {
+                $digitsOnly = substr($digitsOnly, -9);
+            }
+            if (strlen($digitsOnly) < 9) {
                 throw new Exception(
-                    'Pour la RDC, le numéro doit avoir exactement 9 chiffres après +243 (ex: +243812345678 ou 0812345678). Vous avez ' . strlen($afterPrefix) . ' chiffre(s).'
+                    'Pour la RDC, le numéro doit avoir 9 chiffres (ex: 812345678 ou 0812345678). Vous avez ' . strlen($digitsOnly) . ' chiffre(s).'
                 );
             }
+            $digitsOnly = substr($digitsOnly, -9);
         }
 
-        return $phoneNumber;
+        return $prefix . $digitsOnly;
     }
 
     /**
