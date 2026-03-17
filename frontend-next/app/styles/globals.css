@@ -856,6 +856,50 @@ input::placeholder {
   .main-panel { min-height: 600px; }
 }
 
+/* Profile page sidebar — fond sombre, item actif vert/cyan */
+.profile-sidebar {
+  background: rgba(11, 18, 32, 0.95);
+  border: 1px solid rgba(0, 255, 255, 0.12);
+  border-radius: 1rem;
+  height: fit-content;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+@media (min-width: 1024px) {
+  .profile-sidebar { position: sticky; top: 1.5rem; }
+}
+.profile-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-weight: 500;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  border: 1px solid transparent;
+}
+.profile-sidebar-link:hover {
+  background: rgba(0, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 255, 255, 0.2);
+}
+.profile-sidebar-link--active {
+  background: rgba(0, 255, 255, 0.15);
+  color: #00ffff;
+  border-color: rgba(0, 255, 255, 0.35);
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.15);
+}
+.profile-sidebar-icon { font-size: 1.125rem; }
+.profile-sidebar-badge {
+  background: rgba(212, 175, 55, 0.35);
+  color: #f5e08a;
+  border-radius: 9999px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 .stats-row {
   display: grid;
   grid-template-columns: 1fr;
