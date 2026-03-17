@@ -19,7 +19,7 @@ export default function RoleGuard({ role, children }) {
     if (!pathname?.startsWith(basePath)) return;
     if (user.role !== role) {
       // Rôle explicite : rediriger vers le tableau de bord du rôle (évite admin/entreprise bloqués sur /client)
-      const dashboard = user.role ? `/${user.role}` : '/profile';
+      const dashboard = user.role ? `/${user.role}` : '/client';
       router.replace(dashboard);
     }
   }, [user, pathname, router, role, basePath]);

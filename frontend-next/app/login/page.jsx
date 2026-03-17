@@ -32,14 +32,10 @@ export default function LoginPage() {
       const role = response.user.role || 'client';
       const dashboardByRole = `/${role}`;
       const returnUrl = searchParams.get('returnUrl') || '';
-      const allowedCommonPrefixes = ['/profile', '/notifications', '/evenements'];
+      // Toujours envoyer vers le tableau de bord du rôle (jamais vers /profile après connexion)
       const isOwnDashboard = returnUrl === dashboardByRole || returnUrl.startsWith(dashboardByRole + '/');
-      const isAllowedCommon = allowedCommonPrefixes.some((p) => returnUrl === p || returnUrl.startsWith(p + '/'));
-      const isReturnUrlAllowed =
-        returnUrl.startsWith('/') &&
-        !returnUrl.startsWith('//') &&
-        (isOwnDashboard || isAllowedCommon);
-      const target = isReturnUrlAllowed ? returnUrl : dashboardByRole;
+      const isProfileOnly = returnUrl === '/profile' || returnUrl === '/profile/' || returnUrl === '';
+      const target = !isProfileOnly && isOwnDashboard ? returnUrl : dashboardByRole;
       window.location.href = target;
     } catch (err) {
       const msg = err?.data?.errors?.email?.[0] ?? err?.data?.message ?? err?.message ?? 'Erreur de connexion. Vérifiez vos identifiants.';
