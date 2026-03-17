@@ -150,9 +150,11 @@ class SubscriptionController extends Controller
                 'order_id' => null,
                 'provider' => 'shwary',
                 'provider_payment_id' => $shwaryResponse['id'],
+                'reference_id' => $shwaryResponse['referenceId'] ?? null,
                 'amount' => $shwaryResponse['amount'] ?? $subscription->price,
                 'currency' => $shwaryResponse['currency'] ?? $subCurrency,
-                'status' => $paymentStatus,
+                'phone' => $phoneNormalized ?? null,
+                'status' => 'pending',
                 'raw_response' => $shwaryResponse,
             ]);
 

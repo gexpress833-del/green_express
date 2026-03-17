@@ -39,7 +39,7 @@ class LivreurController extends Controller
             $userId = $user->role === 'admin' ? $request->input('user_id', $user->id) : $user->id;
 
             $assigned = Order::where('livreur_id', $userId)
-                ->whereIn('status', ['pending', 'out_for_delivery'])
+                ->whereIn('status', ['pending', 'paid', 'out_for_delivery'])
                 ->whereNotNull('delivery_code')
                 ->count();
 
@@ -101,7 +101,7 @@ class LivreurController extends Controller
             }
 
             $query = Order::with('items.menu', 'user')
-                ->whereIn('status', ['pending', 'out_for_delivery'])
+                ->whereIn('status', ['pending', 'paid', 'out_for_delivery'])
                 ->whereNotNull('delivery_code')
                 ->orderBy('created_at', 'asc');
 
@@ -141,7 +141,7 @@ class LivreurController extends Controller
 
             // Trouver la commande avec ce code
             $order = Order::where('delivery_code', $data['code'])
-                ->whereIn('status', ['pending', 'out_for_delivery'])
+                ->whereIn('status', ['pending', 'paid', 'out_for_delivery'])
                 ->first();
 
             if (!$order) {

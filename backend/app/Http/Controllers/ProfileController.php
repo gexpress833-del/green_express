@@ -18,11 +18,14 @@ class ProfileController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'avatar_url' => ['nullable', 'string', 'max:512'], // URL ou chaîne vide pour supprimer
         ]);
 
-        $user->update([
-            'name' => $data['name'],
-        ]);
+        $updates = ['name' => $data['name']];
+        if (array_key_exists('avatar_url', $data)) {
+            $updates['avatar_url'] = $data['avatar_url'] ?: null;
+        }
+        $user->update($updates);
 
         return response()->json([
             'user' => $user->fresh(),

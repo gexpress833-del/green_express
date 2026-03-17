@@ -89,7 +89,16 @@ export default function CuisinierOrdersPage() {
                             <p className="text-white/50 text-sm">📍 {order.delivery_address}</p>
                           )}
                           {order.user && (
-                            <p className="text-white/50 text-sm">👤 {order.user.name || order.user.email}</p>
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 border border-white/10 flex-shrink-0 flex items-center justify-center text-xs font-semibold text-white/80">
+                                {order.user.avatar_url ? (
+                                  <img src={order.user.avatar_url} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span>{(order.user.name || order.user.email || '?').charAt(0).toUpperCase()}</span>
+                                )}
+                              </div>
+                              <p className="text-white/50 text-sm">{order.user.name || order.user.email}</p>
+                            </div>
                           )}
                         </div>
                         <span className={`badge shrink-0 ${getStatusBadge(order.status)}`}>

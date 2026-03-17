@@ -7,11 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 class Payment extends Model
 {
     protected $fillable = [
-        'order_id','subscription_id','provider','provider_payment_id','amount','currency','status','raw_response'
+        'order_id', 'subscription_id', 'provider', 'provider_payment_id', 'reference_id',
+        'amount', 'currency', 'phone', 'status', 'failure_reason', 'last_checked_at', 'retry_count', 'raw_response',
     ];
 
     protected $casts = [
         'raw_response' => 'array',
+        'last_checked_at' => 'datetime',
     ];
 
     public function order()

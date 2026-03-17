@@ -30,6 +30,8 @@ export default function CreateOrder(){
   const [paymentPending, setPaymentPending] = useState(false)
   const [amountToDebit, setAmountToDebit] = useState(null)
   const [currencyToDebit, setCurrencyToDebit] = useState('CDF')
+  const [confirmPhoneNumber, setConfirmPhoneNumber] = useState(false)
+  const [paymentFailed, setPaymentFailed] = useState(false)
 
   useEffect(() => {
     if (orderIdParam) {
@@ -104,13 +106,22 @@ export default function CreateOrder(){
   function startPollingOrderStatus(orderId) {
     const maxAttempts = 60
     let attempts = 0
+    setPaymentFailed(false)
     const interval = setInterval(() => {
       attempts++
       apiRequest('/api/orders', { method: 'GET' })
         .then(orders => {
           const list = Array.isArray(orders) ? orders : orders?.data || []
           const o = list.find(or => or.id === orderId || or.uuid === orderId)
-          if (o?.delivery_code && o?.status !== 'pending_payment') {
+          if (!o) return
+          if (o.status === 'cancelled') {
+            clearInterval(interval)
+            setPaymentPending(false)
+            setPaymentFailed(true)
+            setOrder(o)
+            return
+          }
+          if (o?.delivery_code && (o?.status === 'paid' || o?.status === 'pending')) {
             clearInterval(interval)
             setPaymentPending(false)
             setDeliveryCode(o.delivery_code)
@@ -123,14 +134,29 @@ export default function CreateOrder(){
     }, 3000)
   }
 
-  /** RDC : uniquement les chiffres, puis +243 + 9 chiffres (accepte 0812345678, 812345678, 243812345678). */
+  /** RDC : nettoie et normalise (aligné backend). Retourne chiffres seuls 243XXXXXXXXX. */
+  function formatPhoneRDC(value) {
+    let cleaned = String(value || '').replace(/\D/g, '')
+    if (cleaned.startsWith('0')) cleaned = '243' + cleaned.slice(1)
+    if (cleaned.length === 9) cleaned = '243' + cleaned
+    if (cleaned.length > 12 && cleaned.startsWith('243')) cleaned = cleaned.slice(0, 12)
+    return cleaned
+  }
+
+  /** Pour envoi API : E.164 +243... */
   function normalizePhoneForDRC(value) {
-    const digits = String(value || '').replace(/\D/g, '')
-    if (digits.length === 0) return ''
-    let local = digits.startsWith('243') ? digits.slice(3) : digits
-    local = local.replace(/^0+/, '')
-    if (local.length > 9) local = local.slice(-9)
-    return '+243' + local
+    const formatted = formatPhoneRDC(value)
+    return formatted ? '+' + formatted : ''
+  }
+
+  /** Détection opérateur côté client (UX, validation côté backend). */
+  function detectOperatorLabel(phoneFormatted) {
+    if (!phoneFormatted || phoneFormatted.length < 5) return null
+    const prefix = phoneFormatted.slice(3, 5)
+    if (['81', '82', '83'].includes(prefix)) return 'Vodacom'
+    if (['97', '98', '99'].includes(prefix)) return 'Airtel'
+    if (['84', '85', '89'].includes(prefix)) return 'Orange'
+    return null
   }
 
   function handlePayment(){
@@ -142,10 +168,13 @@ export default function CreateOrder(){
       return
     }
 
-    // Normaliser et envoyer au backend (validation finale côté API / Shwary)
     const phoneNumber = normalizePhoneForDRC(raw)
     if (phoneNumber.length < 12) {
       setError('Numéro trop court. Entrez 9 chiffres (ex: 812345678 ou 0812345678).')
+      return
+    }
+    if (!confirmPhoneNumber) {
+      setError('Veuillez confirmer que le numéro affiché est correct avant de payer.')
       return
     }
 
@@ -459,7 +488,21 @@ export default function CreateOrder(){
                       </div>
                     )}
 
-                    {paymentPending && (
+                    {paymentFailed && (
+                      <div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
+                        <p className="text-red-400 text-base font-semibold mb-1">
+                          Paiement échoué
+                        </p>
+                        <p className="text-red-200/90 text-sm">
+                          Votre commande a été annulée. Vous pouvez créer une nouvelle commande.
+                        </p>
+                        <Link href="/client/menus" className="inline-block mt-3 text-cyan-400 hover:text-cyan-300 text-sm font-medium">
+                          Retour aux menus →
+                        </Link>
+                      </div>
+                    )}
+
+                    {paymentPending && !paymentFailed && (
                       <div className="mb-4 p-4 bg-amber-500/20 border border-amber-500/50 rounded-lg">
                         <p className="text-amber-300 text-sm font-medium mb-1">
                           Paiement en attente
@@ -499,23 +542,41 @@ export default function CreateOrder(){
                       </div>
                     </div>
 
-                    <div className="mt-8 mb-8 p-5 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+                    <div className="mt-8 mb-6 p-5 bg-cyan-500/10 border border-cyan-500/30 rounded-xl">
                       <p className="text-white/80 text-base font-semibold mb-3">
                         Paiement Mobile Money
                       </p>
-                      <p className="text-white/60 text-sm leading-relaxed mb-2">
-                        Le montant de la commande sera débité en <strong className="text-white/80">FC (CDF)</strong> sur le numéro que vous indiquez. Vous recevrez une demande de paiement (push) sur votre téléphone.
+                      <p className="text-white/60 text-sm leading-relaxed mb-3">
+                        Le montant sera débité en <strong className="text-white/80">FC (CDF)</strong> sur le numéro ci-dessous. Vous recevrez une demande (push) sur votre téléphone.
                       </p>
-                      <p className="text-white/60 text-sm leading-relaxed">
-                        Numéro utilisé : <span className="text-cyan-300 font-mono">{formData.client_phone_number ? normalizePhoneForDRC(formData.client_phone_number) : '…'}</span>. Acceptez la transaction dans votre application (Orange Money, M-Pesa, Airtel Money, etc.).
+                      <p className="text-white/90 text-sm font-medium mb-1">Numéro utilisé :</p>
+                      <p className="text-cyan-300 font-mono text-lg mb-1">
+                        {formData.client_phone_number ? formatPhoneRDC(formData.client_phone_number) || '…' : '…'}
                       </p>
+                      {formData.client_phone_number && formatPhoneRDC(formData.client_phone_number).length === 12 && (
+                        <p className="text-white/50 text-xs mb-3">
+                          Opérateur détecté : {detectOperatorLabel(formatPhoneRDC(formData.client_phone_number)) || 'Non reconnu — vérifiez le numéro'}
+                        </p>
+                      )}
+                      <label className="flex items-center gap-3 cursor-pointer mt-4 p-3 rounded-lg bg-white/5 border border-white/10 hover:border-cyan-500/30 transition">
+                        <input
+                          type="checkbox"
+                          checked={confirmPhoneNumber}
+                          onChange={(e) => setConfirmPhoneNumber(e.target.checked)}
+                          className="w-5 h-5 rounded border-white/30 text-cyan-500 focus:ring-cyan-500/50"
+                        />
+                        <span className="text-white/90 text-sm">Je confirme que ce numéro est correct et que je recevrai la demande de paiement sur ce téléphone.</span>
+                      </label>
                     </div>
 
                     <div className="text-center">
-                      <p className="text-white/70 text-sm leading-relaxed mb-8">
-                        Cliquez sur le bouton ci-dessous pour initier le paiement Mobile Money.
+                      <p className="text-white/70 text-sm leading-relaxed mb-6">
+                        Cliquez ci-dessous pour initier le paiement. Acceptez la transaction dans votre app (Orange Money, M-Pesa, Airtel Money, etc.).
                       </p>
-                      <GoldButton onClick={handlePayment} disabled={submitting || !formData.client_phone_number.trim()}>
+                      <GoldButton
+                        onClick={handlePayment}
+                        disabled={submitting || !formData.client_phone_number.trim() || !confirmPhoneNumber}
+                      >
                         {submitting ? 'Traitement...' : 'Payer avec Mobile Money'}
                       </GoldButton>
                       <p className="text-white/50 text-xs mt-6">
@@ -530,14 +591,15 @@ export default function CreateOrder(){
                 <div className="max-w-2xl mx-auto">
                   <div className="card text-center">
                     <div className="text-6xl mb-6">✅</div>
-                    <h2 className="text-3xl font-bold mb-4" style={{
+                    <h2 className="text-3xl font-bold mb-2" style={{
                       background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 100%)',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
                       backgroundClip: 'text'
                     }}>
-                      Paiement confirmé !
+                      Paiement réussi
                     </h2>
+                    <p className="text-white/80 text-lg mb-4">Commande confirmée</p>
                     
                     <div className="mb-6 p-6 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border-2 border-cyan-500/50 rounded-lg">
                       <p className="text-white/70 mb-2 text-sm">Votre code de livraison unique</p>

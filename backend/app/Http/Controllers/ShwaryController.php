@@ -4,26 +4,24 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Payment;
-use App\Models\Subscription;
+use App\Services\OrderNotificationService;
 use App\Services\ShwaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use App\Services\OrderNotificationService;
 
 class ShwaryController extends Controller
 {
-    protected $shwaryService;
-
-    public function __construct(ShwaryService $shwaryService, private OrderNotificationService $orderNotifications)
-    {
-        $this->shwaryService = $shwaryService;
-    }
+    public function __construct(
+        protected ShwaryService $shwaryService,
+        protected OrderNotificationService $orderNotifications
+    ) {}
 
     /**
-     * Webhook callback de Shwary
-     * Reçoit les mises à jour de statut des transactions
-     * Optionnel : vérification de signature si SHWARY_WEBHOOK_SECRET est défini
+     * Webhook callback Shwary — stratégie stricte sans retry.
+     * completed → commande paid + code livraison
+     * failed → commande cancelled
+     * Toujours répondre 200 et rapidement.
      */
     public function callback(Request $request)
     {
@@ -31,7 +29,6 @@ class ShwaryController extends Controller
             $rawBody = $request->getContent();
             $secret = config('shwary.webhook_secret');
             if (!empty($secret)) {
-                // Shwary envoie x-shwary-signature ; on accepte aussi X-Webhook-Signature / X-Signature
                 $signature = $request->header('X-Shwary-Signature')
                     ?? $request->header('X-Webhook-Signature')
                     ?? $request->header('X-Signature');
@@ -41,128 +38,91 @@ class ShwaryController extends Controller
                 }
             }
 
-            $data = $this->shwaryService->parseWebhookPayload($rawBody);
+            Log::info('SHWARY CALLBACK', $request->all());
 
+            $data = $this->shwaryService->parseWebhookPayload($rawBody);
             if (!$data) {
                 $data = $request->all();
             }
 
-            Log::info('Shwary Callback Received', [
-                'has_id' => isset($data['id']),
-                'status' => $data['status'] ?? null,
-            ]);
-
             $transactionId = $data['id'] ?? $data['transactionId'] ?? null;
-            $status = $data['status'] ?? null;
             $referenceId = $data['referenceId'] ?? $transactionId;
+            $status = strtolower((string) ($data['status'] ?? ''));
 
-            if (!$transactionId || $status === null) {
-                Log::warning('Shwary Callback: Missing required fields', ['data' => $data]);
-                return response()->json(['message' => 'Données invalides'], 400);
+            if (!$transactionId || $status === '') {
+                Log::warning('Shwary Callback: Invalid data', ['data' => $data]);
+                return response()->json(['message' => 'Invalid data'], 400);
             }
 
             $payment = Payment::where('provider_payment_id', $transactionId)
-                ->orWhere('provider_payment_id', $referenceId)
+                ->orWhere('reference_id', $referenceId)
                 ->first();
 
             if (!$payment) {
-                Log::warning('Shwary Callback: Payment not found', [
-                    'transaction_id' => $transactionId,
-                    'reference_id' => $referenceId,
-                ]);
-                return response()->json(['message' => 'Payment not found'], 200);
+                Log::warning('Payment introuvable', $data);
+                return response()->json(['message' => 'OK'], 200);
             }
 
-            $paymentStatus = $this->mapShwaryStatusToPaymentStatus($status);
-            if (isset($data['isCompleted']) && $data['isCompleted']) {
-                $paymentStatus = 'completed';
-            }
-            if (isset($data['isFailed']) && $data['isFailed']) {
-                $paymentStatus = 'failed';
-            }
-
-            $payment->update([
-                'status' => $paymentStatus,
-                'raw_response' => array_merge($payment->raw_response ?? [], [
-                    'last_callback' => $data,
-                    'updated_at' => now()->toIso8601String(),
-                ]),
+            Log::info('Payment found', [
+                'id' => $payment->id,
+                'status' => $status,
             ]);
 
-            if ($paymentStatus === 'completed' && $payment->order) {
-                $order = $payment->order;
-                if ($order->status === 'pending_payment') {
+            if ($status === 'completed') {
+                $payment->update([
+                    'status' => 'completed',
+                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_callback' => $data]),
+                ]);
+
+                if ($payment->order && $payment->order->status === 'pending_payment') {
+                    $order = $payment->order;
                     $oldStatus = (string) $order->status;
                     $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                    
-                    // Vérifier l'unicité
                     while (Order::where('delivery_code', $deliveryCode)->exists()) {
                         $deliveryCode = 'GX-' . strtoupper(Str::random(6));
                     }
-
                     $order->update([
-                        'status' => 'pending',
+                        'status' => 'paid',
                         'delivery_code' => $deliveryCode,
                     ]);
-
-                    $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'pending');
-
+                    $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
                     Log::info('Shwary Payment Completed - Order Updated', [
                         'order_id' => $order->id,
                         'delivery_code' => $deliveryCode,
                     ]);
                 }
-            }
-
-            if ($paymentStatus === 'failed' && $payment->order) {
-                $order = $payment->order;
-                Log::info('Shwary Payment Failed', [
-                    'order_id' => $order->id,
-                    'failure_reason' => $data['failureReason'] ?? 'Unknown',
+            } elseif ($status === 'failed') {
+                $payment->update([
+                    'status' => 'failed',
+                    'failure_reason' => $data['failureReason'] ?? null,
+                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_callback' => $data]),
                 ]);
+
+                if ($payment->order) {
+                    $payment->order->update(['status' => 'cancelled']);
+                    Log::info('Shwary Payment Failed - Order Cancelled', [
+                        'order_id' => $payment->order->id,
+                        'failure_reason' => $data['failureReason'] ?? null,
+                    ]);
+                }
+            } else {
+                $payment->update(['status' => 'pending']);
             }
 
-            // Paiement abonnement : seul le paiement est enregistré ; l'admin valide l'abonnement après examen
-            if ($paymentStatus === 'completed' && $payment->subscription_id) {
-                Log::info('Subscription payment completed - awaiting admin validation', [
-                    'subscription_id' => $payment->subscription_id,
-                ]);
-            }
-
-            return response()->json(['message' => 'Callback processed'], 200);
-
+            return response()->json(['message' => 'OK'], 200);
         } catch (\Exception $e) {
-            Log::error('Shwary Callback Error', [
-                'message' => $e->getMessage(),
+            Log::error('Webhook error', [
+                'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            
-            // Retourner 200 pour éviter les retries excessifs
-            return response()->json(['message' => 'Error processing callback'], 200);
+            return response()->json(['message' => 'OK'], 200);
         }
     }
 
-    /**
-     * Vérifier la signature HMAC-SHA256 du webhook Shwary.
-     * Accepte x-shwary-signature en hex brut ou préfixé "sha256=".
-     */
     private function verifyWebhookSignature(string $rawBody, string $signature, string $secret): bool
     {
         $expectedHex = hash_hmac('sha256', $rawBody, $secret);
         $expectedWithPrefix = 'sha256=' . $expectedHex;
         return hash_equals($expectedHex, $signature) || hash_equals($expectedWithPrefix, $signature);
-    }
-
-    /**
-     * Mapper le statut Shwary vers le statut Payment
-     */
-    private function mapShwaryStatusToPaymentStatus($shwaryStatus)
-    {
-        return match($shwaryStatus) {
-            'pending' => 'pending',
-            'completed' => 'completed',
-            'failed' => 'failed',
-            default => 'pending',
-        };
     }
 }

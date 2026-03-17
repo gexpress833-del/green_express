@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Exception;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Shwary\Enums\Country;
 use Shwary\ShwaryClient;
@@ -258,6 +259,55 @@ class ShwaryService
             ];
         } catch (\Throwable $e) {
             Log::warning('Shwary webhook parse error', ['message' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
+     * Récupérer le statut d'une transaction côté Shwary (fallback anti-perte webhook).
+     * GET /merchants/transactions/{id} avec x-merchant-id et x-merchant-key.
+     *
+     * @return array{status: string, failureReason?: string}|null
+     */
+    public function getTransactionStatus(string $transactionId): ?array
+    {
+        if (config('shwary.mock', false)) {
+            return null;
+        }
+        $merchantId = config('shwary.merchant_id');
+        $merchantKey = config('shwary.merchant_key');
+        if (empty($merchantId) || empty($merchantKey)) {
+            return null;
+        }
+        $baseUrl = rtrim(config('shwary.base_url', 'https://api.shwary.com'), '/');
+        $path = str_contains($baseUrl, '/api/v1') ? '/merchants/transactions/' . $transactionId : '/api/v1/merchants/transactions/' . $transactionId;
+        $url = $baseUrl . $path;
+        if (!str_contains($path, '/api/v1')) {
+            $url = $baseUrl . '/api/v1/merchants/transactions/' . $transactionId;
+        }
+        try {
+            $response = Http::timeout(10)
+                ->withHeaders([
+                    'x-merchant-id' => $merchantId,
+                    'x-merchant-key' => $merchantKey,
+                    'Accept' => 'application/json',
+                ])
+                ->get($url);
+            if (!$response->successful()) {
+                Log::debug('Shwary getTransactionStatus non 2xx', ['id' => $transactionId, 'status' => $response->status()]);
+                return null;
+            }
+            $body = $response->json();
+            $status = $body['status'] ?? $body['transactionStatus'] ?? null;
+            if ($status === null) {
+                return null;
+            }
+            return [
+                'status' => strtolower((string) $status),
+                'failureReason' => $body['failureReason'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('Shwary getTransactionStatus error', ['id' => $transactionId, 'message' => $e->getMessage()]);
             return null;
         }
     }

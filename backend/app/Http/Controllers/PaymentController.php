@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 class PaymentController extends Controller
 {
     /**
-     * Admin : liste des paiements (commandes + abonnements).
+     * Admin : liste des paiements (id, user, amount, phone, status, created_at) avec filtres.
      */
     public function index(Request $request)
     {
@@ -19,14 +19,55 @@ class PaymentController extends Controller
         }
 
         $query = Payment::query()
-            ->with(['order:id,uuid,user_id,status', 'subscription:id,uuid,user_id,plan,status'])
+            ->with([
+                'order:id,uuid,user_id,status',
+                'order.user:id,name,email',
+                'subscription:id,uuid,user_id,plan,status',
+                'subscription.user:id,name,email',
+            ])
             ->orderByDesc('created_at');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->get('status'));
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->get('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->get('date_to'));
+        }
 
         $perPage = (int) $request->get('per_page', 20);
         $perPage = min(max($perPage, 5), 100);
         $payments = $query->paginate($perPage);
 
         return response()->json($payments);
+    }
+
+    /**
+     * Admin : statistiques paiements (total, success, failed, pending, revenue).
+     */
+    public function stats(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Non autorisé.'], 403);
+        }
+
+        $base = Payment::query();
+        $total = (clone $base)->count();
+        $totalSuccess = (clone $base)->whereIn('status', ['completed', 'paid'])->count();
+        $totalFailed = (clone $base)->where('status', 'failed')->count();
+        $totalPending = (clone $base)->where('status', 'pending')->count();
+        $revenue = (clone $base)->whereIn('status', ['completed', 'paid'])->sum('amount');
+
+        return response()->json([
+            'total' => $total,
+            'total_success' => $totalSuccess,
+            'total_failed' => $totalFailed,
+            'total_pending' => $totalPending,
+            'revenue' => round((float) $revenue, 2),
+        ]);
     }
 
     /**

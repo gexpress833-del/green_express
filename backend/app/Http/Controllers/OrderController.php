@@ -12,6 +12,7 @@ use App\Http\Requests\StoreOrderRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Services\OrderNotificationService;
+use App\Services\PhoneRDCService;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class OrderController extends Controller
@@ -60,7 +61,7 @@ class OrderController extends Controller
         }
         $order = Order::findOrFail($id);
         $data = $request->validate([
-            'status' => 'required|string|in:pending_payment,pending,out_for_delivery,delivered',
+            'status' => 'required|string|in:pending_payment,pending,paid,out_for_delivery,delivered,cancelled',
         ]);
         $oldStatus = (string) $order->status;
         $order->update(['status' => $data['status']]);
@@ -213,10 +214,33 @@ class OrderController extends Controller
                 $orderCurrency,
                 $data['country_code']
             );
-            $phoneNormalized = $shwaryService->normalizePhoneNumber(
-                $data['client_phone_number'],
-                $data['country_code']
-            );
+
+            // RDC : normalisation complète, validation stricte, détection opérateur (évite erreurs Shwary)
+            $phoneNormalized = null;
+            $operator = null;
+            if (strtoupper($data['country_code']) === 'DRC') {
+                $formatted = PhoneRDCService::formatPhoneRDC($data['client_phone_number']);
+                if (! PhoneRDCService::isValidPhoneRDC($formatted)) {
+                    return response()->json([
+                        'message' => 'Numéro invalide. Utilisez un numéro à 9 chiffres (ex. 0812345678 ou 812345678).',
+                        'error' => 'Numéro invalide',
+                    ], 400);
+                }
+                $operator = PhoneRDCService::detectOperatorRDC($formatted);
+                if ($operator === null) {
+                    return response()->json([
+                        'message' => 'Opérateur non reconnu. Utilisez un numéro Vodacom (81-83), Airtel (97-99) ou Orange (84, 85, 89).',
+                        'error' => 'Opérateur non reconnu',
+                    ], 400);
+                }
+                $phoneNormalized = PhoneRDCService::toE164($formatted);
+            } else {
+                $phoneNormalized = $shwaryService->normalizePhoneNumber(
+                    $data['client_phone_number'],
+                    $data['country_code']
+                );
+            }
+
             $callbackUrl = config('shwary.callback_url')
                 ?: (rtrim(config('app.url'), '/') . '/api/shwary/callback');
             $metadata = [
@@ -233,39 +257,42 @@ class OrderController extends Controller
                 $metadata
             );
 
-            // Utiliser le statut réel renvoyé par Shwary : en production le paiement est "pending"
-            // jusqu'à ce que l'utilisateur accepte sur son téléphone ; le webhook mettra à jour en "completed".
-            // En mode SHWARY_MOCK=true, le service renvoie déjà status "completed".
-            $paymentStatus = $this->mapShwaryStatusToPaymentStatus($shwaryResponse['status'] ?? 'pending');
-
+            // Stratégie stricte : on enregistre toujours en pending ; le webhook (ou le job fallback) met à jour.
+            // En mock, Shwary peut renvoyer "completed" → on traite comme un webhook reçu pour éviter double logique.
             $payment = Payment::create([
                 'order_id' => $order->id,
                 'provider' => 'shwary',
                 'provider_payment_id' => $shwaryResponse['id'],
+                'reference_id' => $shwaryResponse['referenceId'] ?? null,
                 'amount' => $shwaryResponse['amount'] ?? $order->total_amount,
                 'currency' => $shwaryResponse['currency'] ?? 'CDF',
-                'status' => $paymentStatus,
+                'phone' => $phoneNormalized,
+                'status' => 'pending',
                 'raw_response' => $shwaryResponse,
             ]);
 
-            if ($payment->status === 'completed') {
-                $oldStatus = (string) $order->status;
-                $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                while (Order::where('delivery_code', $deliveryCode)->exists()) {
+            $paymentStatus = $shwaryResponse['status'] ?? 'pending';
+            if (strtolower((string) $paymentStatus) === 'completed') {
+                // Mock ou sandbox : Shwary a déjà renvoyé completed → appliquer la même logique que le webhook
+                $payment->update(['status' => 'completed']);
+                if ($order->status === 'pending_payment') {
+                    $oldStatus = (string) $order->status;
                     $deliveryCode = 'GX-' . strtoupper(Str::random(6));
+                    while (Order::where('delivery_code', $deliveryCode)->exists()) {
+                        $deliveryCode = 'GX-' . strtoupper(Str::random(6));
+                    }
+                    $order->update([
+                        'status' => 'paid',
+                        'delivery_code' => $deliveryCode,
+                    ]);
+                    $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
                 }
-                $order->update([
-                    'status' => 'pending',
-                    'delivery_code' => $deliveryCode,
-                ]);
-
-                $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'pending');
             }
 
-            $deliveryCodeReturned = $order->delivery_code;
-            return response()->json([
+            $deliveryCodeReturned = $order->fresh()->delivery_code;
+            $payload = [
                 'order' => $order->load('items.menu'),
-                'payment' => $payment,
+                'payment' => $payment->fresh(),
                 'shwary_transaction' => $shwaryResponse,
                 'amount_to_debit' => $amountLocal,
                 'currency_to_debit' => $shwaryResponse['currency'] ?? 'CDF',
@@ -274,7 +301,13 @@ class OrderController extends Controller
                     : 'Paiement initié. En attente de confirmation sur votre mobile.',
                 'delivery_code' => $deliveryCodeReturned,
                 'payment_completed' => (bool) $deliveryCodeReturned,
-            ]);
+            ];
+            if (strtoupper($data['country_code'] ?? '') === 'DRC' && isset($operator)) {
+                $payload['operator'] = $operator;
+                $payload['operator_label'] = PhoneRDCService::operatorLabel($operator);
+                $payload['phone_formatted'] = $phoneNormalized;
+            }
+            return response()->json($payload);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -341,14 +374,14 @@ class OrderController extends Controller
             'raw_response' => $request->input('payment_data'),
         ]);
 
-        // Mettre à jour la commande : status 'pending' (en attente de livraison) et générer le code
+        // Mettre à jour la commande : status 'paid' (paiement reçu, en attente de livraison) et générer le code
         $oldStatus = (string) $order->status;
         $order->update([
-            'status' => 'pending', // En attente de livraison
+            'status' => 'paid',
             'delivery_code' => $deliveryCode,
         ]);
 
-        $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'pending');
+        $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
         
         return response()->json([
             'order' => $order->load('items.menu'),

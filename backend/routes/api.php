@@ -163,7 +163,8 @@ Route::post('admin/subscriptions/{id}/resume', [SubscriptionController::class, '
 Route::post('admin/subscriptions/{id}/cancel', [SubscriptionController::class, 'cancelSubscription'])->middleware('throttle:api');
 Route::post('admin/subscriptions', [SubscriptionController::class, 'storeForUser'])->middleware('throttle:api');
 
-// Admin payments (list + reconcile)
+// Admin payments (list, stats, reconcile)
+Route::get('admin/payments/stats', [PaymentController::class, 'stats'])->middleware('throttle:api');
 Route::get('admin/payments', [PaymentController::class, 'index'])->middleware('throttle:api');
 Route::post('admin/payments/reconcile', [PaymentController::class, 'reconcile'])->middleware('throttle:api');
 
