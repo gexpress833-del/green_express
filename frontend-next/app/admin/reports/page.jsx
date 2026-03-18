@@ -87,12 +87,6 @@ export default function ReportsPage() {
   const [dateFrom, setDateFrom] = useState(defaultPeriod.dateFrom);
   const [dateTo, setDateTo] = useState(defaultPeriod.dateTo);
 
-  // Génération directe du rapport global (sans devoir ouvrir le modal)
-  const globalDefault = getPeriodPreset('this_month');
-  const [globalPreset, setGlobalPreset] = useState('this_month');
-  const [globalDateFrom, setGlobalDateFrom] = useState(globalDefault.dateFrom);
-  const [globalDateTo, setGlobalDateTo] = useState(globalDefault.dateTo);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -111,18 +105,6 @@ export default function ReportsPage() {
     const { dateFrom: from, dateTo: to } = getPeriodPreset(presetId);
     setDateFrom(from);
     setDateTo(to);
-  }
-
-  function applyGlobalPreset(presetId) {
-    setGlobalPreset(presetId);
-    if (presetId === 'custom') {
-      setGlobalDateFrom('');
-      setGlobalDateTo('');
-      return;
-    }
-    const { dateFrom: from, dateTo: to } = getPeriodPreset(presetId);
-    setGlobalDateFrom(from);
-    setGlobalDateTo(to);
   }
 
   async function loadHistory() {
@@ -151,47 +133,42 @@ export default function ReportsPage() {
     if (dateFrom) params.date_from = dateFrom;
     if (dateTo) params.date_to = dateTo;
     try {
-      await apiRequest('/api/reports/generate', {
+      const created = await apiRequest('/api/reports/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, params }),
       });
+
+      const reportId = created?.id;
       setSuccess('Rapport mis en file d\'attente. Il apparaîtra dans l\'historique ci-dessous.');
       loadHistory();
       setTimeout(() => {
         setModalOpen(false);
         setSuccess('');
       }, 2500);
-    } catch (err) {
-      setError(err.message || 'Erreur lors de la génération');
-    } finally {
-      setLoading(false);
-    }
-  }
 
-  async function handleGenerateGlobal(e) {
-    if (e) e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    const params = { format: 'pdf' };
-    if (globalDateFrom) params.date_from = globalDateFrom;
-    if (globalDateTo) params.date_to = globalDateTo;
-
-    try {
-      await apiRequest('/api/reports/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'activity_summary',
-          params,
-        }),
-      });
-
-      setSuccess('Rapport global mis en file. Il apparaîtra dans l’historique ci-dessous.');
-      loadHistory();
-      setTimeout(() => setSuccess(''), 2500);
+      // UX : le job est async. On rafraîchit l'historique jusqu'à ce que le rapport passe en completed,
+      // sinon le lien "Télécharger" n'apparaît pas (car il est conditionné à status=completed).
+      if (reportId) {
+        (async () => {
+          for (let i = 0; i < 15; i++) {
+            try {
+              const res = await apiRequest('/api/reports?per_page=100', { method: 'GET' });
+              const list = res?.data || res || [];
+              const r = list.find((x) => String(x.id) === String(reportId));
+              if (r?.status === 'completed') {
+                loadHistory();
+                return;
+              }
+              if (r?.status === 'failed') {
+                setError('Échec de génération du rapport.');
+                return;
+              }
+            } catch {}
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        })();
+      }
     } catch (err) {
       setError(err.message || 'Erreur lors de la génération');
     } finally {
@@ -219,93 +196,24 @@ export default function ReportsPage() {
         <header className="mb-8">
           <h1 className="text-3xl font-extrabold text-[#d4af37]">Rapports administratifs</h1>
           <p className="text-white/70 mt-2">
-            Rapport global par période : choisissez un type de rapport et une période (ce mois, mois dernier, trimestre, année ou personnalisé). Export PDF pour le pilotage.
+            Générez des exports PDF pour le pilotage : commandes, utilisateurs, abonnements, paiements, demandes événementielles et synthèse d&apos;activité.
           </p>
         </header>
 
         <div className="dashboard-grid">
           <Sidebar />
           <main className="main-panel">
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <GoldButton onClick={() => { setModalOpen(true); setError(''); setSuccess(''); }}>
-              Exporter un rapport (autres types)
+          <div className="mb-6 flex flex-wrap items-center gap-4">
+            <GoldButton
+              onClick={() => {
+                setModalOpen(true)
+                setError('')
+                setSuccess('')
+              }}
+            >
+              Exporter un rapport
             </GoldButton>
-            <span className="text-white/50 text-sm">
-              Rapport global : Synthèse d’activité
-            </span>
           </div>
-
-          <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-            <div className="px-4 py-3 border-b border-cyan-500/20 bg-[#0f172a]/80">
-              <h2 className="text-lg font-semibold text-[#d4af37]">
-                Rapport global par période
-              </h2>
-              <p className="text-white/50 text-sm mt-0.5">
-                Génère la synthèse d’activité sur la période choisie (mensuel / trimestre / année / personnalisé).
-              </p>
-            </div>
-
-            <form onSubmit={handleGenerateGlobal} className="p-4 sm:p-5 space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {PERIOD_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => applyGlobalPreset(preset.id)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-                      globalPreset === preset.id
-                        ? 'bg-[#d4af37] text-[#0b1220]'
-                        : 'bg-white/10 text-white/80 border border-white/20 hover:bg-white/15'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-
-              {globalPreset === 'custom' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-white/60 mb-1">Du</label>
-                    <input
-                      type="date"
-                      value={globalDateFrom}
-                      onChange={(e) => setGlobalDateFrom(e.target.value)}
-                      className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#d4af37] outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-white/60 mb-1">Au</label>
-                    <input
-                      type="date"
-                      value={globalDateTo}
-                      onChange={(e) => setGlobalDateTo(e.target.value)}
-                      className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#d4af37] outline-none"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-3 items-center">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 py-2.5 px-4 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#f5e08a] text-[#0b1220] font-semibold hover:opacity-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Génération…' : 'Générer le rapport global (PDF)'}
-                </button>
-
-                {error && <p className="text-red-400 text-sm flex-[2]">{error}</p>}
-                {success && <p className="text-green-400 text-sm flex-[2]">{success}</p>}
-              </div>
-
-              <p className="text-white/40 text-xs">
-                Astuce : après génération, le fichier apparaîtra dans “Historique des rapports générés”.
-              </p>
-            </form>
-          </div>
-        </div>
 
         <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
           <div className="px-4 py-3 border-b border-cyan-500/20 bg-[#0f172a]/80">
