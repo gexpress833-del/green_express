@@ -55,12 +55,34 @@ class ReportController extends Controller
     public function download(Request $request, int $id)
     {
         $report = Report::find($id);
-        if (!$report || !$report->file_path) {
-            return response()->json(['message' => 'Rapport introuvable ou pas encore généré'], 404);
+        if (!$report) {
+            return response()->json(['message' => 'Rapport introuvable'], 404);
         }
-        if (!Storage::disk('local')->exists($report->file_path)) {
-            return response()->json(['message' => 'Fichier introuvable'], 404);
+
+        if (!$report->file_path) {
+            return response()->json(['message' => 'Rapport pas encore généré (file_path manquant)'], 404);
         }
+
+        $disk = Storage::disk('local');
+        if (!$disk->exists($report->file_path)) {
+            // Le statut peut être "completed" mais le fichier peut avoir disparu (ex: container restart / stockage non persistant).
+            // On tente une régénération synchronisée avant d’échouer.
+            try {
+                $report->update(['status' => 'processing']);
+                $job = new GenerateReportJob($report);
+                $job->handle();
+                $report->refresh();
+            } catch (\Throwable $e) {
+                // On retente seulement une fois ; le message ci-dessous sera renvoyé.
+            }
+
+            if (!$report->file_path || !$disk->exists($report->file_path)) {
+                return response()->json([
+                    'message' => 'Fichier introuvable après régénération. Réessayez plus tard.',
+                ], 404);
+            }
+        }
+
         $typeLabel = $report->params['type'] ?? 'rapport';
         $filename = 'rapport-' . $typeLabel . '-' . $report->id . '.pdf';
         return Storage::disk('local')->download($report->file_path, $filename, ['Content-Type' => 'application/pdf']);
