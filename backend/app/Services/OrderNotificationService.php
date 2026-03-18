@@ -20,9 +20,12 @@ class OrderNotificationService
         }
     }
 
-    public function notifyStatusChanged(Order $order, string $from, string $to): void
+    /**
+     * @param  \App\Models\User|null  $triggeredBy  Utilisateur à l'origine du changement (admin, livreur) ; null = système (webhook, job).
+     */
+    public function notifyStatusChanged(Order $order, string $from, string $to, ?User $triggeredBy = null): void
     {
-        $notification = new OrderStatusChangedNotification($order, $from, $to);
+        $notification = new OrderStatusChangedNotification($order, $from, $to, $triggeredBy);
 
         // Toujours : admin + client
         User::where('role', 'admin')->each(fn ($u) => $u->notify($notification));
@@ -30,16 +33,11 @@ class OrderNotificationService
             $order->user->notify($notification);
         }
 
-        // Selon statut : cuisiniers / livreurs / vérificateurs
+        // Selon statut : cuisiniers / livreurs (le vérificateur ne valide que les codes promotion de réclamation, pas les livraisons)
         if ($to === 'pending') {
             // Commande payée, à préparer / livrer
             $this->notifyCuisiniersForOrder($order, $notification);
             User::where('role', 'livreur')->each(fn ($u) => $u->notify($notification));
-        }
-
-        if ($to === 'delivered') {
-            // À vérifier / clôturer
-            User::where('role', 'verificateur')->each(fn ($u) => $u->notify($notification));
         }
     }
 

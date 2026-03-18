@@ -21,6 +21,8 @@ class EventRequestRespondedNotification extends Notification
 
     public function toArray(object $notifiable): array
     {
+        $this->eventRequest->loadMissing('respondedByUser');
+        $admin = $this->eventRequest->respondedByUser;
         $response = $this->eventRequest->admin_response ?? '';
         return [
             'kind' => 'event_request_responded',
@@ -31,6 +33,9 @@ class EventRequestRespondedNotification extends Notification
             'responded_at' => optional($this->eventRequest->responded_at)?->toIso8601String(),
             'title' => 'Réponse à votre demande événementielle',
             'message' => strlen($response) > 80 ? substr($response, 0, 80) . '…' : $response,
+            'origin_type' => 'admin',
+            'origin_user_id' => $admin?->id,
+            'origin_user_name' => $admin?->name ?? 'Administration',
         ];
     }
 }

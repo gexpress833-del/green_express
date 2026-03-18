@@ -65,7 +65,7 @@ class OrderController extends Controller
         ]);
         $oldStatus = (string) $order->status;
         $order->update(['status' => $data['status']]);
-        $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, $data['status']);
+        $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, $data['status'], $request->user());
         return response()->json($order->load(['items.menu', 'user', 'deliveryDriver']));
     }
 
@@ -381,8 +381,8 @@ class OrderController extends Controller
             'delivery_code' => $deliveryCode,
         ]);
 
-        $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
-        
+        $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid', $request->user());
+
         return response()->json([
             'order' => $order->load('items.menu'),
             'delivery_code' => $deliveryCode,
@@ -456,7 +456,7 @@ class OrderController extends Controller
                 // Les points ont déjà été crédités, juste mettre à jour le statut
                 $oldStatus = (string) $order->status;
                 $order->update(['status' => 'delivered']);
-                $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'delivered');
+                $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'delivered', $user);
                 \App\Models\Invoice::createForOrderIfMissing($order);
                 return response()->json([
                     'valid' => true,
@@ -486,7 +486,7 @@ class OrderController extends Controller
             // Mettre à jour le statut de la commande
             $oldStatus = (string) $order->status;
             $order->update(['status' => 'delivered']);
-            $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'delivered');
+            $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'delivered', $user);
             \App\Models\Invoice::createForOrderIfMissing($order);
             return response()->json([
                 'valid' => true,

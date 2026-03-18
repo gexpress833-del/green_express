@@ -137,7 +137,7 @@ class AdminController extends Controller
             ['id' => 'entreprise', 'label' => 'Entreprise (B2B)', 'description' => 'Portail entreprise, abonnements et agents'],
             ['id' => 'cuisinier', 'label' => 'Cuisinier', 'description' => 'Gestion des menus et plats'],
             ['id' => 'livreur', 'label' => 'Livreur', 'description' => 'Suivi des livraisons'],
-            ['id' => 'verificateur', 'label' => 'Verificateur', 'description' => 'Validation des commandes / livraisons'],
+            ['id' => 'verificateur', 'label' => 'Verificateur', 'description' => 'Validation des codes promotion (tickets de réclamation client)'],
             ['id' => 'agent', 'label' => 'Agent', 'description' => 'Employé entreprise (accès limité)'],
         ];
 

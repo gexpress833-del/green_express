@@ -148,6 +148,7 @@ export default function NotificationsHistoriquePage() {
             {filtered.map((n) => {
               const title = n?.data?.title || 'Notification'
               const message = n?.data?.message || ''
+              const originLabel = n?.data?.origin_label
               const icon = n?.data?.order_id ? '📦' : n?.data?.event_request_id ? '📅' : '🔔'
               return (
                 <div
@@ -160,6 +161,9 @@ export default function NotificationsHistoriquePage() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-white text-base">{title}</h3>
+                      {originLabel && (
+                        <p className="text-cyan-400/90 text-xs mt-0.5">De : {originLabel}</p>
+                      )}
                       {message && <p className="text-white/70 text-sm mt-1">{message}</p>}
                       <p className="text-white/50 text-xs mt-2">{formatRelative(n.created_at)}</p>
                       <div className="flex flex-wrap gap-2 mt-3">

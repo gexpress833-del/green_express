@@ -226,7 +226,7 @@ class LivreurController extends Controller
                 'livreur_id' => $order->livreur_id ?? $request->user()->id,
             ]);
 
-            $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'delivered');
+            $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'delivered', $request->user());
             \App\Models\Invoice::createForOrderIfMissing($order);
             return response()->json([
                 'valid' => true,

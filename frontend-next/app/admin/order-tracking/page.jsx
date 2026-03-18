@@ -4,8 +4,32 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { apiRequest, fetchApiBlob, getApiErrorMessage } from '@/lib/api'
 
-const STATUS_LABELS = { pending_payment: 'En attente paiement', pending: 'En cours', out_for_delivery: 'En livraison', delivered: 'Livrée' }
+const STATUS_LABELS = {
+  pending_payment: 'En attente paiement',
+  pending: 'En cours',
+  paid: 'Payée',
+  out_for_delivery: 'En livraison',
+  delivered: 'Livrée',
+  cancelled: 'Annulée',
+}
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS)
+
+function getStatusClass(status) {
+  switch (status) {
+    case 'delivered':
+    case 'paid':
+      return 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40'
+    case 'pending':
+    case 'out_for_delivery':
+      return 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/40'
+    case 'pending_payment':
+      return 'bg-amber-500/25 text-amber-300 border border-amber-400/40'
+    case 'cancelled':
+      return 'bg-red-500/25 text-red-300 border border-red-400/40'
+    default:
+      return 'bg-white/15 text-white/80 border border-white/20'
+  }
+}
 
 export default function AdminOrderTrackingPage() {
   const [orders, setOrders] = useState([])
@@ -148,29 +172,34 @@ export default function AdminOrderTrackingPage() {
               ) : (
                 <>
                   {/* Vue tableau (écrans md et plus) */}
-                  <div className="hidden md:block overflow-x-auto -mx-2">
+                  <div className="hidden md:block overflow-x-auto -mx-2 rounded-xl border border-white/10 overflow-hidden">
                     <table className="w-full text-left text-sm min-w-[600px]">
                       <thead>
-                        <tr className="border-b border-white/10">
-                          <th className="p-2 text-white/80 font-semibold">N°</th>
-                          <th className="p-2 text-white/80 font-semibold">Date</th>
-                          <th className="p-2 text-white/80 font-semibold">Client / Montant</th>
-                          <th className="p-2 text-white/80 font-semibold">Statut</th>
-                          <th className="p-2 text-white/80 font-semibold">Actions</th>
+                        <tr className="bg-[#0f172a] border-b border-cyan-500/30">
+                          <th className="px-4 py-3 text-cyan-200/90 font-semibold">N°</th>
+                          <th className="px-4 py-3 text-cyan-200/90 font-semibold">Date</th>
+                          <th className="px-4 py-3 text-cyan-200/90 font-semibold">Client / Montant</th>
+                          <th className="px-4 py-3 text-cyan-200/90 font-semibold">Statut</th>
+                          <th className="px-4 py-3 text-cyan-200/90 font-semibold">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {list.map((o) => (
-                          <tr key={o.id} className="border-b border-white/5">
-                            <td className="p-2 text-white/90 font-mono">{o.id}</td>
-                            <td className="p-2 text-white/80">{formatDate(o.created_at)}</td>
-                            <td className="p-2 text-white/80">
+                        {list.map((o, idx) => (
+                          <tr
+                            key={o.id}
+                            className={`border-b border-white/10 ${idx % 2 === 0 ? 'bg-white/5' : 'bg-white/[0.07]'} hover:bg-cyan-500/10 transition-colors`}
+                          >
+                            <td className="px-4 py-3 text-white/90 font-mono">{o.id}</td>
+                            <td className="px-4 py-3 text-white/80">{formatDate(o.created_at)}</td>
+                            <td className="px-4 py-3 text-white/85">
                               {o.user?.name ?? o.user_id ?? '—'} · {o.total_amount ?? '—'} {getCurrencyLabel(o)}
                             </td>
-                            <td className="p-2">
-                              <span className={`px-2 py-1 rounded text-xs ${o.status === 'delivered' ? 'bg-green-500/20 text-green-300' : o.status === 'pending_payment' ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-white/70'}`}>{STATUS_LABELS[o.status] ?? o.status}</span>
+                            <td className="px-4 py-3">
+                              <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-medium ${getStatusClass(o.status)}`}>
+                                {STATUS_LABELS[o.status] ?? o.status}
+                              </span>
                             </td>
-                            <td className="p-2">
+                            <td className="px-4 py-3">
                               <div className="flex flex-wrap gap-2">
                                 <button type="button" onClick={(e) => handleShowDetail(o, e)} className="min-h-[36px] min-w-[44px] px-3 py-1.5 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-xs font-medium cursor-pointer hover:bg-cyan-500/30 active:scale-[0.98]">
                                   Voir
@@ -209,7 +238,7 @@ export default function AdminOrderTrackingPage() {
                         </div>
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-white/60 text-sm">Statut</span>
-                          <span className={`px-2 py-1 rounded text-xs ${o.status === 'delivered' ? 'bg-green-500/20 text-green-300' : o.status === 'pending_payment' ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-white/70'}`}>{STATUS_LABELS[o.status] ?? o.status}</span>
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getStatusClass(o.status)}`}>{STATUS_LABELS[o.status] ?? o.status}</span>
                         </div>
                         <div className="flex flex-wrap gap-2 pt-2 border-t border-white/10">
                           <button type="button" onClick={(e) => handleShowDetail(o, e)} className="min-h-[44px] flex-1 min-w-[80px] px-4 py-2.5 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-sm font-medium cursor-pointer hover:bg-cyan-500/30 active:scale-[0.98] touch-manipulation">
@@ -240,7 +269,7 @@ export default function AdminOrderTrackingPage() {
             <p className="text-white/80 text-sm">Client : {detailOrder.user?.name ?? detailOrder.user?.email ?? '—'}</p>
             <p className="text-white/80 text-sm">Adresse : {detailOrder.delivery_address ?? '—'}</p>
             <p className="text-white/80 text-sm">Code livraison : {detailOrder.delivery_code ?? '—'}</p>
-            <p className="text-white/80 text-sm mt-2">Statut : {STATUS_LABELS[detailOrder.status] ?? detailOrder.status}</p>
+            <p className="text-white/80 text-sm mt-2">Statut : <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-medium ${getStatusClass(detailOrder.status)}`}>{STATUS_LABELS[detailOrder.status] ?? detailOrder.status}</span></p>
             <div className="mt-4">
               <label className="block text-white/70 text-xs mb-1">Changer le statut</label>
               <select

@@ -24,6 +24,48 @@ const STATUS_LABELS = {
   pending: 'En attente',
 };
 
+/** Presets de période pour le rapport global (mensuel ou personnalisé). */
+function getPeriodPreset(preset) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const toYMD = (d) => d.toISOString().slice(0, 10);
+  switch (preset) {
+    case 'this_month':
+      return {
+        dateFrom: toYMD(new Date(y, m, 1)),
+        dateTo: toYMD(now),
+        label: 'Ce mois',
+      };
+    case 'last_month': {
+      const first = new Date(y, m - 1, 1);
+      const last = new Date(y, m, 0);
+      return { dateFrom: toYMD(first), dateTo: toYMD(last), label: 'Mois dernier' };
+    }
+    case 'this_quarter': {
+      const q = Math.floor(m / 3) + 1;
+      const first = new Date(y, (q - 1) * 3, 1);
+      return { dateFrom: toYMD(first), dateTo: toYMD(now), label: `T${q} ${y}` };
+    }
+    case 'this_year':
+      return {
+        dateFrom: `${y}-01-01`,
+        dateTo: toYMD(now),
+        label: `Année ${y}`,
+      };
+    default:
+      return { dateFrom: '', dateTo: '', label: 'Personnalisé' };
+  }
+}
+
+const PERIOD_PRESETS = [
+  { id: 'this_month', label: 'Ce mois' },
+  { id: 'last_month', label: 'Mois dernier' },
+  { id: 'this_quarter', label: 'Ce trimestre' },
+  { id: 'this_year', label: 'Année en cours' },
+  { id: 'custom', label: 'Personnalisé' },
+];
+
 function formatDate(str) {
   if (!str) return '—';
   const d = new Date(str);
@@ -36,11 +78,14 @@ function formatDate(str) {
   });
 }
 
+const defaultPeriod = getPeriodPreset('this_month');
+
 export default function ReportsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [type, setType] = useState('orders');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [periodPreset, setPeriodPreset] = useState('this_month');
+  const [dateFrom, setDateFrom] = useState(defaultPeriod.dateFrom);
+  const [dateTo, setDateTo] = useState(defaultPeriod.dateTo);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -48,6 +93,18 @@ export default function ReportsPage() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [pagination, setPagination] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+
+  function applyPreset(presetId) {
+    setPeriodPreset(presetId);
+    if (presetId === 'custom') {
+      setDateFrom('');
+      setDateTo('');
+      return;
+    }
+    const { dateFrom: from, dateTo: to } = getPeriodPreset(presetId);
+    setDateFrom(from);
+    setDateTo(to);
+  }
 
   async function loadHistory() {
     try {
@@ -113,7 +170,7 @@ export default function ReportsPage() {
         <header className="mb-8">
           <h1 className="text-3xl font-extrabold text-[#d4af37]">Rapports administratifs</h1>
           <p className="text-white/70 mt-2">
-            Générez des exports PDF pour le pilotage : commandes, utilisateurs, abonnements, paiements, demandes événementielles et synthèse d&apos;activité.
+            Rapport global par période : choisissez un type de rapport et une période (ce mois, mois dernier, trimestre, année ou personnalisé). Export PDF pour le pilotage.
           </p>
         </header>
 
@@ -126,74 +183,84 @@ export default function ReportsPage() {
           </GoldButton>
         </div>
 
-        <div className="rounded-lg border border-white/10 bg-white/5 overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/10">
+        <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+          <div className="px-4 py-3 border-b border-cyan-500/20 bg-[#0f172a]/80">
             <h2 className="text-lg font-semibold text-[#d4af37]">Historique des rapports générés</h2>
+            <p className="text-white/50 text-sm mt-0.5">Rapports PDF par période (mensuel, trimestre, personnalisé).</p>
           </div>
           {loadingHistory ? (
             <div className="p-8 text-center text-white/60">Chargement de l&apos;historique...</div>
           ) : history.length === 0 ? (
-            <div className="p-8 text-center text-white/60">Aucun rapport généré pour l&apos;instant.</div>
+            <div className="p-8 text-center text-white/60">Aucun rapport généré pour l&apos;instant. Utilisez « Exporter un rapport » avec une période.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
+              <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="text-white/60 text-sm border-b border-white/10">
-                    <th className="px-4 py-3 font-semibold">Date</th>
-                    <th className="px-4 py-3 font-semibold">Type</th>
-                    <th className="px-4 py-3 font-semibold">Statut</th>
-                    <th className="px-4 py-3 font-semibold">Généré par</th>
-                    <th className="px-4 py-3 font-semibold">Télécharger</th>
-                    <th className="px-4 py-3 font-semibold">Actions</th>
+                  <tr className="bg-[#0f172a] border-b border-cyan-500/30">
+                    <th className="px-4 py-3 text-cyan-200/90 font-semibold">Date</th>
+                    <th className="px-4 py-3 text-cyan-200/90 font-semibold">Type</th>
+                    <th className="px-4 py-3 text-cyan-200/90 font-semibold">Période</th>
+                    <th className="px-4 py-3 text-cyan-200/90 font-semibold">Statut</th>
+                    <th className="px-4 py-3 text-cyan-200/90 font-semibold">Généré par</th>
+                    <th className="px-4 py-3 text-cyan-200/90 font-semibold">Télécharger</th>
+                    <th className="px-4 py-3 text-cyan-200/90 font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((r) => (
-                    <tr key={r.id} className="border-b border-white/5 hover:bg-white/5">
-                      <td className="px-4 py-3 text-sm">{formatDate(r.created_at)}</td>
-                      <td className="px-4 py-3 text-sm">{TYPE_LABELS[r.report_type] ?? r.report_type ?? '—'}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`text-xs font-medium px-2 py-1 rounded ${
-                            r.status === 'completed'
-                              ? 'bg-green-900/40 text-green-300'
-                              : r.status === 'failed'
-                              ? 'bg-red-900/40 text-red-300'
-                              : 'bg-white/10 text-white/80'
-                          }`}
-                        >
-                          {STATUS_LABELS[r.status] ?? r.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-white/80">
-                        {r.generated_by_user?.name ?? `#${r.generated_by}` ?? '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        {r.status === 'completed' && r.file_path ? (
-                          <a
-                            href={`${API_BASE}/api/reports/${r.id}/download`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#d4af37] hover:underline text-sm"
+                  {history.map((r, idx) => {
+                    const params = r.params || {};
+                    const from = params.date_from ? new Date(params.date_from).toLocaleDateString('fr-FR') : '—';
+                    const to = params.date_to ? new Date(params.date_to).toLocaleDateString('fr-FR') : '—';
+                    const periodStr = params.date_from || params.date_to ? `${from} → ${to}` : 'Tout';
+                    return (
+                      <tr
+                        key={r.id}
+                        className={`border-b border-white/10 ${idx % 2 === 0 ? 'bg-white/5' : 'bg-white/[0.07]'} hover:bg-cyan-500/10 transition-colors`}
+                      >
+                        <td className="px-4 py-3 text-white/85">{formatDate(r.created_at)}</td>
+                        <td className="px-4 py-3 text-white/85">{TYPE_LABELS[r.report_type] ?? r.report_type ?? '—'}</td>
+                        <td className="px-4 py-3 text-white/70 text-xs">{periodStr}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-block text-xs font-medium px-2.5 py-1 rounded-lg ${
+                              r.status === 'completed'
+                                ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40'
+                                : r.status === 'failed'
+                                ? 'bg-red-500/25 text-red-300 border border-red-400/40'
+                                : 'bg-amber-500/25 text-amber-300 border border-amber-400/40'
+                            }`}
                           >
-                            Télécharger
-                          </a>
-                        ) : (
-                          <span className="text-white/40 text-sm">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteReport(r.id)}
-                          disabled={deletingId !== null}
-                          className="text-red-400 hover:text-red-300 text-sm disabled:opacity-50"
-                        >
-                          {deletingId === r.id ? '…' : 'Supprimer'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                            {STATUS_LABELS[r.status] ?? r.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-white/80">{r.generated_by_user?.name ?? `#${r.generated_by}` ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          {r.status === 'completed' && r.file_path ? (
+                            <a
+                              href={`${API_BASE}/api/reports/${r.id}/download`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#d4af37] hover:text-amber-300 font-medium text-sm"
+                            >
+                              Télécharger
+                            </a>
+                          ) : (
+                            <span className="text-white/40 text-sm">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteReport(r.id)}
+                            disabled={deletingId !== null}
+                            className="text-red-400 hover:text-red-300 text-sm disabled:opacity-50"
+                          >
+                            {deletingId === r.id ? '…' : 'Supprimer'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -220,27 +287,46 @@ export default function ReportsPage() {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-semibold text-white/80 mb-2">Du</label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#d4af37] outline-none"
-                  />
+              <div>
+                <label className="block text-sm font-semibold text-white/80 mb-2">Période (rapport global mensuel ou personnalisé)</label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {PERIOD_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyPreset(preset.id)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                        periodPreset === preset.id
+                          ? 'bg-[#d4af37] text-[#0b1220]'
+                          : 'bg-white/10 text-white/80 border border-white/20 hover:bg-white/15'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-white/80 mb-2">Au</label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#d4af37] outline-none"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Du</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => { setDateFrom(e.target.value); setPeriodPreset('custom'); }}
+                      className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#d4af37] outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Au</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => { setDateTo(e.target.value); setPeriodPreset('custom'); }}
+                      className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#d4af37] outline-none"
+                    />
+                  </div>
                 </div>
+                <p className="text-white/50 text-xs mt-1">Choisir une période pour un rapport ciblé (ex. ce mois). Vide = toutes les données.</p>
               </div>
-              <p className="text-white/50 text-xs">Période optionnelle. Laisser vide pour toutes les données.</p>
               {error && <p className="text-red-400 text-sm">{error}</p>}
               {success && <p className="text-green-400 text-sm">{success}</p>}
               <div className="flex gap-3 pt-2">

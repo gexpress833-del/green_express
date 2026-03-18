@@ -21,6 +21,7 @@ class OrderCreatedNotification extends Notification
 
     public function toArray(object $notifiable): array
     {
+        $client = $this->order->user;
         return [
             'kind' => 'order_created',
             'order_id' => $this->order->id,
@@ -30,6 +31,9 @@ class OrderCreatedNotification extends Notification
             'created_at' => optional($this->order->created_at)?->toIso8601String(),
             'title' => 'Nouvelle commande',
             'message' => 'Une nouvelle commande a été créée.',
+            'origin_type' => 'client',
+            'origin_user_id' => $client?->id,
+            'origin_user_name' => $client?->name ?? 'Client',
         ];
     }
 }

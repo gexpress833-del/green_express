@@ -18,11 +18,20 @@ class NotificationController extends Controller
             $limit = (int) $request->query('limit', 20);
             $limit = max(1, min($limit, 50));
 
+            $roleLabels = [
+                'client' => 'Client',
+                'admin' => 'Administration',
+                'livreur' => 'Livreur',
+                'verificateur' => 'Vérificateur',
+                'cuisinier' => 'Cuisinier',
+                'entreprise' => 'Entreprise',
+                'system' => 'Système',
+            ];
             $notifications = $user->notifications()
                 ->orderBy('created_at', 'desc')
                 ->limit($limit)
                 ->get()
-                ->map(function ($n) {
+                ->map(function ($n) use ($roleLabels) {
                     $data = $n->data;
                     if (is_string($data)) {
                         $decoded = json_decode($data, true);
@@ -31,6 +40,16 @@ class NotificationController extends Controller
                     if (! is_array($data)) {
                         $data = [];
                     }
+                    $originType = $data['origin_type'] ?? null;
+                    $originName = $data['origin_user_name'] ?? null;
+                    $originLabel = null;
+                    if ($originName) {
+                        $roleLabel = $roleLabels[$originType] ?? $originType;
+                        $originLabel = "{$originName} ({$roleLabel})";
+                    } elseif ($originType) {
+                        $originLabel = $roleLabels[$originType] ?? $originType;
+                    }
+                    $data['origin_label'] = $originLabel;
                     return [
                         'id' => $n->id,
                         'type' => $n->type,
