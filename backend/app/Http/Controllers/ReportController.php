@@ -40,9 +40,13 @@ class ReportController extends Controller
             'status' => 'queued',
         ]);
 
-        GenerateReportJob::dispatch($report);
+        // Génération synchronisée :
+        // sur certaines plateformes (ou sans worker de queue), le job en asynchrone ne se termine pas rapidement,
+        // ce qui empêche l'affichage du bouton "Télécharger".
+        $job = new GenerateReportJob($report);
+        $job->handle();
 
-        return response()->json($report, 202);
+        return response()->json($report->fresh(), 200);
     }
 
     /**
