@@ -30,3 +30,6 @@ frontend-next/.env.local
 frontend-next/.env.development.local
 frontend-next/.env.test.local
 frontend-next/.env.production.local
+
+# GitHub Actions (ne jamais pousser les workflows)
+.github/workflows/
