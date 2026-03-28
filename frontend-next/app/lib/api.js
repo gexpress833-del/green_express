@@ -173,9 +173,9 @@ export async function fetchApiBlob(path, options = {}) {
 }
 
 /**
- * Upload image (multipart/form-data) vers Cloudinary via l'API.
+ * Upload image (multipart/form-data) : backend envoie le fichier vers Cloudinary.
  * @param {File} file - fichier image
- * @param {string} [folder] - dossier Cloudinary (ex: 'promotions', 'green-express/promotions', 'menus')
+ * @param {string} [folder] - alias configuré côté API : menus, promotions, uploads, profiles, subscription-plans (ou chemin green-express/…)
  */
 export async function uploadImageFile(file, folder = 'uploads') {
   const formData = new FormData();

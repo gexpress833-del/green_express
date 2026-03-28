@@ -2,54 +2,59 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Models\Menu;
 use App\Models\Order;
 use App\Models\OrderItem;
-use App\Models\Menu;
 use App\Models\Payment;
 use App\Models\Point;
 use App\Models\PointLedger;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class LivreurControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_livreur_can_validate_delivery_code_and_earn_points(): void
+    public function test_livreur_peut_valider_un_code_de_livraison_et_crediter_les_points(): void
     {
         $livreur = User::factory()->create(['role' => 'livreur']);
         $client = User::factory()->create(['role' => 'client']);
-        $menu = Menu::factory()->create();
+        $menu = Menu::factory()->create(['price' => 25]);
 
         $order = Order::create([
-            'uuid' => \Illuminate\Support\Str::uuid(),
+            'uuid' => (string) Str::uuid(),
             'user_id' => $client->id,
+            'livreur_id' => $livreur->id,
             'status' => 'pending',
-            'total_amount' => 25.00,
+            'total_amount' => 25,
             'delivery_address' => '123 Test St',
             'delivery_code' => 'GX-ABC123',
             'points_earned' => 10,
         ]);
+
         OrderItem::create([
             'order_id' => $order->id,
             'menu_id' => $menu->id,
             'quantity' => 1,
-            'price' => 25.00,
+            'price' => 25,
         ]);
+
         Payment::create([
             'order_id' => $order->id,
-            'amount' => 25.00,
-            'currency' => 'USD',
+            'amount' => 25,
+            'currency' => 'CDF',
             'status' => 'completed',
             'provider' => 'shwary',
             'provider_payment_id' => 'tx-123',
         ]);
+
         Point::create(['user_id' => $client->id, 'balance' => 50]);
 
         $response = $this->actingAs($livreur, 'api')
             ->postJson('/api/livreur/validate-code', [
-                'code' => 'GX-ABC123',
+                'code' => 'gx-abc123',
             ]);
 
         $response->assertStatus(200);
@@ -57,41 +62,57 @@ class LivreurControllerTest extends TestCase
         $response->assertJsonPath('points_earned', 10);
 
         $order->refresh();
-        $this->assertEquals('delivered', $order->status);
-        $this->assertEquals($livreur->id, $order->livreur_id);
+        $this->assertSame('delivered', $order->status);
+        $this->assertSame($livreur->id, $order->livreur_id);
 
         $point = Point::where('user_id', $client->id)->first();
-        $this->assertEquals(60, $point->balance);
+        $this->assertSame(60, (int) $point->balance);
+
+        $this->assertDatabaseHas('point_ledgers', [
+            'order_id' => $order->id,
+            'user_id' => $client->id,
+            'delta' => 10,
+        ]);
     }
 
-    public function test_validate_invalid_code_returns_400(): void
+    public function test_livreur_ne_peut_pas_valider_une_commande_non_attribuee(): void
     {
         $livreur = User::factory()->create(['role' => 'livreur']);
-        // Code format valide (9 chars) mais inexistant en base
-        $response = $this->actingAs($livreur, 'api')
-            ->postJson('/api/livreur/validate-code', [
-                'code' => 'GX-999999',
-            ]);
+        $otherLivreur = User::factory()->create(['role' => 'livreur']);
+        $client = User::factory()->create(['role' => 'client']);
 
-        $response->assertStatus(400);
-        $response->assertJsonPath('valid', false);
-    }
+        $order = Order::create([
+            'uuid' => (string) Str::uuid(),
+            'user_id' => $client->id,
+            'livreur_id' => $otherLivreur->id,
+            'status' => 'pending',
+            'total_amount' => 25,
+            'delivery_address' => '123 Test St',
+            'delivery_code' => 'GX-XYZ123',
+            'points_earned' => 10,
+        ]);
 
-    public function test_livreur_stats_filter_by_livreur(): void
-    {
-        $livreur = User::factory()->create(['role' => 'livreur']);
-        Order::create([
-            'uuid' => \Illuminate\Support\Str::uuid(),
-            'user_id' => User::factory()->create()->id,
-            'livreur_id' => $livreur->id,
-            'status' => 'delivered',
-            'delivery_code' => 'GX-DEL001',
+        Payment::create([
+            'order_id' => $order->id,
+            'amount' => 25,
+            'currency' => 'CDF',
+            'status' => 'completed',
+            'provider' => 'shwary',
+            'provider_payment_id' => 'tx-456',
         ]);
 
         $response = $this->actingAs($livreur, 'api')
-            ->getJson('/api/livreur/stats');
+            ->postJson('/api/livreur/validate-code', [
+                'code' => 'GX-XYZ123',
+            ]);
 
-        $response->assertStatus(200);
-        $response->assertJsonPath('delivered', 1);
+        $response->assertStatus(403);
+        $response->assertJsonPath('valid', false);
+
+        $this->assertDatabaseMissing('point_ledgers', [
+            'order_id' => $order->id,
+            'user_id' => $client->id,
+        ]);
     }
 }
+

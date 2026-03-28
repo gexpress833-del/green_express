@@ -16,7 +16,6 @@ export default function AdminCreateSubscriptionPage() {
   const [error, setError] = useState('')
   const [userId, setUserId] = useState('')
   const [planId, setPlanId] = useState('')
-  const [period, setPeriod] = useState('month')
 
   useEffect(() => {
     apiRequest('/api/users', { method: 'GET' })
@@ -52,7 +51,7 @@ export default function AdminCreateSubscriptionPage() {
         body: JSON.stringify({
           user_id: parseInt(userId, 10),
           subscription_plan_id: selectedPlan.id,
-          period,
+          period: 'week',
         }),
       })
       router.push('/admin/subscriptions')
@@ -75,7 +74,7 @@ export default function AdminCreateSubscriptionPage() {
           }}>
             Créer un abonnement
           </h1>
-          <p className="text-white/70 text-lg">Attribuer un abonnement à un client (FC, par semaine ou par mois).</p>
+          <p className="text-white/70 text-lg">Attribuer une formule hebdomadaire (cinq jours ouvrés) à un client.</p>
         </header>
 
         <div className="dashboard-grid">
@@ -116,7 +115,7 @@ export default function AdminCreateSubscriptionPage() {
                 {loadingUsers && <p className="text-white/50 text-xs mt-1">Chargement des clients...</p>}
               </div>
 
-              <div className="mb-4">
+              <div className="mb-6">
                 <label className="block text-white/90 font-medium mb-2">Plan *</label>
                 <select
                   value={planId}
@@ -128,24 +127,16 @@ export default function AdminCreateSubscriptionPage() {
                   <option value="">Choisir un plan</option>
                   {plans.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} — {formatCurrencyCDF(p.price_week)} / sem · {formatCurrencyCDF(p.price_month)} / mois
+                      {p.name} — {formatCurrencyCDF(p.price_week)} / semaine
                     </option>
                   ))}
                 </select>
                 {loadingPlans && <p className="text-white/50 text-xs mt-1">Chargement des plans...</p>}
               </div>
 
-              <div className="mb-6">
-                <label className="block text-white/90 font-medium mb-2">Période *</label>
-                <select
-                  value={period}
-                  onChange={(e) => setPeriod(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/20 text-white"
-                >
-                  <option value="week">Par semaine</option>
-                  <option value="month">Par mois</option>
-                </select>
-              </div>
+              <p className="text-white/55 text-sm mb-6">
+                Période : <strong className="text-white/85">hebdomadaire uniquement</strong> (alignée sur le tarif « semaine » du plan).
+              </p>
 
               <div className="flex gap-3">
                 <button

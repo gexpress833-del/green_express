@@ -3,22 +3,33 @@
  */
 import { apiRequest, getCsrfCookie } from './api';
 
-/** Connexion : appelle d'abord csrf-cookie, puis POST /api/login. Retourne { user }. */
-export async function login(email, password) {
+/**
+ * Connexion : csrf puis POST /api/login.
+ * @param {string} loginIdentifier — e-mail ou numéro de téléphone (RDC : ex. 08… ou +243…)
+ */
+export async function login(loginIdentifier, password) {
   await getCsrfCookie();
   const data = await apiRequest('/api/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ login: loginIdentifier, password }),
   });
   return data;
 }
 
-/** Inscription : csrf puis POST /api/register. Retourne { user }. */
-export async function register(email, password, name) {
+/**
+ * Inscription client : csrf puis POST /api/register. Retourne { user }.
+ * @param {string} phone — mobile RDC obligatoire (connexion par numéro)
+ */
+export async function register(email, password, name, phone) {
   await getCsrfCookie();
   const data = await apiRequest('/api/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, name }),
+    body: JSON.stringify({
+      email,
+      password,
+      name,
+      phone: String(phone || '').trim(),
+    }),
   });
   return data;
 }

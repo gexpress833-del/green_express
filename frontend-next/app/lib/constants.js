@@ -50,7 +50,9 @@ export const ENDPOINTS = {
     DELETE: (id) => `/api/users/${id}`,
   },
   PAYMENTS: {
-    LIST: '/api/payments',
+    LIST: '/api/admin/payments',
+    STATS: '/api/admin/payments/stats',
+    RECONCILE: '/api/admin/payments/reconcile',
   },
   SUBSCRIPTIONS: {
     LIST: '/api/subscriptions',

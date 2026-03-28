@@ -2,11 +2,15 @@
 import EntrepriseSidebar from '@/components/EntrepriseSidebar'
 import GoldButton from '@/components/GoldButton'
 import { apiRequest } from '@/lib/api'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 export default function EntrepriseOrdersPage() {
   const [orders, setOrders] = useState({ data: [] })
   const [loading, setLoading] = useState(true)
+  const searchParams = useSearchParams()
+  const orderIdFromUrl = searchParams.get('order')
+  const orderRefs = useRef({})
 
   useEffect(() => {
     apiRequest('/api/entreprise/orders', { method: 'GET' })
@@ -14,6 +18,21 @@ export default function EntrepriseOrdersPage() {
       .catch(() => setOrders({ data: [] }))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    const list = orders.data || []
+    if (loading || !orderIdFromUrl || list.length === 0) return
+    const id = orderIdFromUrl.trim()
+    const el = orderRefs.current[id]
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('ring-2', 'ring-cyan-400', 'ring-offset-2', 'ring-offset-[#0b1220]')
+      const t = setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-cyan-400', 'ring-offset-2', 'ring-offset-[#0b1220]')
+      }, 3000)
+      return () => clearTimeout(t)
+    }
+  }, [loading, orderIdFromUrl, orders.data])
 
   const formatDate = (d) => (d ? new Date(d).toLocaleDateString('fr-FR') : '—')
   const formatMoney = (v) => (v != null ? Number(v).toLocaleString('fr-FR') : '—')
@@ -42,7 +61,11 @@ export default function EntrepriseOrdersPage() {
               ) : (
                 <ul className="space-y-4">
                   {orders.data.map((order) => (
-                    <li key={order.id} className="p-4 rounded-lg bg-white/5 border border-white/10">
+                    <li
+                      key={order.id}
+                      ref={(el) => { if (el) orderRefs.current[String(order.id)] = el }}
+                      className="p-4 rounded-lg bg-white/5 border border-white/10"
+                    >
                       <div className="flex flex-wrap justify-between gap-2">
                         <span className="font-medium text-cyan-400">Commande #{order.id}</span>
                         <span className={`text-sm px-2 py-1 rounded ${order.status === 'delivered' ? 'bg-green-500/20 text-green-300' : order.status === 'pending' ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10'}`}>

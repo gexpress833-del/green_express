@@ -69,8 +69,8 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('auth:session-expired', onSessionExpired);
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    const data = await authLib.login(email, password);
+  const login = useCallback(async (loginIdentifier, password) => {
+    const data = await authLib.login(loginIdentifier, password);
     if (data?.user) {
       lastLoginAtRef.current = Date.now();
       setUser(data.user);

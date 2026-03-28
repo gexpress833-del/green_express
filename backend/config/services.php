@@ -15,11 +15,11 @@ return [
     */
 
     'postmark' => [
-        'key' => env('POSTMARK_API_KEY'),
+        'token' => env('POSTMARK_TOKEN'),
     ],
 
     'resend' => [
-        'key' => env('RESEND_API_KEY'),
+        'key' => env('RESEND_KEY'),
     ],
 
     'ses' => [
@@ -39,8 +39,7 @@ return [
         'merchant_id' => env('SHWARY_MERCHANT_ID'),
         'merchant_key' => env('SHWARY_MERCHANT_KEY'),
         'base_url' => env('SHWARY_BASE_URL', 'https://api.shwary.com/api/v1'),
-        'sandbox' => env('SHWARY_SANDBOX', false), // Production par défaut
-        'wallet_address' => env('SHWARY_WALLET_ADDRESS'), // Adresse du portefeuille
+        'sandbox' => env('SHWARY_SANDBOX', false),
+        'wallet_address' => env('SHWARY_WALLET_ADDRESS'),
     ],
-
 ];

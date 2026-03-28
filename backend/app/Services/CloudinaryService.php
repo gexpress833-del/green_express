@@ -2,17 +2,36 @@
 
 namespace App\Services;
 
-use Cloudinary\Configuration\Configuration;
-use Cloudinary\Api\Upload\UploadApi;
 use Cloudinary\Api\Admin\AdminApi;
+use Cloudinary\Api\Upload\UploadApi;
+use Cloudinary\Configuration\Configuration;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 
 class CloudinaryService
 {
     private static ?UploadApi $uploadApi = null;
+
     private static ?AdminApi $adminApi = null;
+
     private static bool $initialized = false;
+
+    /**
+     * Nom du cloud (pour URLs manuelles) même si seul CLOUDINARY_URL est défini.
+     */
+    public static function cloudName(): ?string
+    {
+        $name = config('cloudinary.cloud_name');
+        if ($name) {
+            return $name;
+        }
+        $url = config('cloudinary.url');
+        if ($url && preg_match('/@([a-z0-9_-]+)\s*$/i', $url, $m)) {
+            return $m[1];
+        }
+
+        return null;
+    }
 
     private static function initialize(): void
     {
@@ -20,79 +39,102 @@ class CloudinaryService
             return;
         }
 
-        $cloudName = env('CLOUDINARY_CLOUD_NAME');
-        $apiKey = env('CLOUDINARY_API_KEY');
-        $apiSecret = env('CLOUDINARY_API_SECRET');
+        $url = config('cloudinary.url');
+        if (is_string($url) && $url !== '') {
+            try {
+                Configuration::instance($url);
+                self::$uploadApi = new UploadApi;
+                self::$adminApi = new AdminApi;
+                self::$initialized = true;
+                Log::debug('Cloudinary initialisé via CLOUDINARY_URL');
 
-        if (!$cloudName || !$apiKey || !$apiSecret) {
-            throw new \Exception('Cloudinary not configured in .env. Cloud: ' . ($cloudName ? 'OK' : 'MISSING') . ', Key: ' . ($apiKey ? 'OK' : 'MISSING') . ', Secret: ' . ($apiSecret ? 'OK' : 'MISSING'));
+                return;
+            } catch (\Throwable $e) {
+                Log::warning('CLOUDINARY_URL invalide, fallback sur clés séparées : '.$e->getMessage());
+            }
+        }
+
+        $cloudName = config('cloudinary.cloud_name');
+        $apiKey = config('cloudinary.api_key');
+        $apiSecret = config('cloudinary.api_secret');
+
+        if (! $cloudName || ! $apiKey || ! $apiSecret) {
+            throw new \Exception(
+                'Cloudinary non configuré. Définissez CLOUDINARY_URL ou CLOUDINARY_CLOUD_NAME + CLOUDINARY_API_KEY + CLOUDINARY_API_SECRET (voir .env.example).'
+            );
         }
 
         try {
-            // Use the cloudinary:// URL format which is more reliable
             $cloudinaryUrl = "cloudinary://{$apiKey}:{$apiSecret}@{$cloudName}";
             Configuration::instance($cloudinaryUrl);
-            
-            self::$uploadApi = new UploadApi();
-            self::$adminApi = new AdminApi();
+
+            self::$uploadApi = new UploadApi;
+            self::$adminApi = new AdminApi;
             self::$initialized = true;
 
-            Log::info('Cloudinary initialized successfully', [
+            Log::info('Cloudinary initialisé', [
                 'cloud_name' => $cloudName,
-                'api_key' => substr($apiKey, 0, 5) . '***',
+                'api_key' => substr($apiKey, 0, 5).'***',
             ]);
         } catch (\Exception $e) {
-            Log::error('Cloudinary initialization failed: ' . $e->getMessage());
+            Log::error('Échec init Cloudinary : '.$e->getMessage());
             throw $e;
         }
     }
 
     public static function checkConfiguration(): array
     {
-        $cloudName = env('CLOUDINARY_CLOUD_NAME');
-        $apiKey = env('CLOUDINARY_API_KEY');
-        $apiSecret = env('CLOUDINARY_API_SECRET');
+        $url = config('cloudinary.url');
+        $hasUrl = is_string($url) && $url !== '';
 
-        if (!$cloudName || !$apiKey || !$apiSecret) {
+        $cloudName = config('cloudinary.cloud_name');
+        $apiKey = config('cloudinary.api_key');
+        $apiSecret = config('cloudinary.api_secret');
+        $hasTriple = $cloudName && $apiKey && $apiSecret;
+
+        if (! $hasUrl && ! $hasTriple) {
             return [
                 'status' => 'error',
-                'message' => 'Cloudinary credentials not configured in .env file.',
+                'message' => 'Cloudinary : renseignez CLOUDINARY_URL ou les trois variables CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.',
             ];
         }
 
         return [
             'status' => 'ok',
-            'cloud_name' => $cloudName,
-            'api_key' => substr($apiKey, 0, 5) . '***',
-            'message' => 'Cloudinary is properly configured',
+            'cloud_name' => self::cloudName() ?? $cloudName,
+            'api_key' => $apiKey ? substr($apiKey, 0, 5).'***' : '(via URL)',
+            'message' => 'Cloudinary est configuré',
         ];
     }
 
     /**
-     * Upload an image and return an array with url and public_id.
-     * For backward compatibility this method may return a string in older callers,
-     * but we prefer returning an array: ['url' => ..., 'public_id' => ...]
+     * Dossier Cloudinary effectif pour un alias (menus, uploads, …).
      */
-    public static function uploadImage(UploadedFile $file, string $folder = 'uploads')
+    public static function resolveFolder(string $folderAlias): string
+    {
+        $map = config('cloudinary.folders', []);
+
+        return $map[$folderAlias] ?? $map['uploads'] ?? 'green-express/uploads';
+    }
+
+    /**
+     * @return array{url: string, public_id: ?string, raw: mixed}
+     */
+    public static function uploadImage(UploadedFile $file, string $folder = 'uploads'): array
     {
         self::initialize();
 
-        $folderMap = [
-            'menus' => 'green-express/menus',
-            'promotions' => 'green-express/promotions',
-            'uploads' => 'green-express/uploads',
-            'profiles' => 'green-express/profiles',
-            // Allow full paths as-is
-            'green-express/menus' => 'green-express/menus',
-            'green-express/promotions' => 'green-express/promotions',
-            'green-express/uploads' => 'green-express/uploads',
-            'green-express/profiles' => 'green-express/profiles',
-        ];
+        $targetFolder = self::resolveFolder($folder);
 
-        $result = self::$uploadApi->upload($file->getRealPath(), [
-            'folder' => $folderMap[$folder] ?? $folderMap['uploads'],
-            'public_id' => time() . '_' . uniqid(),
-        ]);
+        $options = array_merge(
+            config('cloudinary.upload_defaults', []),
+            [
+                'folder' => $targetFolder,
+                'public_id' => time().'_'.uniqid('', true),
+            ]
+        );
+
+        $result = self::$uploadApi->upload($file->getRealPath(), $options);
 
         $url = $result['secure_url'] ?? ($result['url'] ?? '');
         $publicId = $result['public_id'] ?? null;
@@ -106,39 +148,38 @@ class CloudinaryService
 
     public static function deleteImage(string $publicId): bool
     {
+        $resolved = $publicId;
+
         try {
             self::initialize();
 
-            // Si c'est une URL, extraire le public_id
-            if (filter_var($publicId, FILTER_VALIDATE_URL)) {
-                $publicId = self::extractPublicId($publicId);
+            if (filter_var($resolved, FILTER_VALIDATE_URL)) {
+                $resolved = self::extractPublicId($resolved) ?? '';
             }
 
-            if (!$publicId) {
-                Log::warning('Invalid public_id for deletion');
+            if ($resolved === '') {
+                Log::warning('public_id Cloudinary invalide pour suppression');
+
                 return false;
             }
 
-            // Cloudinary SDK expects just an array of public IDs, not in options array
             try {
-                self::$adminApi->deleteAssets([$publicId]);
-                Log::info('Cloudinary asset deleted: ' . $publicId);
+                self::$adminApi->deleteAssets([$resolved]);
+                Log::info('Cloudinary : asset supprimé', ['public_id' => $resolved]);
+
                 return true;
             } catch (\Exception $deleteEx) {
-                // If failed, try without folder prefix (last part only)
-                if (strpos($publicId, '/') !== false) {
-                    $parts = explode('/', $publicId);
-                    $simpleName = end($parts);
-                    Log::info('Retry delete with simple name: ' . $simpleName);
+                if (str_contains($resolved, '/')) {
+                    $simpleName = basename($resolved);
                     self::$adminApi->deleteAssets([$simpleName]);
+
                     return true;
                 }
                 throw $deleteEx;
             }
         } catch (\Exception $e) {
-            Log::error('Cloudinary delete error: ' . $e->getMessage(), [
-                'public_id' => $publicId,
-            ]);
+            Log::error('Cloudinary delete : '.$e->getMessage(), ['public_id' => $resolved]);
+
             return false;
         }
     }
@@ -146,21 +187,26 @@ class CloudinaryService
     public static function getTransformedUrl(string $publicId, array $transformations = []): string
     {
         try {
-            $cloudName = env('CLOUDINARY_CLOUD_NAME');
-            $baseUrl = 'https://res.cloudinary.com/' . $cloudName . '/image/upload';
-
-            $transformStr = '';
-            if (!empty($transformations)) {
-                $parts = [];
-                foreach ($transformations as $k => $v) {
-                    $parts[] = $k . '_' . $v;
-                }
-                $transformStr = '/' . implode(',', $parts);
+            $cloud = self::cloudName();
+            if (! $cloud) {
+                return '';
             }
 
-            return $baseUrl . $transformStr . '/' . $publicId;
+            $baseUrl = 'https://res.cloudinary.com/'.$cloud.'/image/upload';
+
+            $transformStr = '';
+            if (! empty($transformations)) {
+                $parts = [];
+                foreach ($transformations as $k => $v) {
+                    $parts[] = $k.'_'.$v;
+                }
+                $transformStr = '/'.implode(',', $parts);
+            }
+
+            return $baseUrl.$transformStr.'/'.$publicId;
         } catch (\Exception $e) {
-            Log::error('Cloudinary transform error: ' . $e->getMessage());
+            Log::error('Cloudinary transform : '.$e->getMessage());
+
             return '';
         }
     }
@@ -170,7 +216,7 @@ class CloudinaryService
         if (preg_match('/\/upload\/(?:v\d+\/)?(.+?)(?:\.\w+)?$/', $url, $matches)) {
             return rtrim($matches[1], '/');
         }
+
         return null;
     }
-
 }

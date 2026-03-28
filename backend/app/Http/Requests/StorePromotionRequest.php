@@ -23,6 +23,8 @@ class StorePromotionRequest extends FormRequest
             'quantity_limit' => 'nullable|integer|min:0',
             'start_at' => 'nullable|date_format:Y-m-d\TH:i',
             'end_at' => 'nullable|date_format:Y-m-d\TH:i|after_or_equal:start_at',
+            /** Mettre en avant comme « promotion spéciale » dans la notification à tous les utilisateurs */
+            'notify_featured' => 'sometimes|boolean',
         ];
     }
 }

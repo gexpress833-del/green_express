@@ -22,6 +22,7 @@ class User extends Authenticatable implements HasMedia
     protected $fillable = [
         'name',
         'email',
+        'phone',
         'avatar_url',
         'password',
         'role',
@@ -52,6 +53,19 @@ class User extends Authenticatable implements HasMedia
     public function profile()
     {
         return $this->hasOne(Profile::class);
+    }
+
+    /**
+     * Téléphone normalisé (243…) pour connexion ; peut être null si uniquement e-mail.
+     */
+    public function setPhoneAttribute(?string $value): void
+    {
+        if ($value === null || $value === '') {
+            $this->attributes['phone'] = null;
+
+            return;
+        }
+        $this->attributes['phone'] = \App\Services\PhoneRDCService::formatPhoneRDC($value);
     }
 
     public function company()

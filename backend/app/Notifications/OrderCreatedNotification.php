@@ -23,6 +23,7 @@ class OrderCreatedNotification extends Notification
     {
         $client = $this->order->user;
         return [
+            'category' => 'order',
             'kind' => 'order_created',
             'order_id' => $this->order->id,
             'order_uuid' => $this->order->uuid,

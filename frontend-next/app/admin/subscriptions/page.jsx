@@ -1,7 +1,7 @@
 "use client"
 import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { apiRequest } from '@/lib/api'
 import { formatDate, formatCurrencyCDF } from '@/lib/helpers'
 import GoldButton from '@/components/GoldButton'
@@ -28,9 +28,18 @@ export default function AdminSubscriptionsPage() {
   }, [loadSubs])
 
   const pending = subs.filter((s) => s.status === 'pending')
-  const active = subs.filter((s) => s.status === 'active')
-  const rejected = subs.filter((s) => s.status === 'rejected')
   const filteredSubs = statusFilter ? subs.filter((s) => s.status === statusFilter) : subs
+
+  const sortedSubs = useMemo(() => {
+    const order = { pending: 0, active: 1, paused: 2, expired: 3, rejected: 4, cancelled: 5 }
+    return [...filteredSubs].sort((a, b) => {
+      const da = order[a.status] ?? 99
+      const db = order[b.status] ?? 99
+      if (da !== db) return da - db
+      return new Date(b.created_at) - new Date(a.created_at)
+    })
+  }, [filteredSubs])
+
   const STATUS_LABELS = { pending: 'En attente', active: 'Actif', paused: 'En pause', rejected: 'Refusé', expired: 'Expiré', cancelled: 'Annulé' }
 
   async function handleValidate(id) {
@@ -39,31 +48,32 @@ export default function AdminSubscriptionsPage() {
       await apiRequest(`/api/admin/subscriptions/validate/${id}`, { method: 'POST' })
       setRejectId(null)
       loadSubs()
-      pushToast('Abonnement validé et activé.', 'success')
+      pushToast({ message: 'Abonnement validé et activé.', type: 'success' })
     } catch (e) {
       console.error(e)
-      pushToast(e?.message || 'Erreur lors de la validation.', 'error')
+      pushToast({ message: e?.message || 'Erreur lors de la validation.', type: 'error' })
     } finally {
       setActioning(null)
     }
   }
 
   async function handleReject(id) {
-    if (!rejectReason.trim() && rejectId === id) return
     setActioning(id)
     try {
       await apiRequest(`/api/admin/subscriptions/reject/${id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: rejectReason.trim() || 'Paiement non reçu ou échoué.' }),
+        body: JSON.stringify({
+          reason: rejectReason.trim() || 'Demande refusée par l\'administrateur.',
+        }),
       })
       setRejectId(null)
       setRejectReason('')
       loadSubs()
-      pushToast('Demande rejetée.', 'success')
+      pushToast({ message: 'Demande rejetée.', type: 'success' })
     } catch (e) {
       console.error(e)
-      pushToast(e?.message || 'Erreur lors du rejet.', 'error')
+      pushToast({ message: e?.message || 'Erreur lors du rejet.', type: 'error' })
     } finally {
       setActioning(null)
     }
@@ -74,10 +84,10 @@ export default function AdminSubscriptionsPage() {
     try {
       await apiRequest(`/api/admin/subscriptions/${id}/pause`, { method: 'POST' })
       loadSubs()
-      pushToast('Abonnement mis en pause.', 'success')
+      pushToast({ message: 'Abonnement mis en pause.', type: 'success' })
     } catch (e) {
       console.error(e)
-      pushToast(e?.message || 'Erreur.', 'error')
+      pushToast({ message: e?.message || 'Erreur.', type: 'error' })
     } finally {
       setActioning(null)
     }
@@ -88,25 +98,24 @@ export default function AdminSubscriptionsPage() {
     try {
       await apiRequest(`/api/admin/subscriptions/${id}/resume`, { method: 'POST' })
       loadSubs()
-      pushToast('Abonnement repris.', 'success')
+      pushToast({ message: 'Abonnement repris.', type: 'success' })
     } catch (e) {
       console.error(e)
-      pushToast(e?.message || 'Erreur.', 'error')
+      pushToast({ message: e?.message || 'Erreur.', type: 'error' })
     } finally {
       setActioning(null)
     }
   }
 
   async function handleCancel(id) {
-    if (!confirm('Annuler définitivement cet abonnement ?')) return
     setActioning(id)
     try {
       await apiRequest(`/api/admin/subscriptions/${id}/cancel`, { method: 'POST' })
       loadSubs()
-      pushToast('Abonnement annulé.', 'success')
+      pushToast({ message: 'Abonnement annulé.', type: 'success' })
     } catch (e) {
       console.error(e)
-      pushToast(e?.message || 'Erreur.', 'error')
+      pushToast({ message: e?.message || 'Erreur.', type: 'error' })
     } finally {
       setActioning(null)
     }
@@ -137,7 +146,9 @@ export default function AdminSubscriptionsPage() {
             }}>
               Abonnements clients
             </h1>
-            <p className="text-white/70 text-lg">Validez ou rejetez les demandes après vérification du paiement. Gérez les plans ci-dessous.</p>
+            <p className="text-white/70 text-lg max-w-3xl">
+              Toutes les souscriptions clients (particuliers) sont listées ici. Une demande reste <strong className="text-amber-200/90">en attente</strong> jusqu’à votre validation ou votre refus après vérification du paiement. Seul l’administrateur peut valider, rejeter, mettre en pause ou supprimer (annuler) un abonnement — le client ne peut pas suspendre son abonnement lui-même.
+            </p>
           </div>
           <div className="flex gap-2">
             <Link href="/admin/subscription-plans">
@@ -212,6 +223,17 @@ export default function AdminSubscriptionsPage() {
                             <button type="button" onClick={() => setRejectId(null)} className="text-white/60 text-sm">Annuler</button>
                           </>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!confirm('Supprimer cette demande sans l’examiner davantage ?')) return
+                            handleCancel(s.id)
+                          }}
+                          disabled={actioning !== null}
+                          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white/10 border border-white/25 text-white/90 hover:bg-white/15 disabled:opacity-50"
+                        >
+                          Supprimer la demande
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -240,42 +262,108 @@ export default function AdminSubscriptionsPage() {
                 <div className="card text-center py-12">
                   <p className="text-white/60">Chargement...</p>
                 </div>
-              ) : filteredSubs.length === 0 ? (
+              ) : sortedSubs.length === 0 ? (
                 <div className="card text-center py-12">
                   <p className="text-white/60">{statusFilter ? 'Aucun abonnement avec ce statut.' : 'Aucun abonnement.'}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredSubs.map((s) => (
+                  {sortedSubs.map((s) => (
                     <div key={s.id} className="card p-4 border border-white/10 flex flex-wrap justify-between items-start gap-4">
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <span className="font-semibold text-cyan-400">{s.plan}</span>
                         <span className={`badge ${getStatusBadge(s.status)} ml-2`}>{STATUS_LABELS[s.status] || s.status}</span>
+                        {s.period && (
+                          <span className="text-white/45 text-xs ml-2">
+                            ({s.period === 'week' ? 'hebdomadaire' : 'mensuel'})
+                          </span>
+                        )}
                         {s.user && (
                           <p className="text-white/60 text-sm mt-1">{s.user.name || s.user.email}</p>
                         )}
                         <p className="text-white/70 text-sm mt-1">
                           {formatCurrencyCDF(Number(s.price))} {s.period === 'week' ? '/ semaine' : '/ mois'}
                         </p>
+                        <p className="text-white/40 text-xs mt-0.5">Demande du {formatDate(s.created_at)}</p>
                         {(s.started_at || s.expires_at) && (
                           <p className="text-white/50 text-xs mt-1">
-                            {s.started_at && `Du ${formatDate(s.started_at)}`}
-                            {s.expires_at && ` au ${formatDate(s.expires_at)}`}
+                            {s.started_at && `Début effectif ${formatDate(s.started_at)}`}
+                            {s.expires_at && ` · Fin prévue ${formatDate(s.expires_at)}`}
                           </p>
+                        )}
+                        {s.status === 'pending' && s.has_payment_received && (
+                          <span className="inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium bg-green-500/30 text-green-300 border border-green-500/50">Paiement signalé</span>
                         )}
                         {s.status === 'rejected' && s.rejected_reason && (
                           <p className="text-red-300/80 text-xs mt-1">Motif : {s.rejected_reason}</p>
                         )}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 justify-end">
+                        {s.status === 'pending' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleValidate(s.id)}
+                              disabled={actioning !== null}
+                              className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-500 disabled:opacity-50"
+                            >
+                              {actioning === s.id ? '…' : 'Approuver'}
+                            </button>
+                            {rejectId !== s.id ? (
+                              <button
+                                type="button"
+                                onClick={() => { setRejectId(s.id); setRejectReason('') }}
+                                disabled={actioning !== null}
+                                className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-600/80 text-white hover:bg-red-500 disabled:opacity-50"
+                              >
+                                Rejeter
+                              </button>
+                            ) : (
+                              <>
+                                <input
+                                  type="text"
+                                  placeholder="Motif du refus (optionnel)"
+                                  value={rejectReason}
+                                  onChange={(e) => setRejectReason(e.target.value)}
+                                  className="px-2 py-1 rounded bg-white/10 border border-white/20 text-white text-sm w-44 max-w-full"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleReject(s.id)}
+                                  disabled={actioning !== null}
+                                  className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-500 disabled:opacity-50"
+                                >
+                                  {actioning === s.id ? '…' : 'Confirmer rejet'}
+                                </button>
+                                <button type="button" onClick={() => { setRejectId(null); setRejectReason('') }} className="text-white/60 text-sm">
+                                  Fermer
+                                </button>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!confirm('Supprimer définitivement cette demande (sans l’approuver) ?')) return
+                                handleCancel(s.id)
+                              }}
+                              disabled={actioning !== null}
+                              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white/10 border border-white/25 text-white/90 hover:bg-white/15 disabled:opacity-50"
+                            >
+                              {actioning === s.id ? '…' : 'Supprimer la demande'}
+                            </button>
+                          </>
+                        )}
                         {s.status === 'active' && (
                           <>
-                            <button type="button" onClick={() => handlePause(s.id)} disabled={actioning !== null} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50">{actioning === s.id ? 'Mise en pause…' : 'Mettre en pause'}</button>
-                            <button type="button" onClick={() => handleCancel(s.id)} disabled={actioning !== null} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-600/80 text-white hover:bg-red-500 disabled:opacity-50">{actioning === s.id ? 'Annulation…' : 'Annuler'}</button>
+                            <button type="button" onClick={() => handlePause(s.id)} disabled={actioning !== null} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50">{actioning === s.id ? '…' : 'Mettre en pause'}</button>
+                            <button type="button" onClick={() => { if (!confirm('Annuler cet abonnement actif ? Le client en sera informé via le statut.')) return; handleCancel(s.id) }} disabled={actioning !== null} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-600/80 text-white hover:bg-red-500 disabled:opacity-50">{actioning === s.id ? '…' : 'Résilier / annuler'}</button>
                           </>
                         )}
                         {s.status === 'paused' && (
-                          <button type="button" onClick={() => handleResume(s.id)} disabled={actioning !== null} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-500 disabled:opacity-50">{actioning === s.id ? 'Reprise…' : 'Reprendre'}</button>
+                          <>
+                            <button type="button" onClick={() => handleResume(s.id)} disabled={actioning !== null} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-500 disabled:opacity-50">{actioning === s.id ? '…' : 'Reprendre'}</button>
+                            <button type="button" onClick={() => { if (!confirm('Annuler définitivement cet abonnement ?')) return; handleCancel(s.id) }} disabled={actioning !== null} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-600/80 text-white hover:bg-red-500 disabled:opacity-50">{actioning === s.id ? '…' : 'Résilier'}</button>
+                          </>
                         )}
                       </div>
                     </div>

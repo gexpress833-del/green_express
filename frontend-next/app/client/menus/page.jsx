@@ -1,6 +1,7 @@
 "use client"
 import ReadOnlyGuard from '@/components/ReadOnlyGuard'
 import MenuCard from '@/components/MenuCard'
+import ClientSubpageHeader from '@/components/ClientSubpageHeader'
 import { useEffect, useState } from 'react'
 import { apiRequest } from '@/lib/api'
 
@@ -19,11 +20,11 @@ export default function ClientMenus() {
       setLoading(true)
       const params = new URLSearchParams({ status: 'approved' })
       if (searchTerm) params.append('search', searchTerm)
-      
-      const response = await apiRequest(`/api/menus/browse?${params.toString()}`, { 
-        method: 'GET' 
+
+      const response = await apiRequest(`/api/menus/browse?${params.toString()}`, {
+        method: 'GET',
       })
-      
+
       let menuList = []
       if (Array.isArray(response)) {
         menuList = response
@@ -32,7 +33,7 @@ export default function ClientMenus() {
       } else if (response?.data?.data && Array.isArray(response.data.data)) {
         menuList = response.data.data
       }
-      
+
       setMenus(menuList)
       setError('')
     } catch (err) {
@@ -51,89 +52,85 @@ export default function ClientMenus() {
 
   return (
     <ReadOnlyGuard allowedActions={['view', 'read', 'order']} showWarning={false}>
-      <section className="page-section text-white min-h-screen">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl sm:text-4xl font-extrabold mb-2"
-                style={{
-                  background: 'linear-gradient(135deg, #ffd700 0%, #ffed4e 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                }}>
-              🍜 Menus disponibles
-            </h1>
-            <p className="text-slate-300 text-sm sm:text-base max-w-xl">
-              Consultez nos plats du jour et passez votre commande en quelques clics.
-            </p>
-          </div>
+      <section className="page-section client-menus-page">
+        <div className="client-menus-inner">
+          <ClientSubpageHeader
+            title="Menus disponibles"
+            subtitle="Découvrez nos plats préparés avec soin — ajoutez au panier ou commandez en un clic."
+            icon="🍜"
+          />
 
-          {/* Search Bar */}
-          <div className="mb-8 bg-slate-900/70 rounded-2xl p-4 shadow-lg border border-slate-700/70 backdrop-blur">
-            <form onSubmit={handleSearch} className="flex gap-3 flex-col sm:flex-row">
-              <input
-                type="text"
-                placeholder="🔍 Rechercher un plat (nom, description...)"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 px-4 py-3 rounded-lg bg-slate-800 text-white placeholder-slate-400 border border-slate-600 focus:border-amber-400 focus:outline-none transition"
-              />
-              <button
-                type="submit"
-                className="px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black font-bold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl active:scale-95"
-              >
+          <p className="client-menus-kicker">Catalogue en direct</p>
+
+          <div className="client-menus-search-panel">
+            <div className="client-menus-search-head">
+              <h2 className="client-menus-search-title">Trouver un plat</h2>
+              <p className="client-menus-search-hint">
+                Saisissez un mot-clé (nom du plat, ingrédient…) puis lancez la recherche.
+              </p>
+            </div>
+            <form className="client-menus-form" onSubmit={handleSearch}>
+              <div className="client-menus-input-wrap">
+                <input
+                  type="search"
+                  className="client-menus-input"
+                  placeholder="Ex. poulet, frites, dessert…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  autoComplete="off"
+                  aria-label="Rechercher un plat"
+                />
+              </div>
+              <button type="submit" className="client-menus-btn-submit">
                 Rechercher
               </button>
             </form>
           </div>
 
-          {/* Error Message */}
           {error && (
-            <div className="p-4 bg-red-500/20 border border-red-400 rounded-xl text-red-200 mb-8">
+            <div
+              className="card"
+              style={{
+                marginBottom: 24,
+                borderColor: 'rgba(248, 113, 113, 0.45)',
+                background: 'rgba(127, 29, 29, 0.25)',
+                color: '#fecaca',
+              }}
+            >
               ⚠️ {error}
             </div>
           )}
 
-          {/* Loading State */}
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                <div 
-                  key={i}
-                  className="h-80 bg-slate-700/50 rounded-2xl animate-pulse"
-                />
+            <div className="client-menus-grid">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} className="client-menus-skeleton" aria-hidden />
               ))}
             </div>
           ) : menus.length === 0 ? (
-            /* Empty State */
-            <div className="flex flex-col items-center justify-center py-20 px-4">
-              <div className="text-6xl mb-4">🍽️</div>
-              <h3 className="text-2xl font-bold text-white mb-2">Aucun plat disponible</h3>
-              <p className="text-slate-400 text-center max-w-md">
-                {searchTerm 
-                  ? `Aucun résultat pour "${searchTerm}". Essayez une autre recherche.`
-                  : 'Revenez bientôt pour découvrir nos menus.'}
+            <div className="client-menus-empty">
+              <div className="client-menus-empty-emoji" aria-hidden>
+                🍽️
+              </div>
+              <h3 className="client-menus-empty-title">Aucun plat disponible</h3>
+              <p className="client-menus-empty-text">
+                {searchTerm
+                  ? `Aucun résultat pour « ${searchTerm} ». Essayez un autre mot-clé ou parcourez tout le catalogue.`
+                  : 'Revenez bientôt pour découvrir nos nouveautés.'}
               </p>
             </div>
           ) : (
-            /* Grid of Cards */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {menus.map(menu => (
-                <MenuCard
-                  key={menu.id}
-                  menu={menu}
-                  variant="client"
-                />
+            <div className="client-menus-grid">
+              {menus.map((menu) => (
+                <MenuCard key={menu.id} menu={menu} variant="client" />
               ))}
             </div>
           )}
 
-          {/* Stats Footer */}
           {menus.length > 0 && !loading && (
-            <div className="mt-12 p-6 bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl border border-slate-600 text-center">
-              <p className="text-slate-300">
-                <span className="font-bold text-amber-400 text-lg">{menus.length}</span> plat(s) disponible(s)
+            <div className="client-menus-footer-strip">
+              <p style={{ margin: 0, color: 'rgba(255,255,255,0.75)', fontSize: '0.9375rem' }}>
+                <strong>{menus.length}</strong> plat{menus.length > 1 ? 's' : ''} au menu — Bon appétit !
               </p>
             </div>
           )}

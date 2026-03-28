@@ -29,7 +29,7 @@ A complete food ordering platform with role-based dashboards, promotion system, 
 - Multi-currency support
 
 ✅ **Security**
-- JWT authentication
+- Session authentication with Laravel Sanctum
 - Role-based middleware
 - Rate limiting (login, claim, upload)
 - Input validation (backend + frontend)
@@ -54,13 +54,14 @@ A complete food ordering platform with role-based dashboards, promotion system, 
 ### Backend
 - **Laravel 10+** (API)
 - **PHP 8.1+**
-- **JWT Authentication** (tymon/jwt-auth)
+- **Laravel Sanctum / session auth**
 - **SQLite/PostgreSQL**
 
 ### Infrastructure
 - **Cloudinary** (image storage)
+- **pawaPay** (paiements Mobile Money)
+- **Render** (backend hosting)
 - **Vercel** (frontend hosting)
-- **Heroku** (backend hosting) - optional
 
 ## Quick Start
 
@@ -71,7 +72,6 @@ A complete food ordering platform with role-based dashboards, promotion system, 
 cd backend
 composer install
 php artisan key:generate
-php artisan jwt:secret
 php artisan migrate:fresh --seed
 php artisan serve
 
@@ -158,8 +158,8 @@ Voir **[docs/API.md](docs/API.md)** pour la référence détaillée et **[docs/o
 ### Authentication
 ```
 POST   /api/register           Create account
-POST   /api/login              Get JWT token
-POST   /api/logout             Revoke token
+POST   /api/login              Open session
+POST   /api/logout             Close session
 GET    /api/me                 Get current user
 ```
 
@@ -232,10 +232,20 @@ CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_secret
 ```
 
-### JWT Secret
-```bash
-php artisan jwt:secret
-# Generates JWT_SECRET in .env
+### Session / API URL
+
+Backend:
+
+```env
+FRONTEND_URL=http://localhost:3000
+CORS_ALLOWED_ORIGINS=http://localhost:3000
+SANCTUM_STATEFUL_DOMAINS=localhost:3000,127.0.0.1:3000
+```
+
+Frontend:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ### Rate Limiting
@@ -271,7 +281,7 @@ See [TEST_GUIDE.md](TEST_GUIDE.md) for complete manual test scenarios.
 
 ## Security
 
-- ✅ JWT with expiry
+- ✅ Session auth with Laravel Sanctum
 - ✅ Role-based middleware
 - ✅ Input validation (backend + frontend)
 - ✅ Database transactions (promotion claims)
@@ -284,10 +294,10 @@ See [SECURITY.md](SECURITY.md) for full details.
 
 ## Deployment
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for:
+See `docs/DEPLOY_RENDER.md` for:
 - Local development setup
 - Deploy to Vercel (frontend)
-- Deploy to Heroku (backend)
+- Deploy to Render (backend)
 - Environment variables
 - Monitoring & logs
 - Troubleshooting
@@ -305,7 +315,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for:
 - [x] Order system (menu → order → payment)
 - [x] Delivery assignment (livreur : validate code)
 - [x] Promotion ticket validation (vérificateur)
-- [x] Payment webhooks (Shwary)
+- [x] Payment webhooks (pawaPay)
 
 ### Phase 3 📅 PLANNED
 - [ ] Real-time notifications (WebSocket)
@@ -319,7 +329,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for:
 ### Error Tracking
 - Sentry (optional): [SECURITY.md](SECURITY.md#monitoring--logging)
 - Local logs: `backend/storage/logs/`
-- Heroku logs: `heroku logs --tail -a app_name`
+- Render logs: dashboard service logs
 
 ### Performance
 - Frontend: Vercel Analytics
@@ -351,7 +361,7 @@ For issues, questions, or suggestions:
 - 6 role-based dashboards
 - Promotion system with atomic claims
 - Image uploads to Cloudinary
-- JWT authentication
+- Laravel Sanctum session authentication
 - Rate limiting & security
 
 ---

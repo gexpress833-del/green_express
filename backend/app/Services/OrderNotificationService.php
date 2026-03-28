@@ -11,13 +11,8 @@ class OrderNotificationService
 {
     public function notifyOrderCreated(Order $order): void
     {
-        // Admins
+        // Admins uniquement — le client est notifié à la réception du code de livraison (statut payé + code GX-…)
         User::where('role', 'admin')->each(fn ($u) => $u->notify(new OrderCreatedNotification($order)));
-
-        // Client (propriétaire)
-        if ($order->user) {
-            $order->user->notify(new OrderCreatedNotification($order));
-        }
     }
 
     /**
@@ -27,10 +22,15 @@ class OrderNotificationService
     {
         $notification = new OrderStatusChangedNotification($order, $from, $to, $triggeredBy);
 
-        // Toujours : admin + client
         User::where('role', 'admin')->each(fn ($u) => $u->notify($notification));
+
+        // Client : code de livraison (paid + GX-…) ou confirmation de livraison terminée (delivered)
         if ($order->user) {
-            $order->user->notify($notification);
+            if ($to === 'paid' && $order->delivery_code) {
+                $order->user->notify($notification);
+            } elseif ($to === 'delivered') {
+                $order->user->notify($notification);
+            }
         }
 
         // Selon statut : cuisiniers / livreurs (le vérificateur ne valide que les codes promotion de réclamation, pas les livraisons)

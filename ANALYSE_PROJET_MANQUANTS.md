@@ -9,7 +9,7 @@
 
 ### 1.1 Backend – `.env.example` incomplet
 - **Problème :** Le fichier `backend/.env.example` ne contient pas les variables nécessaires à l’app.
-- **Manquant :** JWT (`JWT_SECRET`, `JWT_TTL`, etc.), Cloudinary, Shwary, `FRONTEND_URL`, `SANCTUM_STATEFUL_DOMAINS`, option SQLite.
+- **Manquant :** à l’époque de cette analyse : auth, Cloudinary, provider paiement, `FRONTEND_URL`, `SANCTUM_STATEFUL_DOMAINS`, option SQLite.
 - **Référence :** La config complète est dans `backend/ENV_CONFIG.md` mais pas dans `.env.example`.
 - **Action :** Aligner `.env.example` sur `ENV_CONFIG.md` (ou y ajouter un lien vers ce fichier) pour que `cp .env.example .env` suffise en dev.
 
@@ -99,19 +99,19 @@
 ## 7. Sécurité et bonnes pratiques
 
 ### 7.1 Déjà en place (positif)
-- JWT, middleware par rôle, rate limiting, validation, CORS, transactions pour les claims, upload limité (taille, MIME). Voir `SECURITY.md`.
+- Auth, middleware par rôle, rate limiting, validation, CORS, transactions pour les claims, upload limité (taille, MIME). Voir `SECURITY.md`.
 
 ### 7.2 À vérifier / renforcer
-- **Secrets dans le code :** Vérifier qu’aucune clé API (Cloudinary, Shwary, JWT) n’est en dur dans le code ; tout doit passer par `.env`.
+- **Secrets dans le code :** Vérifier qu’aucune clé API (Cloudinary, pawaPay, auth) n’est en dur dans le code ; tout doit passer par `.env`.
 - **`.env` et `.env.local` :** S’assurer qu’ils sont bien dans `.gitignore` (Laravel et Next le font par défaut ; à confirmer à la racine si vous versionnez backend + frontend ensemble).
-- **Webhooks :** `payments/webhook` et `shwary/callback` sont en POST public ; s’assurer que la vérification de signature (ex. `PAYMENT_WEBHOOK_SECRET`, Shwary) est bien implémentée et testée.
+- **Webhooks :** `payments/webhook` et `pawapay/callback` sont en POST public ; s’assurer que la validation et les secrets éventuels sont bien testés.
 
 ---
 
 ## 8. Alignement README / code (Roadmap)
 
-- **README – Phase 2 :** Indique “Order system”, “Delivery assignment”, “Promotion ticket validation”, “Payment webhooks (Shwary)” comme “IN PROGRESS” ou non cochés.
-- **Code :** Les contrôleurs et routes existent (OrderController, ShwaryController, LivreurController `validateCode`, VerificateurController `validatePromotionTicket`, etc.). Une partie de la Phase 2 est donc déjà implémentée.
+- **README – Phase 2 :** L’état réel doit refléter les flux commandes, livraison, validation ticket et webhooks `pawaPay`.
+- **Code :** Les contrôleurs et routes existent pour les flux métier principaux. Une partie importante de la phase concernée était déjà implémentée au moment de cette analyse.
 - **Action :** Mettre à jour le README (roadmap / Phase 2) pour refléter ce qui est réellement livré (ex. cocher “Order system”, “Payment webhooks”, “Promotion ticket validation”, “Delivery assignment” si c’est le cas), et détailler éventuellement ce qui reste à faire (ex. notifications, 2FA).
 
 ---
@@ -121,7 +121,7 @@
 | Priorité | Élément manquant | Action recommandée |
 |----------|------------------|--------------------|
 | **Haute** | Tests backend PromotionClaimTest cassés | Ajouter `HasFactory` + `MenuFactory` et `PromotionFactory` |
-| **Haute** | `.env.example` backend incomplet | Compléter avec JWT, Cloudinary, Shwary, CORS (ou pointer vers ENV_CONFIG.md) |
+| **Haute** | `.env.example` backend incomplet | Compléter avec Cloudinary, pawaPay, CORS (ou pointer vers ENV_CONFIG.md) |
 | **Haute** | Pas de `.env.local.example` frontend | Créer le fichier avec `NEXT_PUBLIC_API_BASE` et variables optionnelles |
 | **Moyenne** | Pas de dépôt Git | `git init`, `.gitignore`, premier commit |
 | **Moyenne** | Fichier LICENSE manquant | Ajouter `LICENSE` (MIT ou autre) |
@@ -137,7 +137,7 @@
 
 ## 10. Conclusion
 
-Le projet est déjà avancé (backend Laravel, frontend Next.js, rôles, promotions, commandes, paiements Shwary, Filament, etc.). Les principaux manques concernent :
+Le projet est déjà avancé (backend Laravel, frontend Next.js, rôles, promotions, commandes, paiements Mobile Money, Filament, etc.). Les principaux manques concernent :
 
 1. **Config et onboarding :** `.env.example` backend complet, `.env.local.example` frontend.
 2. **Tests :** Factories Menu/Promotion + HasFactory pour que les tests existants passent ; extension des tests backend ; clarification ou ajout des tests frontend (Playwright).

@@ -1,10 +1,11 @@
 # Green Express – Référence API
 
-Base URL : `http://127.0.0.1:8000/api` (dev) ou votre URL de déploiement.
+Base URL : `http://127.0.0.1:8000/api` en local, ou l’URL de déploiement Render.
 
-Authentification : **JWT**. En-tête : `Authorization: Bearer <token>`.
+Authentification principale : **session / cookies Laravel** via `auth:api` (SPA Next.js + Sanctum/session).  
+Selon les cas, certains clients externes peuvent aussi utiliser un header `Authorization`, mais la référence projet actuelle côté frontend repose sur les cookies de session.
 
-Une spécification OpenAPI 3.0 minimale est disponible dans [openapi.yaml](openapi.yaml) pour import dans Postman, Swagger UI, etc.
+Une spécification OpenAPI minimale est disponible dans [openapi.yaml](openapi.yaml).
 
 ---
 
@@ -13,9 +14,9 @@ Une spécification OpenAPI 3.0 minimale est disponible dans [openapi.yaml](opena
 | Méthode | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/register` | Créer un compte |
-| POST | `/login` | Obtenir un token JWT |
-| GET | `/me` | Utilisateur courant (auth) |
-| POST | `/logout` | Invalider le token (auth) |
+| POST | `/login` | Ouvrir une session |
+| GET | `/me` | Utilisateur courant |
+| POST | `/logout` | Fermer la session |
 
 ---
 
@@ -40,10 +41,23 @@ Une spécification OpenAPI 3.0 minimale est disponible dans [openapi.yaml](opena
 |--------|----------|-------------|
 | GET | `/orders` | Liste (admin: tout, autre: ses commandes) |
 | POST | `/orders` | Créer une commande |
-| POST | `/orders/{id}/initiate-payment` | Démarrer paiement (ex. Shwary) |
+| POST | `/orders/{id}/initiate-payment` | Initier un paiement Mobile Money via pawaPay |
 | POST | `/orders/{uuid}/validate-code` | Valider code livraison |
 
 **Création (POST /orders)** : `items` (array de `{menu_id, quantity, price?}`), `delivery_address`, `company_id?`.
+
+**Paiement commande (POST /orders/{id}/initiate-payment)** :
+- `client_phone_number`
+- `country_code` : `DRC`, `KE`, `UG`
+- `provider` optionnel selon le pays
+
+Le backend crée un dépôt pawaPay, stocke un `Payment` avec `provider = pawapay`, puis attend le callback ou le fallback job.
+
+### Webhook dépôt pawaPay
+
+| Méthode | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/pawapay/callback` | Webhook dépôt pawaPay |
 
 ---
 
@@ -76,6 +90,7 @@ Une spécification OpenAPI 3.0 minimale est disponible dans [openapi.yaml](opena
 | GET | `/entreprise/stats` | Stats entreprise |
 | GET | `/subscriptions` | Liste abonnements |
 | POST | `/subscriptions` | Créer abonnement |
+| POST | `/subscriptions/{id}/initiate-payment` | Initier paiement d’abonnement via pawaPay |
 | GET | `/users` | Liste utilisateurs (admin) |
 | POST | `/users/{id}/role` | Changer rôle (admin) |
 | POST | `/reports/generate` | Générer rapport |

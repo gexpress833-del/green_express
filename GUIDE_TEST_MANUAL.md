@@ -189,36 +189,38 @@ Attendre : `Ready` (frontend sur http://localhost:3000).
 
 ---
 
-## Partie 7 : Paiement Mobile Money (Shwary)
+## Partie 7 : Paiement Mobile Money (pawaPay)
 
-Le paiement Mobile Money (Orange Money, M-Pesa, Airtel Money) passe par **Shwary**. En **sandbox** (développement), le paiement est considéré comme complété immédiatement et le code de livraison s'affiche sans appel réel au mobile.
+Le paiement Mobile Money passe par **pawaPay**. Le frontend initie le dépôt, puis le backend attend soit le callback `POST /api/pawapay/callback`, soit le fallback du scheduler.
 
 ### Configuration backend (.env)
 
 Dans `backend\.env`, vérifier ou ajouter :
 
 ```env
-SHWARY_MERCHANT_ID=votre_merchant_id
-SHWARY_MERCHANT_KEY=votre_merchant_key
-SHWARY_SANDBOX=true
-SHWARY_RATE_USD_TO_CDF=2500
-SHWARY_DEFAULT_ORDER_CURRENCY=USD
+PAWAPAY_API_TOKEN=votre_token
+PAWAPAY_BASE_URL=https://api.sandbox.pawapay.io
+PAWAPAY_CALLBACK_URL=https://votre-domaine.com/api/pawapay/callback
+PAWAPAY_TIMEOUT=30
+PAWAPAY_PROVIDER_COD_VODACOM=VODACOM_MPESA_COD
+PAWAPAY_PROVIDER_COD_AIRTEL=AIRTEL_OAPI_COD
+PAWAPAY_PROVIDER_COD_ORANGE=ORANGE_OAPI_COD
 ```
 
-- Si **SHWARY_MERCHANT_ID** et **SHWARY_MERCHANT_KEY** sont vides : erreur « Le paiement Mobile Money n'est pas configuré ».
-- Avec identifiants **sandbox** et `SHWARY_SANDBOX=true` : le code de livraison est généré juste après « Payer avec Mobile Money ».
+- Si `PAWAPAY_API_TOKEN` est vide : erreur « Service de paiement non configuré ».
+- En sandbox, le paiement peut rester `pending` jusqu’au callback ou au fallback job.
 
 ### Test du flux commande → paiement
 
 1. Se connecter en **client**. Aller sur **Menus**, choisir un plat, remplir quantité, adresse, numéro Mobile Money (ex. 812345678).
 2. **Créer la commande** → étape Paiement (récap : N° commande, montant en FC, points).
 3. Vérifier : montant en **FC** ; texte « Le montant sera débité en FC (CDF)… ».
-4. **Payer avec Mobile Money** : si configuré (sandbox) → code livraison ou message « Une demande de X FC a été envoyée… » ; sinon message « Paiement Mobile Money n'est pas configuré ».
-5. Si paiement en attente : accepter sur le téléphone ; la page se met à jour (polling).
+4. **Payer avec Mobile Money** : vérifier le message d’initiation du paiement.
+5. Si le paiement reste en attente : accepter sur le téléphone ; la page se met à jour par polling.
 
 ### Production
 
-- `SHWARY_SANDBOX=false`, identifiants production, `SHWARY_CALLBACK_URL=https://votre-domaine.com/api/shwary/callback` (HTTPS). Optionnel : `SHWARY_WEBHOOK_SECRET`.
+- `PAWAPAY_BASE_URL=https://api.pawapay.io`, token production et `PAWAPAY_CALLBACK_URL=https://votre-domaine.com/api/pawapay/callback` (HTTPS).
 
 ---
 
@@ -251,12 +253,11 @@ SANCTUM_STATEFUL_DOMAINS=app.votre-domaine.com,votre-domaine.com
 FRONTEND_URL=https://app.votre-domaine.com
 CORS_ALLOWED_ORIGINS=https://app.votre-domaine.com,https://votre-domaine.com
 
-# Shwary : production
-SHWARY_MERCHANT_ID=<identifiant_production>
-SHWARY_MERCHANT_KEY=<cle_production>
-SHWARY_SANDBOX=false
-SHWARY_CALLBACK_URL=https://api.votre-domaine.com/api/shwary/callback
-SHWARY_WEBHOOK_SECRET=<secret_fourni_par_shwary>
+# pawaPay : production
+PAWAPAY_API_TOKEN=<token_production>
+PAWAPAY_BASE_URL=https://api.pawapay.io
+PAWAPAY_CALLBACK_URL=https://api.votre-domaine.com/api/pawapay/callback
+PAWAPAY_TIMEOUT=30
 
 # Mail (envoi réel)
 MAIL_MAILER=smtp
@@ -296,16 +297,16 @@ npm run build
 # Servir avec : npm run start ou un serveur (Node, Vercel, etc.)
 ```
 
-### 3. Shwary (paiement)
+### 3. pawaPay (paiement)
 
 | Variable | Valeur |
 |----------|--------|
-| `SHWARY_SANDBOX` | `false` |
-| `SHWARY_MERCHANT_ID` / `SHWARY_MERCHANT_KEY` | Identifiants **production** fournis par Shwary |
-| `SHWARY_CALLBACK_URL` | **HTTPS** uniquement, ex. `https://api.votre-domaine.com/api/shwary/callback` |
-| `SHWARY_WEBHOOK_SECRET` | Si Shwary le fournit, pour vérifier la signature du callback |
+| `PAWAPAY_API_TOKEN` | Token **production** pawaPay |
+| `PAWAPAY_BASE_URL` | `https://api.pawapay.io` |
+| `PAWAPAY_CALLBACK_URL` | **HTTPS** uniquement, ex. `https://api.votre-domaine.com/api/pawapay/callback` |
+| `PAWAPAY_WEBHOOK_SECRET` | Optionnel selon votre configuration de rappels signés |
 
-Vérifier dans le tableau de bord Shwary que l’URL de callback (webhook) est bien celle configurée.
+Vérifier dans le tableau de bord pawaPay que l’URL de callback Deposits est bien celle configurée.
 
 ### 4. Sécurité
 
@@ -318,7 +319,7 @@ Vérifier dans le tableau de bord Shwary que l’URL de callback (webhook) est b
 1. Héberger le backend (VPS, shared, Laravel Forge, etc.) avec PHP 8.x, MySQL/PostgreSQL.
 2. Héberger le frontend (Vercel, Netlify, ou même le même serveur avec un reverse proxy).
 3. Configurer le nom de domaine (ex. `api.votre-domaine.com` → backend, `app.votre-domaine.com` → frontend).
-4. Renseigner les `.env` comme ci-dessus, activer Shwary en production et le callback HTTPS.
+4. Renseigner les `.env` comme ci-dessus, activer pawaPay en production et le callback HTTPS.
 5. Lancer migrations, `config:cache`, `npm run build` et démarrer les services.
 
 ---
@@ -344,6 +345,6 @@ Si un test échoue : noter l’étape, le message d’erreur (écran ou console 
 1. **Nettoyage** : Fichiers inutiles supprimés (voir section « Nettoyage pré-production » en tête de ce guide).
 2. **Backend** : `php artisan test` — au minimum les tests critiques (promotions, verificateur, example) doivent passer.
 3. **Frontend** : `npm run build` — doit terminer sans erreur (Compiled successfully).
-4. **Test manuel** : Exécuter les Parties 1 à 7 de ce guide (accueil, connexion par rôle, client, cuisinier, admin, livreur/verificateur/entreprise, paiement Shwary).
-5. **Config production** : Suivre la section « Passage en production » (APP_DEBUG=false, HTTPS, CORS, Sanctum, Shwary, mail).
+4. **Test manuel** : Exécuter les Parties 1 à 7 de ce guide (accueil, connexion par rôle, client, cuisinier, admin, livreur/verificateur/entreprise, paiement pawaPay).
+5. **Config production** : Suivre la section « Passage en production » (APP_DEBUG=false, HTTPS, CORS, Sanctum, pawaPay, mail).
 6. **Sécurité** : Ne jamais commiter `.env` ; utiliser des variables d'environnement sur le serveur.

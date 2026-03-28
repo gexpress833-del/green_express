@@ -15,25 +15,21 @@ class ShwaryController extends Controller
     public function __construct(
         protected ShwaryService $shwaryService,
         protected OrderNotificationService $orderNotifications
-    ) {}
+    ) {
+    }
 
-    /**
-     * Webhook callback Shwary — stratégie stricte sans retry.
-     * completed → commande paid + code livraison
-     * failed → commande cancelled
-     * Toujours répondre 200 et rapidement.
-     */
     public function callback(Request $request)
     {
         try {
             $rawBody = $request->getContent();
             $secret = config('shwary.webhook_secret');
-            if (!empty($secret)) {
+            if (! empty($secret)) {
                 $signature = $request->header('X-Shwary-Signature')
                     ?? $request->header('X-Webhook-Signature')
                     ?? $request->header('X-Signature');
-                if (!$signature || !$this->verifyWebhookSignature($rawBody, $signature, $secret)) {
+                if (! $signature || ! $this->verifyWebhookSignature($rawBody, $signature, $secret)) {
                     Log::warning('Shwary Callback: Invalid or missing signature');
+
                     return response()->json(['message' => 'Invalid signature'], 403);
                 }
             }
@@ -41,7 +37,7 @@ class ShwaryController extends Controller
             Log::info('SHWARY CALLBACK', $request->all());
 
             $data = $this->shwaryService->parseWebhookPayload($rawBody);
-            if (!$data) {
+            if (! $data) {
                 $data = $request->all();
             }
 
@@ -49,8 +45,9 @@ class ShwaryController extends Controller
             $referenceId = $data['referenceId'] ?? $transactionId;
             $status = strtolower((string) ($data['status'] ?? ''));
 
-            if (!$transactionId || $status === '') {
+            if (! $transactionId || $status === '') {
                 Log::warning('Shwary Callback: Invalid data', ['data' => $data]);
+
                 return response()->json(['message' => 'Invalid data'], 400);
             }
 
@@ -58,15 +55,11 @@ class ShwaryController extends Controller
                 ->orWhere('reference_id', $referenceId)
                 ->first();
 
-            if (!$payment) {
+            if (! $payment) {
                 Log::warning('Payment introuvable', $data);
+
                 return response()->json(['message' => 'OK'], 200);
             }
-
-            Log::info('Payment found', [
-                'id' => $payment->id,
-                'status' => $status,
-            ]);
 
             if ($status === 'completed') {
                 $payment->update([
@@ -86,10 +79,6 @@ class ShwaryController extends Controller
                         'delivery_code' => $deliveryCode,
                     ]);
                     $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
-                    Log::info('Shwary Payment Completed - Order Updated', [
-                        'order_id' => $order->id,
-                        'delivery_code' => $deliveryCode,
-                    ]);
                 }
             } elseif ($status === 'failed') {
                 $payment->update([
@@ -100,10 +89,6 @@ class ShwaryController extends Controller
 
                 if ($payment->order) {
                     $payment->order->update(['status' => 'cancelled']);
-                    Log::info('Shwary Payment Failed - Order Cancelled', [
-                        'order_id' => $payment->order->id,
-                        'failure_reason' => $data['failureReason'] ?? null,
-                    ]);
                 }
             } else {
                 $payment->update(['status' => 'pending']);
@@ -115,6 +100,7 @@ class ShwaryController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return response()->json(['message' => 'OK'], 200);
         }
     }
@@ -123,6 +109,7 @@ class ShwaryController extends Controller
     {
         $expectedHex = hash_hmac('sha256', $rawBody, $secret);
         $expectedWithPrefix = 'sha256=' . $expectedHex;
+
         return hash_equals($expectedHex, $signature) || hash_equals($expectedWithPrefix, $signature);
     }
 }

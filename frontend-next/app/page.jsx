@@ -1,12 +1,19 @@
 'use client'
-import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import PromoCard from '@/components/PromoCard'
 import { apiRequest } from '@/lib/api'
 import { formatCurrencyCDF } from '@/lib/helpers'
+import {
+  DEMO_LANDING_VIDEO_MP4,
+  PRIMARY_LOGO,
+  VIDEO_SOURCES_MP4,
+  nextLogoSrc,
+} from '@/lib/landingMedia'
 
 export default function Home(){
+  const heroVideoRef = useRef(null)
+  const [logoSrc, setLogoSrc] = useState(PRIMARY_LOGO)
   const [currentPromo, setCurrentPromo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [plans, setPlans] = useState([])
@@ -41,32 +48,77 @@ export default function Home(){
       })
   }, [])
 
+  useEffect(() => {
+    const el = heroVideoRef.current
+    if (!el) return
+    const enforceMutedAndPlay = () => {
+      el.muted = true
+      el.defaultMuted = true
+      el.loop = true
+      void el.play().catch(() => {})
+    }
+    enforceMutedAndPlay()
+    el.addEventListener('loadeddata', enforceMutedAndPlay)
+    el.addEventListener('canplay', enforceMutedAndPlay)
+    return () => {
+      el.removeEventListener('loadeddata', enforceMutedAndPlay)
+      el.removeEventListener('canplay', enforceMutedAndPlay)
+    }
+  }, [])
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="landing hero-anim-bg">
-        <div className="landing-inner hero-ambient-motion text-center">
-          <div className="mx-auto" style={{maxWidth: 900}}>
-            <div className="mb-10 hero-anim-logo">
-              <Image 
-                src="/Logo_gexpress.jpg" 
-                alt="Green Express" 
-                width={140} 
-                height={140} 
-                className="mx-auto"
-                style={{
-                  borderRadius: 20, 
-                  boxShadow: '0 0 30px rgba(0, 255, 255, 0.3)',
-                  border: '2px solid rgba(0, 255, 255, 0.3)'
-                }}
-                unoptimized
-              />
+        <div className="landing-inner">
+          <div className="landing-hero-column">
+            {/* Flottement uniquement sur le texte — pas sur la vidéo (évite décalage / « désordre ») */}
+            <div className="hero-ambient-motion">
+              <div className="mb-10 hero-anim-logo">
+                <img
+                  key={logoSrc}
+                  src={logoSrc}
+                  alt="Green Express"
+                  width={160}
+                  height={160}
+                  decoding="async"
+                  fetchPriority="high"
+                  className="mx-auto h-auto w-[min(160px,42vw)] max-h-40 object-contain"
+                  style={{
+                    borderRadius: 20,
+                    boxShadow: '0 0 30px rgba(0, 255, 255, 0.3)',
+                    border: '2px solid rgba(0, 255, 255, 0.3)',
+                  }}
+                  onError={() => setLogoSrc((s) => nextLogoSrc(s))}
+                />
+              </div>
+              <h1 className="title hero-anim-title">Green Express</h1>
+              <p className="subtitle hero-anim-subtitle">
+                Commandez vos repas préférés et gagnez des points fidélité.<br />
+                Pour les particuliers.
+              </p>
             </div>
-            <h1 className="title hero-anim-title">Green Express</h1>
-            <p className="subtitle hero-anim-subtitle">
-              Commandez vos repas préférés et gagnez des points fidélité.<br />
-              Pour les particuliers.
-            </p>
+
+            {/* Classes CSS dans globals.css (pas de Tailwind dans ce projet) */}
+            <div className="landing-hero-video-wrap">
+              <div className="landing-hero-video-frame">
+                <video
+                  ref={heroVideoRef}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="auto"
+                  poster={logoSrc}
+                >
+                  {VIDEO_SOURCES_MP4.map((src) => (
+                    <source key={src} src={src} type="video/mp4" />
+                  ))}
+                  <source src={DEMO_LANDING_VIDEO_MP4} type="video/mp4" />
+                  Votre navigateur ne prend pas en charge la lecture vidéo HTML5.
+                </video>
+              </div>
+            </div>
           </div>
         </div>
       </section>

@@ -6,6 +6,7 @@ use App\Models\Promotion;
 use App\Models\Point;
 use App\Models\PointLedger;
 use App\Models\PromotionClaim;
+use App\Services\AppNotificationService;
 use App\Services\CloudinaryService;
 use App\Http\Requests\StorePromotionRequest;
 use App\Http\Requests\UpdatePromotionRequest;
@@ -19,6 +20,10 @@ use Illuminate\Support\Str;
 class PromotionController extends Controller
 {
     use RoleAccess;
+
+    public function __construct(private AppNotificationService $appNotifications)
+    {
+    }
     public function index(Request $request)
     {
         // Si liste publique sans filtres, utiliser cache
@@ -110,12 +115,16 @@ class PromotionController extends Controller
         }
         try {
             $data = $request->validated();
+            $notifyFeatured = (bool) ($data['notify_featured'] ?? false);
+            unset($data['notify_featured']);
             $data['admin_id'] = $user->id;
             $promo = Promotion::create($data);
-            
+
+            $this->appNotifications->notifyPromotionPublished($promo, $notifyFeatured);
+
             // Invalider le cache
             Cache::flush();
-            
+
             return response()->json($promo->load('menu'), 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([

@@ -4,8 +4,10 @@ import GoldButton from '@/components/GoldButton'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
+import { broadcastAnnouncement } from '@/lib/notifications'
 import { formatDate } from '@/lib/helpers'
 import Link from 'next/link'
+import { pushToast } from '@/components/Toaster'
 
 function getStatusLabel(status) {
   const s = (status || '').toLowerCase()
@@ -33,6 +35,9 @@ export default function AdminNotifications() {
   const router = useRouter()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [announceTitle, setAnnounceTitle] = useState('')
+  const [announceMessage, setAnnounceMessage] = useState('')
+  const [sendingAnnounce, setSendingAnnounce] = useState(false)
 
   const goToOrder = (orderId) => {
     const url = `/admin/orders?order=${orderId}`
@@ -55,6 +60,30 @@ export default function AdminNotifications() {
       .finally(() => setLoading(false))
   }, [])
 
+  async function handleBroadcast(e) {
+    e.preventDefault()
+    const t = announceTitle.trim()
+    const m = announceMessage.trim()
+    if (!t || !m) {
+      pushToast({ type: 'error', message: 'Renseignez le titre et le message.' })
+      return
+    }
+    setSendingAnnounce(true)
+    try {
+      const r = await broadcastAnnouncement(t, m)
+      pushToast({
+        type: 'success',
+        message: r?.message || `Annonce envoyée (${r?.users_notified ?? '?'} utilisateurs).`,
+      })
+      setAnnounceTitle('')
+      setAnnounceMessage('')
+    } catch (err) {
+      pushToast({ type: 'error', message: err?.message || 'Envoi impossible.' })
+    } finally {
+      setSendingAnnounce(false)
+    }
+  }
+
   return (
     <section className="page-section bg-[#0b1220] text-white min-h-screen">
       <div className="container">
@@ -66,6 +95,44 @@ export default function AdminNotifications() {
         <div className="dashboard-grid">
           <Sidebar />
           <main className="main-panel">
+            <div className="card mb-6 border border-emerald-500/30 bg-emerald-500/5">
+              <h2 className="text-xl font-semibold mb-1 text-emerald-200">Annonce à tous les utilisateurs</h2>
+              <p className="text-white/60 text-sm mb-4">
+                Message d’information Green Express : chaque compte recevra une notification (onglet « Annonces » dans l’app).
+              </p>
+              <form onSubmit={handleBroadcast} className="space-y-4 max-w-xl">
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-1">Titre</label>
+                  <input
+                    type="text"
+                    value={announceTitle}
+                    onChange={(e) => setAnnounceTitle(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40"
+                    placeholder="Ex. : Horaires du 15 août"
+                    maxLength={255}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-1">Message</label>
+                  <textarea
+                    value={announceMessage}
+                    onChange={(e) => setAnnounceMessage(e.target.value)}
+                    rows={4}
+                    className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40"
+                    placeholder="Texte visible par tous les utilisateurs connectés…"
+                    maxLength={5000}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={sendingAnnounce}
+                  className="px-5 py-2.5 rounded-lg font-semibold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {sendingAnnounce ? 'Envoi…' : 'Diffuser l’annonce'}
+                </button>
+              </form>
+            </div>
+
             <div className="card mb-6">
               <h2 className="text-xl font-semibold mb-1" style={{
                 background: 'linear-gradient(135deg, #ffd700 0%, #ffed4e 100%)',

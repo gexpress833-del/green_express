@@ -5,19 +5,28 @@ namespace App\Http\Controllers;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
+use App\Services\AppNotificationService;
 use App\Services\ShwaryService;
+use App\Services\PhoneRDCService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class SubscriptionController extends Controller
 {
+    public function __construct(private AppNotificationService $appNotifications)
+    {
+    }
+
     /**
      * Liste des abonnements (admin: tous avec user + plan, client: les siens).
      */
     public function index(Request $request)
     {
         $user = $request->user();
-        $query = Subscription::with(['user:id,name,email', 'subscriptionPlan'])->orderByDesc('created_at');
+        $query = Subscription::with([
+            'user:id,name,email',
+            'subscriptionPlan' => fn ($q) => $q->with(['items' => fn ($iq) => $iq->orderBy('sort_order')->limit(8)]),
+        ])->orderByDesc('created_at');
 
         if ($user->role !== 'admin') {
             $query->where('user_id', $user->id);
@@ -48,7 +57,7 @@ class SubscriptionController extends Controller
     {
         $data = $request->validate([
             'subscription_plan_id' => 'required|exists:subscription_plans,id',
-            'period' => 'required|in:week,month',
+            'period' => 'required|in:week',
         ]);
 
         $plan = SubscriptionPlan::findOrFail($data['subscription_plan_id']);
@@ -64,8 +73,8 @@ class SubscriptionController extends Controller
             return response()->json(['message' => 'Vous avez déjà un abonnement en cours (en attente ou actif). Vous ne pouvez pas souscrire à un autre tant qu\'il n\'est pas expiré ou traité.'], 400);
         }
 
-        $period = $data['period'];
-        $price = $period === 'week' ? (float) $plan->price_week : (float) $plan->price_month;
+        $period = 'week';
+        $price = (float) $plan->price_week;
 
         $sub = Subscription::create([
             'uuid' => (string) Str::uuid(),
@@ -94,7 +103,7 @@ class SubscriptionController extends Controller
         if ($subscription->user_id !== $user->id && $user->role !== 'admin') {
             return response()->json(['message' => 'Non autorisé.'], 403);
         }
-        if (!$subscription->isPending()) {
+        if (! $subscription->isPending()) {
             return response()->json(['message' => 'Cet abonnement n\'est plus en attente de paiement.'], 400);
         }
 
@@ -105,7 +114,7 @@ class SubscriptionController extends Controller
 
         try {
             $shwaryService = app(ShwaryService::class);
-            if (!$shwaryService->isConfigured()) {
+            if (! $shwaryService->isConfigured()) {
                 return response()->json(['message' => 'Service de paiement non configuré.'], 500);
             }
 
@@ -115,6 +124,7 @@ class SubscriptionController extends Controller
                 $subCurrency,
                 $data['country_code']
             );
+
             $phoneNormalized = $shwaryService->normalizePhoneNumber(
                 $data['client_phone_number'],
                 $data['country_code']
@@ -154,7 +164,7 @@ class SubscriptionController extends Controller
                 'amount' => $shwaryResponse['amount'] ?? $subscription->price,
                 'currency' => $shwaryResponse['currency'] ?? $subCurrency,
                 'phone' => $phoneNormalized ?? null,
-                'status' => 'pending',
+                'status' => $paymentStatus,
                 'raw_response' => $shwaryResponse,
             ]);
 
@@ -171,8 +181,6 @@ class SubscriptionController extends Controller
                     : 'Paiement initié. En attente de confirmation sur votre mobile.',
                 'payment_completed' => $payment->status === 'completed',
             ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            throw $e;
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::warning('Shwary subscription payment failed', [
                 'subscription_id' => $id,
@@ -208,6 +216,8 @@ class SubscriptionController extends Controller
         ]);
         \App\Models\Invoice::createForSubscriptionIfMissing($subscription->fresh());
 
+        $this->appNotifications->notifySubscription($subscription->fresh(), 'validated');
+
         return response()->json($subscription->fresh()->load(['user', 'subscriptionPlan']));
     }
 
@@ -225,12 +235,17 @@ class SubscriptionController extends Controller
             return response()->json(['message' => 'Cette demande n\'est plus en attente.'], 400);
         }
 
-        $reason = $request->input('reason', '');
+        $reason = trim((string) $request->input('reason', ''));
+        if ($reason === '') {
+            $reason = 'Demande refusée par l\'administrateur.';
+        }
 
         $subscription->update([
             'status' => Subscription::STATUS_REJECTED,
             'rejected_reason' => $reason,
         ]);
+
+        $this->appNotifications->notifySubscription($subscription->fresh(), 'rejected', $reason);
 
         return response()->json($subscription->fresh()->load(['user', 'subscriptionPlan']));
     }
@@ -247,12 +262,12 @@ class SubscriptionController extends Controller
         $data = $request->validate([
             'user_id' => 'required|exists:users,id',
             'subscription_plan_id' => 'required|exists:subscription_plans,id',
-            'period' => 'required|in:week,month',
+            'period' => 'required|in:week',
         ]);
 
         $plan = SubscriptionPlan::findOrFail($data['subscription_plan_id']);
-        $period = $data['period'];
-        $price = $period === 'week' ? (float) $plan->price_week : (float) $plan->price_month;
+        $period = 'week';
+        $price = (float) $plan->price_week;
         $startedAt = now();
         $expiresAt = Subscription::computeExpiresAt($startedAt, $period);
 
@@ -285,6 +300,7 @@ class SubscriptionController extends Controller
             return response()->json(['message' => 'Seul un abonnement actif peut être mis en pause.'], 400);
         }
         $subscription->update(['status' => Subscription::STATUS_PAUSED]);
+
         return response()->json($subscription->fresh()->load(['user', 'subscriptionPlan']));
     }
 
@@ -301,6 +317,7 @@ class SubscriptionController extends Controller
             return response()->json(['message' => 'Seul un abonnement en pause peut être repris.'], 400);
         }
         $subscription->update(['status' => Subscription::STATUS_ACTIVE]);
+
         return response()->json($subscription->fresh()->load(['user', 'subscriptionPlan']));
     }
 
@@ -317,6 +334,59 @@ class SubscriptionController extends Controller
             return response()->json(['message' => 'Cet abonnement est déjà annulé ou refusé.'], 400);
         }
         $subscription->update(['status' => Subscription::STATUS_CANCELLED]);
+
         return response()->json($subscription->fresh()->load(['user', 'subscriptionPlan']));
+    }
+
+    /**
+     * Client : retirer une ligne de son historique (abonnements terminés, refusés ou expirés — pas les demandes en cours).
+     */
+    public function destroyMyHistoryEntry(Request $request, int $id)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json(['message' => 'Non authentifié.'], 401);
+        }
+
+        $subscription = Subscription::where('user_id', $user->id)->whereKey($id)->firstOrFail();
+
+        if (in_array($subscription->status, [Subscription::STATUS_PENDING, Subscription::STATUS_ACTIVE], true)) {
+            return response()->json([
+                'message' => 'Vous ne pouvez pas supprimer un abonnement en attente ou actif depuis l’historique.',
+            ], 400);
+        }
+
+        $subscription->delete();
+
+        return response()->json(['message' => 'Cette entrée a été retirée de votre historique.'], 200);
+    }
+
+    /**
+     * Client : effacer tout l’historique affichable (statuts terminaux uniquement).
+     */
+    public function clearMyHistory(Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json(['message' => 'Non authentifié.'], 401);
+        }
+
+        $terminal = [
+            Subscription::STATUS_REJECTED,
+            Subscription::STATUS_EXPIRED,
+            Subscription::STATUS_CANCELLED,
+            Subscription::STATUS_PAUSED,
+        ];
+
+        $deleted = Subscription::where('user_id', $user->id)
+            ->whereIn('status', $terminal)
+            ->delete();
+
+        return response()->json([
+            'message' => $deleted > 0
+                ? 'Votre historique d’abonnements terminés a été effacé.'
+                : 'Aucune entrée à effacer.',
+            'deleted' => $deleted,
+        ], 200);
     }
 }

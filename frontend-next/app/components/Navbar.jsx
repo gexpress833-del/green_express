@@ -1,11 +1,11 @@
 "use client"
 import Link from 'next/link'
-import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCart } from '@/contexts/CartContext'
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/notifications'
+import { PRIMARY_LOGO, nextLogoSrc } from '@/lib/landingMedia'
 
 const badgeStyle = {
   position: 'absolute',
@@ -26,10 +26,16 @@ export default function Navbar(){
   const { user, loading, initialised, logout } = useAuth()
   const { itemCount: cartCount } = useCart()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [brandLogoSrc, setBrandLogoSrc] = useState(PRIMARY_LOGO)
   const [unreadCount, setUnreadCount] = useState(0)
   const router = useRouter()
   const pathname = usePathname()
   const isClient = user?.role === 'client'
+  /** Sur les sous-pages client, le libellé « Tableau de bord » fait doublon avec le lien retour de page : on affiche « Accueil ». */
+  const clientHubLabel =
+    isClient && pathname !== '/client' && pathname?.startsWith('/client')
+      ? 'Accueil'
+      : null
 
   useEffect(() => {
     setMenuOpen(false)
@@ -81,7 +87,16 @@ export default function Navbar(){
     <nav className="navbar">
       <div className="nav-inner">
         <Link href="/" className="brand">
-          <Image src="/Logo_gexpress.jpg" alt="Green Express" width={42} height={42} className="logo-img" unoptimized />
+          <img
+            key={brandLogoSrc}
+            src={brandLogoSrc}
+            alt="Green Express"
+            width={42}
+            height={42}
+            decoding="async"
+            className="logo-img"
+            onError={() => setBrandLogoSrc((s) => nextLogoSrc(s))}
+          />
           <span className="brand-text">Green Express</span>
         </Link>
 
@@ -106,8 +121,18 @@ export default function Navbar(){
             </>
           ) : user ? (
             <>
-              <Link href={`/${user.role || 'client'}`} className={pathname === `/${user.role || 'client'}` ? 'active' : ''}>
-                {user.role === 'livreur' || user.role === 'admin' || user.role === 'cuisinier' || user.role === 'verificateur' || user.role === 'entreprise' ? 'Accueil' : 'Tableau de bord'}
+              <Link
+                href={`/${user.role || 'client'}`}
+                className={
+                  pathname === `/${user.role || 'client'}` ||
+                  (isClient && pathname?.startsWith('/client'))
+                    ? 'active'
+                    : ''
+                }
+              >
+                {user.role === 'livreur' || user.role === 'admin' || user.role === 'cuisinier' || user.role === 'verificateur' || user.role === 'entreprise'
+                  ? 'Accueil'
+                  : clientHubLabel || 'Tableau de bord'}
               </Link>
               {isClient && (
                 <Link href="/client/cart" className={pathname === '/client/cart' ? 'active' : ''} style={{ position: 'relative' }}>

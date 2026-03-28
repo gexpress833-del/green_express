@@ -1,12 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import ClientSidebar from '@/components/ClientSidebar';
+import ClientSubpageHeader from '@/components/ClientSubpageHeader';
 import ReadOnlyGuard from '@/components/ReadOnlyGuard';
 import GoldButton from '@/components/GoldButton';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { apiRequest } from '@/lib/api';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -21,13 +22,33 @@ function formatCurrency(amount, currency) {
   return `${num.toFixed(2)} ${curr}`;
 }
 
+function normalizePhoneDrc(value) {
+  const cleaned = String(value).replace(/[\s\-()]/g, '').replace(/^0+/, '');
+  if (cleaned.startsWith('+')) return cleaned;
+  return '+243' + cleaned.replace(/^243/, '');
+}
+
+function isValidDrcMobileMoney(phone) {
+  const digits = String(phone).replace(/\D/g, '');
+  return /^243(8|9)\d{8}$/.test(digits);
+}
+
 export default function CartPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { items, updateQuantity, removeItem, clearCart, totalAmount } = useCart();
   const [delivery_address, setDelivery_address] = useState('');
   const [client_phone_number, setClient_phone_number] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!user?.phone) return;
+    const d = String(user.phone).replace(/\D/g, '');
+    if (d.startsWith('243')) {
+      setClient_phone_number((prev) => (prev.trim() ? prev : `+${d}`));
+    }
+  }, [user?.phone]);
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
@@ -40,6 +61,15 @@ export default function CartPage() {
       setError('Veuillez indiquer l\'adresse de livraison.');
       return;
     }
+    if (!client_phone_number.trim()) {
+      setError('Indiquez le numéro Mobile Money pour le paiement.');
+      return;
+    }
+    const np = normalizePhoneDrc(client_phone_number.trim());
+    if (!isValidDrcMobileMoney(np)) {
+      setError('Numéro Mobile Money invalide (RDC : ex. 08… ou +243…).');
+      return;
+    }
     setSubmitting(true);
     try {
       const orderData = {
@@ -49,6 +79,7 @@ export default function CartPage() {
           price: i.price,
         })),
         delivery_address: delivery_address.trim(),
+        client_phone_number: np,
       };
       const order = await apiRequest('/api/orders', {
         method: 'POST',
@@ -66,22 +97,13 @@ export default function CartPage() {
 
   return (
     <ReadOnlyGuard allowedActions={['view', 'read', 'order']} showWarning={false}>
-      <section className="page-section min-h-screen text-white">
+      <section className="page-section min-h-screen bg-[#0b1220] text-white">
         <div className="container">
-          <div className="dashboard-grid">
-            <ClientSidebar />
-            <main className="main-panel">
-              <h1 className="text-4xl font-bold mb-2" style={{
-                background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}>
-                🛒 Mon panier
-              </h1>
-              <p className="text-white/70 mb-8">
-                Ajoutez plusieurs plats puis validez votre commande en une fois.
-              </p>
+          <ClientSubpageHeader
+            title="Mon panier"
+            subtitle="Ajoutez plusieurs plats puis validez votre commande en une fois."
+            icon="🛒"
+          />
 
               {items.length === 0 ? (
                 <div className="card text-center py-16">
@@ -175,6 +197,21 @@ export default function CartPage() {
                         required
                       />
                     </div>
+                    <div className="mb-4">
+                      <label className="block text-white/80 mb-2 font-semibold">
+                        Numéro Mobile Money (paiement) *
+                      </label>
+                      <input
+                        type="tel"
+                        value={client_phone_number}
+                        onChange={(e) => setClient_phone_number(e.target.value)}
+                        className="w-full px-4 py-3 rounded-lg bg-slate-800 text-white border border-slate-600 focus:border-amber-400 focus:outline-none"
+                        placeholder="+243812345678 ou 0812345678"
+                        autoComplete="tel"
+                        required
+                      />
+                      <p className="text-white/45 text-xs mt-2">Utilisé pour le débit Mobile Money sur l’écran suivant.</p>
+                    </div>
                     <div className="flex flex-wrap gap-4">
                       <button
                         type="submit"
@@ -193,8 +230,6 @@ export default function CartPage() {
                   </form>
                 </>
               )}
-            </main>
-          </div>
         </div>
       </section>
     </ReadOnlyGuard>

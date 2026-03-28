@@ -1,5 +1,5 @@
 "use client"
-import ClientSidebar from '@/components/ClientSidebar'
+import ClientSubpageHeader from '@/components/ClientSubpageHeader'
 import ReadOnlyGuard from '@/components/ReadOnlyGuard'
 import { useEffect, useState } from 'react'
 import { apiRequest } from '@/lib/api'
@@ -24,24 +24,14 @@ export default function ClientInvoices(){
 
   return (
     <ReadOnlyGuard allowedActions={['view', 'read']} showWarning={false}>
-      <section className="page-section min-h-screen">
+      <section className="page-section min-h-screen bg-[#0b1220]">
         <div className="container">
-          <header className="mb-8 fade-in">
-            <h1 className="text-4xl font-extrabold mb-2" style={{
-              background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              textShadow: '0 0 40px rgba(0, 255, 255, 0.5)'
-            }}>
-              Mes factures
-            </h1>
-            <p className="text-white/70 text-lg">Consultez et téléchargez vos factures</p>
-          </header>
+          <ClientSubpageHeader
+            title="Mes factures"
+            subtitle="Consultez et téléchargez vos factures"
+            icon="📄"
+          />
 
-          <div className="dashboard-grid">
-            <ClientSidebar />
-            <main className="main-panel">
               {loading ? (
                 <div className="card text-center">
                   <p className="text-white/60">Chargement...</p>
@@ -90,8 +80,6 @@ export default function ClientInvoices(){
                   ))}
                 </div>
               )}
-            </main>
-          </div>
         </div>
       </section>
     </ReadOnlyGuard>

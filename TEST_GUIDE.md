@@ -247,7 +247,7 @@ Si tous les tests passent :
 - ✅ **Flux livreur** : assignation automatique à la validation du code, stats par livreur
 - ✅ **Flux vérificateur** : ticket `GXT-XXXXXXXX` généré à la réclamation, validation complète
 - ✅ **Upload images menus** : bouton "Uploader une image" (Cloudinary) sur création/édition menu (cuisinier + admin)
-- ✅ **Webhook Shwary** : vérification signature optionnelle (`SHWARY_WEBHOOK_SECRET`), `PaymentController` avec signature
+- ✅ **Webhook pawaPay** : callback `POST /api/pawapay/callback` + fallback `CheckPendingPaymentsJob`
 - ✅ **Tests automatisés** : PHPUnit (PromotionClaim, Verificateur, Livreur), Playwright E2E (promotions, vérificateur)
 
 À faire :
@@ -282,7 +282,7 @@ npm run test:e2e
 
 ### Configuration optionnelle
 
-- **Signature webhook Shwary** : dans `backend/.env`, ajouter `SHWARY_WEBHOOK_SECRET=votre_secret` pour vérifier les callbacks.
+- **Webhook pawaPay** : définir `PAWAPAY_CALLBACK_URL` et, si nécessaire, `PAWAPAY_WEBHOOK_SECRET` selon votre configuration.
 - **Ticket client** : après réclamation d’une promo, le client reçoit un code type `GXT-XXXXXXXX` à présenter au vérificateur.
 
 ---

@@ -16,20 +16,48 @@ export default function imageLoader({ src, width, quality }) {
   return src;
 }
 
+const API_BASE = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
+  ? process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')
+  : 'http://localhost:8000';
+
+/**
+ * URL absolue pour afficher une ressource hébergée sur l’API (storage, uploads, etc.)
+ */
+export function resolveMediaUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const t = url.trim();
+  if (!t) return '';
+  if (t.startsWith('http://') || t.startsWith('https://')) return t;
+  if (t.startsWith('//')) return `https:${t}`;
+  // Fichiers servis par Next (dossier public/) — ne pas préfixer l’API Laravel
+  if (t.startsWith('/images/')) return t;
+  if (t.startsWith('/video/') || t.startsWith('/videos/')) return t;
+  // Fichier à la racine de public : logo.png, favicon.svg, etc.
+  if (/^\/[^/]+\.(png|jpg|jpeg|webp|svg|gif|ico|mp4|webm)$/i.test(t)) return t;
+  if (/^\/(favicon|logo)/i.test(t)) return t;
+  if (t.startsWith('/')) return `${API_BASE}${t}`;
+  return `${API_BASE}/${t}`;
+}
+
 /**
  * Get blob image URL with optional width optimization
  */
 export function getBlobImageUrl(imageUrl, width = null) {
   if (!imageUrl) return '/images/placeholder.svg';
 
+  const absolute = resolveMediaUrl(imageUrl);
+  if (!absolute) return '/images/placeholder.svg';
+
+  if (absolute.startsWith('/images/')) return absolute;
+
   try {
-    const url = new URL(imageUrl);
+    const url = new URL(absolute);
     if (width) {
       url.searchParams.set('w', width);
       url.searchParams.set('q', 80);
     }
     return url.toString();
   } catch {
-    return imageUrl;
+    return absolute;
   }
 }

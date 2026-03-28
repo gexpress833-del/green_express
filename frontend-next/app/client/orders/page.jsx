@@ -1,13 +1,18 @@
 "use client"
-import ClientSidebar from '@/components/ClientSidebar'
+import ClientSubpageHeader from '@/components/ClientSubpageHeader'
 import ReadOnlyGuard from '@/components/ReadOnlyGuard'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
 import { formatDate, formatCurrencyCDF } from '@/lib/helpers'
+import Link from 'next/link'
 
 export default function ClientOrders(){
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const searchParams = useSearchParams()
+  const orderIdFromUrl = searchParams.get('order')
+  const orderRefs = useRef({})
 
   useEffect(()=>{
     apiRequest('/api/orders', { method:'GET' })
@@ -21,26 +26,30 @@ export default function ClientOrders(){
       })
   },[])
 
+  useEffect(() => {
+    if (loading || !orderIdFromUrl || orders.length === 0) return
+    const id = orderIdFromUrl.trim()
+    const el = orderRefs.current[id]
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('ring-2', 'ring-cyan-400', 'ring-offset-2', 'ring-offset-[#0b1220]')
+      const t = setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-cyan-400', 'ring-offset-2', 'ring-offset-[#0b1220]')
+      }, 3000)
+      return () => clearTimeout(t)
+    }
+  }, [loading, orderIdFromUrl, orders.length])
+
   return (
     <ReadOnlyGuard allowedActions={['view', 'read']} showWarning={false}>
-      <section className="page-section min-h-screen">
+      <section className="page-section min-h-screen bg-[#0b1220]">
         <div className="container">
-          <header className="mb-8 fade-in">
-            <h1 className="text-4xl font-extrabold mb-2" style={{
-              background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              textShadow: '0 0 40px rgba(0, 255, 255, 0.5)'
-            }}>
-              Mes commandes
-            </h1>
-            <p className="text-white/70 text-lg">Consultez l'historique de vos commandes</p>
-          </header>
+          <ClientSubpageHeader
+            title="Mes commandes"
+            subtitle="Consultez l'historique de vos commandes"
+            icon="🛒"
+          />
 
-          <div className="dashboard-grid">
-            <ClientSidebar />
-            <main className="main-panel">
               {loading ? (
                 <div className="card text-center">
                   <p className="text-white/60">Chargement...</p>
@@ -58,9 +67,11 @@ export default function ClientOrders(){
                       const s = (status || '').toLowerCase()
                       switch (s) {
                         case 'pending_payment': return 'En attente de paiement'
+                        case 'paid': return 'Paiement confirmé'
                         case 'pending': return 'En attente de livraison'
                         case 'out_for_delivery': return 'En cours de livraison'
                         case 'delivered': return 'Livrée'
+                        case 'cancelled': return 'Annulée'
                         default: return status || 'En attente'
                       }
                     }
@@ -69,15 +80,21 @@ export default function ClientOrders(){
                       const s = (status || '').toLowerCase()
                       switch (s) {
                         case 'pending_payment': return 'badge-error'
+                        case 'paid': return 'badge-warning'
                         case 'pending': return 'badge-warning'
                         case 'out_for_delivery': return 'badge-warning'
                         case 'delivered': return 'badge-success'
+                        case 'cancelled': return 'badge-error'
                         default: return 'badge-error'
                       }
                     }
 
                     return (
-                      <div key={order.id} className="card fade-in">
+                      <div
+                        key={order.id}
+                        ref={(el) => { if (el) orderRefs.current[String(order.id)] = el }}
+                        className="card fade-in rounded-xl transition-shadow duration-300"
+                      >
                         <div className="flex justify-between items-start mb-4">
                           <div>
                             <h3 className="text-lg font-semibold mb-1" style={{ 
@@ -151,6 +168,12 @@ export default function ClientOrders(){
                             <p className="text-yellow-400 text-sm">
                               ⚠️ Paiement en attente - Confirmez le paiement pour générer votre code de livraison
                             </p>
+                            <Link
+                              href={`/client/orders/create?order_id=${order.id}`}
+                              className="inline-flex mt-3 px-4 py-2 rounded-lg bg-[#d4af37] text-[#0b1220] text-sm font-semibold hover:bg-[#e5c048] transition"
+                            >
+                              Payer avec Mobile Money
+                            </Link>
                           </div>
                         )}
 
@@ -177,8 +200,6 @@ export default function ClientOrders(){
                   })}
                 </div>
               )}
-            </main>
-          </div>
         </div>
       </section>
     </ReadOnlyGuard>

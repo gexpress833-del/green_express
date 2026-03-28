@@ -216,7 +216,7 @@ NEXT_PUBLIC_API_BASE=http://127.0.0.1:8001/api
 1. ✅ **Tester le flux complet** : voir `TEST_GUIDE.md`
 2. 🔐 **Configurer CORS** si problèmes cross-origin
 3. 📸 **Configurer upload images** (Cloudinary/Vercel Blob)
-4. 💳 **Intégrer paiement** (Shwary webhook)
+4. 💳 **Intégrer paiement** (pawaPay webhook)
 5. 🚀 **Déployer** (backend + frontend)
 
 ---

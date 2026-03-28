@@ -41,39 +41,49 @@ class CheckPendingPaymentsJob implements ShouldQueue
                 'retry_count' => $payment->retry_count + 1,
             ]);
 
-            $data = $shwaryService->getTransactionStatus($payment->provider_payment_id);
-            if ($data === null) {
-                continue;
-            }
+            $this->pollShwary($payment, $shwaryService, $orderNotifications);
+        }
+    }
 
-            $status = strtolower((string) ($data['status'] ?? ''));
-            if ($status === 'completed') {
-                $payment->update([
-                    'status' => 'completed',
-                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_poll' => $data]),
-                ]);
-                if ($payment->order && $payment->order->status === 'pending_payment') {
-                    $order = $payment->order;
-                    $oldStatus = (string) $order->status;
+    private function pollShwary(
+        Payment $payment,
+        ShwaryService $shwaryService,
+        OrderNotificationService $orderNotifications
+    ): void
+    {
+        $data = $shwaryService->getTransactionStatus($payment->provider_payment_id);
+        if ($data === null) {
+            return;
+        }
+
+        $status = strtolower((string) ($data['status'] ?? ''));
+
+        if ($status === 'completed') {
+            $payment->update([
+                'status' => 'completed',
+                'raw_response' => array_merge($payment->raw_response ?? [], ['last_poll' => $data]),
+            ]);
+            if ($payment->order && $payment->order->status === 'pending_payment') {
+                $order = $payment->order;
+                $oldStatus = (string) $order->status;
+                $deliveryCode = 'GX-' . strtoupper(Str::random(6));
+                while (Order::where('delivery_code', $deliveryCode)->exists()) {
                     $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                    while (Order::where('delivery_code', $deliveryCode)->exists()) {
-                        $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                    }
-                    $order->update([
-                        'status' => 'paid',
-                        'delivery_code' => $deliveryCode,
-                    ]);
-                    $orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
                 }
-            } elseif ($status === 'failed') {
-                $payment->update([
-                    'status' => 'failed',
-                    'failure_reason' => $data['failureReason'] ?? null,
-                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_poll' => $data]),
+                $order->update([
+                    'status' => 'paid',
+                    'delivery_code' => $deliveryCode,
                 ]);
-                if ($payment->order) {
-                    $payment->order->update(['status' => 'cancelled']);
-                }
+                $orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
+            }
+        } elseif ($status === 'failed') {
+            $payment->update([
+                'status' => 'failed',
+                'failure_reason' => $data['failureReason'] ?? null,
+                'raw_response' => array_merge($payment->raw_response ?? [], ['last_poll' => $data]),
+            ]);
+            if ($payment->order) {
+                $payment->order->update(['status' => 'cancelled']);
             }
         }
     }

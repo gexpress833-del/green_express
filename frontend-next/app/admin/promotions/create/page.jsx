@@ -16,6 +16,7 @@ export default function CreatePromotionPage() {
     quantity_limit: '',
     start_at: '',
     end_at: '',
+    notify_featured: false,
   });
 
   useEffect(() => {
@@ -79,6 +80,7 @@ export default function CreatePromotionPage() {
         quantity_limit: form.quantity_limit ? parseInt(form.quantity_limit) : null,
         start_at: form.start_at || null,
         end_at: form.end_at || null,
+        notify_featured: form.notify_featured === true,
       };
 
       await apiRequest('/api/promotions', {
@@ -257,6 +259,19 @@ export default function CreatePromotionPage() {
               min="0"
             />
           </div>
+
+          <label className="flex items-start gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1 rounded border-white/30"
+              checked={form.notify_featured}
+              onChange={(e) => setForm({ ...form, notify_featured: e.target.checked })}
+            />
+            <span>
+              <span className="font-semibold text-amber-200 block">Notifier tous les utilisateurs — promotion spéciale</span>
+              <span className="text-white/60 text-sm">Envoie une notification à chaque compte (libellé « promotion spéciale » dans l’app).</span>
+            </span>
+          </label>
 
           <button
             type="submit"

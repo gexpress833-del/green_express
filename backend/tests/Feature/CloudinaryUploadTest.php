@@ -27,7 +27,7 @@ class CloudinaryUploadTest extends TestCase
      */
     public function test_get_upload_config()
     {
-        $this->actingAs($this->chef)
+        $this->actingAs($this->chef, 'api')
             ->getJson('/api/upload/config')
             ->assertStatus(200)
             ->assertJsonStructure([
@@ -48,7 +48,7 @@ class CloudinaryUploadTest extends TestCase
     {
         $file = UploadedFile::fake()->image('menu.jpg', 100, 100);
 
-        $this->actingAs($this->chef)
+        $this->actingAs($this->chef, 'api')
             ->postJson('/api/upload-image', [
                 'image' => $file,
                 'folder' => 'menus',
@@ -67,7 +67,7 @@ class CloudinaryUploadTest extends TestCase
      */
     public function test_upload_image_missing_file()
     {
-        $this->actingAs($this->chef)
+        $this->actingAs($this->chef, 'api')
             ->postJson('/api/upload-image', [])
             ->assertStatus(422)
             ->assertJsonStructure(['errors']);
@@ -80,7 +80,7 @@ class CloudinaryUploadTest extends TestCase
     {
         $file = UploadedFile::fake()->create('document.txt', 100);
 
-        $this->actingAs($this->chef)
+        $this->actingAs($this->chef, 'api')
             ->postJson('/api/upload-image', [
                 'image' => $file,
             ])
@@ -94,7 +94,7 @@ class CloudinaryUploadTest extends TestCase
     {
         $publicId = 'green-express/uploads/test_image';
 
-        $this->actingAs($this->chef)
+        $this->actingAs($this->chef, 'api')
             ->getJson('/api/upload-image/transform?public_id=' . urlencode($publicId) . '&width=200&height=200&crop=fill')
             ->assertStatus(200)
             ->assertJsonStructure(['success', 'url']);
@@ -105,7 +105,7 @@ class CloudinaryUploadTest extends TestCase
      */
     public function test_delete_image_success()
     {
-        $this->actingAs($this->chef)
+        $this->actingAs($this->chef, 'api')
             ->deleteJson('/api/upload-image', [
                 'public_id' => 'green-express/uploads/test_image',
             ])

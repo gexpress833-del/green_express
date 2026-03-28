@@ -10,6 +10,7 @@ use App\Services\OrderNotificationService;
 use App\Services\ShwaryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -22,12 +23,11 @@ class ShwaryPaymentTest extends TestCase
     {
         parent::setUp();
 
-        // Réduire le bruit des logs pendant les tests
         Log::spy();
+        Config::set('shwary.webhook_secret', null);
     }
 
-    /** @test */
-    public function webhook_completed_met_a_jour_le_paiement_et_la_commande_en_paid()
+    public function test_webhook_completed_met_a_jour_le_paiement_et_la_commande_en_paid(): void
     {
         $user = User::factory()->create();
 
@@ -49,13 +49,11 @@ class ShwaryPaymentTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $payload = [
+        $response = $this->postJson('/api/shwary/callback', [
             'id' => 'tx-123',
             'referenceId' => 'ref-123',
             'status' => 'completed',
-        ];
-
-        $response = $this->postJson('/api/shwary/callback', $payload);
+        ]);
 
         $response->assertStatus(200)->assertJson(['message' => 'OK']);
 
@@ -67,8 +65,7 @@ class ShwaryPaymentTest extends TestCase
         $this->assertNotNull($order->delivery_code);
     }
 
-    /** @test */
-    public function webhook_failed_met_a_jour_le_paiement_et_annule_la_commande()
+    public function test_webhook_failed_met_a_jour_le_paiement_et_annule_la_commande(): void
     {
         $user = User::factory()->create();
 
@@ -90,14 +87,12 @@ class ShwaryPaymentTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $payload = [
+        $response = $this->postJson('/api/shwary/callback', [
             'id' => 'tx-456',
             'referenceId' => 'ref-456',
             'status' => 'failed',
             'failureReason' => 'insufficient_funds',
-        ];
-
-        $response = $this->postJson('/api/shwary/callback', $payload);
+        ]);
 
         $response->assertStatus(200)->assertJson(['message' => 'OK']);
 
@@ -109,8 +104,7 @@ class ShwaryPaymentTest extends TestCase
         $this->assertSame('cancelled', $order->status);
     }
 
-    /** @test */
-    public function job_de_fallback_met_a_jour_les_paiements_pending_quand_le_webhook_est_perdu()
+    public function test_job_de_fallback_met_a_jour_les_paiements_pending_quand_le_webhook_est_perdu(): void
     {
         $user = User::factory()->create();
 
@@ -133,7 +127,6 @@ class ShwaryPaymentTest extends TestCase
             'created_at' => now()->subMinutes(2),
         ]);
 
-        // Fake ShwaryService pour renvoyer completed
         $fakeShwary = $this->createMock(ShwaryService::class);
         $fakeShwary->method('getTransactionStatus')
             ->with('tx-pending')
@@ -158,4 +151,3 @@ class ShwaryPaymentTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $payment->retry_count);
     }
 }
-

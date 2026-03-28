@@ -108,6 +108,9 @@ Route::put('profile/password', [ProfileController::class, 'updatePassword'])->mi
 Route::get('notifications', [NotificationController::class, 'index'])->middleware('throttle:api');
 Route::post('notifications/{id}/read', [NotificationController::class, 'markRead'])->middleware('throttle:api');
 Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->middleware('throttle:api');
+Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->middleware('throttle:api');
+Route::delete('notifications', [NotificationController::class, 'destroyAll'])->middleware('throttle:api');
+Route::post('notifications/broadcast', [NotificationController::class, 'broadcastAnnouncement'])->middleware('throttle:api');
 
 // Agent Approvals (Entreprise crée, Admin valide)
 Route::post('agents/request', [\App\Http\Controllers\AgentApprovalController::class, 'requestAgent'])->middleware('throttle:api');
@@ -156,6 +159,9 @@ Route::delete('admin/subscription-plans/{subscriptionPlan}', [SubscriptionPlanCo
 Route::get('subscriptions', [SubscriptionController::class, 'index'])->middleware('throttle:api');
 Route::post('subscriptions', [SubscriptionController::class, 'store'])->middleware('throttle:api');
 Route::post('subscriptions/{id}/initiate-payment', [SubscriptionController::class, 'initiatePayment'])->middleware('throttle:api');
+// Client : supprimer son historique (abonnements terminés, pas les demandes en cours)
+Route::delete('subscriptions/my-history', [SubscriptionController::class, 'clearMyHistory'])->middleware('throttle:api');
+Route::delete('subscriptions/my-history/{id}', [SubscriptionController::class, 'destroyMyHistoryEntry'])->middleware('throttle:api');
 Route::post('admin/subscriptions/validate/{id}', [SubscriptionController::class, 'validateSubscription'])->middleware('throttle:api');
 Route::post('admin/subscriptions/reject/{id}', [SubscriptionController::class, 'rejectSubscription'])->middleware('throttle:api');
 Route::post('admin/subscriptions/{id}/pause', [SubscriptionController::class, 'pauseSubscription'])->middleware('throttle:api');

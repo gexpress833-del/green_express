@@ -132,7 +132,7 @@ Green Express est une **plateforme de commande de repas** qui connecte :
 ✅ Parcourir menus disponibles
 ✅ Ajouter des plats au panier
 ✅ Passer une commande
-✅ Payer (intégration Shwary/provider)
+✅ Payer (intégration pawaPay / Mobile Money)
 ✅ Suivre statut commande (pending → preparing → delivery → completed)
 ✅ Voir historique commandes
 ✅ S'abonner (plan Semaine ou Mois)
@@ -155,7 +155,7 @@ Green Express est une **plateforme de commande de repas** qui connecte :
 1. Client parcourt menus disponibles
 2. Ajoute "Burger Gourmet" + "Salade César" au panier
 3. Passe commande (adresse de livraison)
-4. Paie 20.5 USD via Shwary
+4. Paie 20.5 via pawaPay
 5. Reçoit code de commande (ex: GX-ABC123)
 6. Gagne 20 points fidélité
 7. Suit statut : preparing → delivery → completed
@@ -315,7 +315,7 @@ Green Express est une **plateforme de commande de repas** qui connecte :
 
 3️⃣ CLIENT passe commande
    ├─> Ajoute Burger (12.5 USD)
-   ├─> Paie via Shwary
+   ├─> Paie via pawaPay
    └─> Reçoit code GX-ABC123
 
 4️⃣ LIVREUR reçoit assignation

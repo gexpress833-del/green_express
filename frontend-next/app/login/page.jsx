@@ -1,107 +1,214 @@
-'use client';
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
+'use client'
+import { useState, useEffect, useRef } from 'react'
+import { flushSync } from 'react-dom'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { useAuth } from '@/contexts/AuthContext'
+import styles from './login.module.css'
+
+function EyeIcon({ className }) {
+  return (
+    <svg className={className} width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path
+        d="M12 5C7 5 2.73 8.11 1 12.5 2.73 16.89 7 20 12 20s9.27-3.11 11-7.5C21.27 8.11 17 5 12 5Z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12.5" r="3.25" stroke="currentColor" strokeWidth="1.75" />
+    </svg>
+  )
+}
+
+function EyeOffIcon({ className }) {
+  return (
+    <svg className={className} width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path
+        d="M3 4L21 22M10.6 10.6a3 3 0 004.8 4.8M9.9 5.1A10.4 10.4 0 0112 5c5 0 9.27 3.11 11 7.5a11.6 11.6 0 01-4.02 5.02M6.2 6.2C3.96 7.87 2.17 10.2 1 12.5 2.73 16.89 7 20 12 20c1.64 0 3.21-.32 4.65-.9"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M9.88 9.88a3 3 0 104.24 4.24" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const searchParams = useSearchParams();
-  const { login: authLogin } = useAuth();
+  const [login, setLogin] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const searchParams = useSearchParams()
+  const { login: authLogin } = useAuth()
+  const passwordInputRef = useRef(null)
+  const skipFirstPwFocus = useRef(true)
 
-  // Réinitialiser l'état au montage pour que le bouton ne reste pas désactivé après une redirection
   useEffect(() => {
-    setLoading(false);
-  }, []);
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (skipFirstPwFocus.current) {
+      skipFirstPwFocus.current = false
+      return
+    }
+    passwordInputRef.current?.focus()
+  }, [showPassword])
+
+  function readPasswordFromDom() {
+    const el = passwordInputRef.current ?? document.getElementById('login-password')
+    return el instanceof HTMLInputElement ? el.value : password
+  }
+
+  function handleTogglePasswordVisibility() {
+    const raw = readPasswordFromDom()
+    flushSync(() => setPassword(raw))
+    setShowPassword((v) => !v)
+  }
 
   async function handleSubmit(e) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    const form = e.currentTarget
+    const loginEl = form.elements.namedItem('login')
+    const pwEl = form.elements.namedItem('password')
+    const loginVal =
+      loginEl instanceof HTMLInputElement ? loginEl.value.trim() : login.trim()
+    const pwVal =
+      pwEl instanceof HTMLInputElement ? pwEl.value : readPasswordFromDom()
+
+    setLogin(loginVal)
+    setPassword(pwVal)
 
     try {
-      const response = await authLogin(email, password);
+      const response = await authLogin(loginVal, pwVal)
       if (!response?.user) {
-        setError('Connexion réussie mais informations utilisateur manquantes.');
-        setLoading(false);
-        return;
+        setError('Connexion réussie mais informations utilisateur manquantes.')
+        setLoading(false)
+        return
       }
-      const role = response.user.role || 'client';
-      const dashboardByRole = `/${role}`;
-      const returnUrl = searchParams.get('returnUrl') || '';
-      // Toujours envoyer vers le tableau de bord du rôle (jamais vers /profile après connexion)
-      const isOwnDashboard = returnUrl === dashboardByRole || returnUrl.startsWith(dashboardByRole + '/');
-      const isProfileOnly = returnUrl === '/profile' || returnUrl === '/profile/' || returnUrl === '';
-      const target = !isProfileOnly && isOwnDashboard ? returnUrl : dashboardByRole;
-      window.location.href = target;
+      const role = response.user.role || 'client'
+      const dashboardByRole = `/${role}`
+      const returnUrl = searchParams.get('returnUrl') || ''
+      const isOwnDashboard = returnUrl === dashboardByRole || returnUrl.startsWith(dashboardByRole + '/')
+      const isProfileOnly = returnUrl === '/profile' || returnUrl === '/profile/' || returnUrl === ''
+      const target = !isProfileOnly && isOwnDashboard ? returnUrl : dashboardByRole
+      window.location.href = target
     } catch (err) {
-      const msg = err?.data?.errors?.email?.[0] ?? err?.data?.message ?? err?.message ?? 'Erreur de connexion. Vérifiez vos identifiants.';
-      setError(msg);
+      const msg =
+        err?.data?.errors?.login?.[0] ??
+        err?.data?.errors?.email?.[0] ??
+        err?.data?.message ??
+        err?.message ??
+        'Erreur de connexion. Vérifiez vos identifiants.'
+      setError(msg)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
+  const passwordInputProps = {
+    ref: passwordInputRef,
+    id: 'login-password',
+    name: 'password',
+    autoComplete: 'current-password',
+    placeholder: '••••••••',
+    value: password,
+    onChange: (e) => setPassword(e.target.value),
+    onInput: (e) => setPassword(e.target.value),
+    required: true,
+    className: styles.input,
+    spellCheck: false,
+    autoCapitalize: 'off',
+    autoCorrect: 'off',
+  }
+
   return (
-    <div className="min-h-screen bg-[#0b1220] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-gradient-to-br from-[#0b1220] to-blue-900 border border-[#d4af37]/30 rounded-2xl p-8 shadow-2xl">
-          <h1 className="text-3xl font-bold text-white mb-2 text-center">Green Express</h1>
-          <p className="text-[#d4af37] text-center mb-8">Bienvenue</p>
+    <div className={styles.shell}>
+      <div className={styles.ambient} aria-hidden />
+      <div className={styles.gridFloor} aria-hidden />
+      <div className={styles.vignette} aria-hidden />
 
-          {error && (
-            <div className="bg-red-900/50 border border-red-700 text-red-200 p-4 rounded-lg mb-6">
-              {error}
-            </div>
-          )}
+      <div className={styles.card}>
+        <div className={styles.cardGlow} aria-hidden />
+        <div className={styles.neonTop} aria-hidden />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-white text-sm font-semibold mb-2">Email</label>
-              <input
-                type="email"
-                placeholder="votre@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#d4af37] transition"
-              />
-            </div>
+        <div className="text-center">
+          <p className={styles.badge}>Espace membre</p>
+          <h1 className="text-center">
+            <span className={styles.titleGradient}>Green Express</span>
+          </h1>
+          <p className={styles.subtitle}>
+            Accédez à votre espace livraison — connectez-vous avec votre e-mail ou votre mobile enregistré.
+          </p>
+        </div>
 
-            <div>
-              <label className="block text-white text-sm font-semibold mb-2">Mot de passe</label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#d4af37] transition"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-[#d4af37] to-[#f5e08a] text-[#0b1220] font-bold py-3 rounded-lg hover:scale-105 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Connexion...' : 'Se connecter'}
-            </button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t border-white/10 text-center">
-            <p className="text-white/70 text-sm">
-              Pas encore inscrit?{' '}
-              <Link href="/register" className="text-[#d4af37] hover:text-[#f5e08a] font-semibold">
-                Créer un compte
-              </Link>
-            </p>
+        {error && (
+          <div role="alert" className={styles.alert}>
+            {error}
           </div>
+        )}
+
+        <form method="post" onSubmit={handleSubmit} className={styles.loginForm} noValidate>
+          <div>
+            <label htmlFor="login-identifier" className={styles.label}>
+              Identifiant
+            </label>
+            <input
+              id="login-identifier"
+              name="login"
+              type="text"
+              autoComplete="username"
+              placeholder="E-mail ou numéro (RDC)"
+              value={login}
+              onChange={(e) => setLogin(e.target.value)}
+              required
+              className={styles.input}
+            />
+            <p className={styles.hint}>Formats acceptés : adresse e-mail, 08… / 09… / +243…</p>
+          </div>
+
+          <div className={styles.passwordField}>
+            <label htmlFor="login-password" className={styles.label}>
+              Mot de passe
+            </label>
+            <div className={styles.passwordInputWrapper}>
+              {showPassword ? (
+                <input {...passwordInputProps} key="login-pw-text" type="text" />
+              ) : (
+                <input {...passwordInputProps} key="login-pw-masked" type="password" />
+              )}
+              <button
+                type="button"
+                className={styles.togglePwButton}
+                onClick={handleTogglePasswordVisibility}
+                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                aria-pressed={showPassword}
+                title={showPassword ? 'Masquer' : 'Afficher'}
+              >
+                {showPassword ? <EyeOffIcon className={styles.toggleIcon} /> : <EyeIcon className={styles.toggleIcon} />}
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" disabled={loading} className={styles.submit}>
+            {loading ? 'Connexion…' : 'Se connecter'}
+          </button>
+        </form>
+
+        <div className={styles.footer}>
+          Pas encore de compte ?{' '}
+          <Link href="/register" className={styles.link}>
+            Créer un compte
+          </Link>
         </div>
       </div>
     </div>
-  );
+  )
 }

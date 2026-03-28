@@ -58,7 +58,7 @@
 - **Tableau de bord** : `GET /api/client/stats` → points, commandes, abonnements.
 - **Menus** : `GET /api/menus/public/browse` ou `/api/menus/browse` (connecté) ; création commande : `POST /api/orders` avec `items`, `delivery_address`.
 - **Promotions** : `GET /api/promotions?active_only=1&current=1` (ou `visible_to_client=1`) ; réclamation : `POST /api/promotions/{id}/claim` (déduction des points, ticket généré).
-- **Commandes** : liste `GET /api/orders` ; paiement Shwary : `POST /api/orders/{id}/initiate-payment` puis suivi du statut.
+- **Commandes** : liste `GET /api/orders` ; paiement pawaPay : `POST /api/orders/{id}/initiate-payment` puis suivi du statut.
 
 ### Cuisinier
 - **Menus** : `GET /api/my-menus` ; création `POST /api/menus` (statut `pending` jusqu’à approbation admin).

@@ -36,6 +36,15 @@ export function formatCurrencyCDF(amount) {
 }
 
 /**
+ * Montants commande (FC/CDF ou autre devise) — utilisé admin / cuisinier
+ */
+export function formatOrderMoney(amount, currency) {
+  const c = (currency || 'CDF').toUpperCase();
+  if (c === 'CDF' || c === 'FC') return formatCurrencyCDF(amount ?? 0);
+  return `${Number(amount ?? 0).toLocaleString('fr-FR')}\u00a0${c}`;
+}
+
+/**
  * Get user role from token payload
  */
 export function getRoleFromToken() {

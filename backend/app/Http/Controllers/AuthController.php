@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Profile;
 use App\Models\User;
 use App\Models\Company;
+use App\Services\PhoneRDCService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -26,13 +28,27 @@ class AuthController extends Controller
             'name' => 'required|string',
             'email' => 'required|email|unique:users',
             'password' => 'required|min:6',
+            'phone' => 'required|string|max:30',
         ]);
+
+        $phoneNorm = PhoneRDCService::formatPhoneRDC($data['phone']);
+        if (! PhoneRDCService::isValidPhoneRDC($phoneNorm)) {
+            throw ValidationException::withMessages([
+                'phone' => ['Numéro de téléphone invalide (RDC : 9 chiffres après l’indicatif 243).'],
+            ]);
+        }
+        if (User::where('phone', $phoneNorm)->exists()) {
+            throw ValidationException::withMessages([
+                'phone' => ['Ce numéro est déjà associé à un compte.'],
+            ]);
+        }
 
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
             'role' => 'client',
+            'phone' => $phoneNorm,
         ]);
 
         // Connexion automatique après inscription (session Sanctum + guard api)
@@ -113,24 +129,62 @@ class AuthController extends Controller
 
     /**
      * Connexion : session régénérée, cookie de session envoyé au frontend (httpOnly).
+     * Identifiant : e-mail OU numéro de téléphone (corps : `login` ou ancien champ `email`).
      */
     public function login(Request $request)
     {
-        $data = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
+        $request->validate([
+            'password' => 'required|string',
         ]);
 
-        if (! Auth::guard('api')->attempt($data)) {
+        $identifier = trim((string) ($request->input('login') ?? $request->input('email') ?? ''));
+        if ($identifier === '') {
             throw ValidationException::withMessages([
-                'email' => [__('auth.failed')],
+                'login' => ['Identifiant (e-mail ou numéro de téléphone) requis.'],
             ]);
         }
 
-        $request->session()->regenerate();
-        $user = $request->user('api');
+        $user = $this->findUserForLogin($identifier);
+        $password = (string) $request->input('password');
 
-        return response()->json(['user' => $user]);
+        if (! $user || ! Hash::check($password, (string) $user->getAuthPassword())) {
+            throw ValidationException::withMessages([
+                'login' => [__('auth.failed')],
+            ]);
+        }
+
+        Auth::guard('api')->login($user);
+        $request->session()->regenerate();
+
+        return response()->json(['user' => $request->user('api')]);
+    }
+
+    /**
+     * Recherche l’utilisateur par e-mail ou par téléphone (users.phone ou profile.phone historique).
+     */
+    private function findUserForLogin(string $identifier): ?User
+    {
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            return User::where('email', $identifier)->first();
+        }
+
+        $norm = PhoneRDCService::formatPhoneRDC($identifier);
+        if ($norm === '') {
+            return null;
+        }
+
+        $byUser = User::where('phone', $norm)->first();
+        if ($byUser) {
+            return $byUser;
+        }
+
+        foreach (Profile::query()->whereNotNull('phone')->cursor() as $profile) {
+            if (PhoneRDCService::formatPhoneRDC((string) $profile->phone) === $norm) {
+                return User::find($profile->user_id);
+            }
+        }
+
+        return null;
     }
 
     /**

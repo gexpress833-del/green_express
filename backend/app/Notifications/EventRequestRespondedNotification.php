@@ -25,6 +25,7 @@ class EventRequestRespondedNotification extends Notification
         $admin = $this->eventRequest->respondedByUser;
         $response = $this->eventRequest->admin_response ?? '';
         return [
+            'category' => 'event',
             'kind' => 'event_request_responded',
             'event_request_id' => $this->eventRequest->id,
             'event_type' => $this->eventRequest->event_type,

@@ -11,10 +11,10 @@
 - **Base de données** : MySQL configurée (`.env` : `db_gexpress`), migrations en place
 - **Authentification** : Sanctum (`auth:api`) – login, register, logout, `/me`, cookies/session
 - **Rôles** : 6 rôles (admin, cuisinier, client, livreur, verificateur, entreprise) avec middlewares et contrôleurs dédiés
-- **API** : Menus, promotions (claim atomique), commandes, paiements Shwary, abonnements, entreprises, employés, livraisons, stats par rôle, etc.
+- **API** : Menus, promotions (claim atomique), commandes, paiements pawaPay, abonnements, entreprises, employés, livraisons, stats par rôle, etc.
 - **Cloudinary** : Upload, suppression, transformation d’images ; config, validation (type, taille), rate limiting
 - **Sécurité** : CORS, rate limiting, validation des entrées, transactions pour les claims
-- **Config** : `.env.example` complet (Cloudinary, Shwary, CORS, Sanctum, DB) – pas de JWT (migration Sanctum)
+- **Config** : `.env.example` complet (Cloudinary, pawaPay, CORS, Sanctum, DB)
 - **Tests** : PHPUnit (ex. CloudinaryUploadTest), factories `User`, `Menu`, `Promotion` + `HasFactory` sur les modèles
 - **Documentation API** : `docs/API.md` + `docs/openapi.yaml`
 
@@ -28,7 +28,7 @@
 - **LICENSE** : Fichier MIT présent
 - **CI/CD** : Workflow GitHub Actions dans `.github/workflows/ci-cd.yml` (backend tests, frontend build)
 - **Docs** : README, DEPLOYMENT, SECURITY, TEST_GUIDE, PRODUCTION_READINESS, FINAL_CHECKLIST, guides RBAC, etc.
-- **Roadmap README** : Phase 1 et Phase 2 marquées comme faites (commandes, livraison, validation tickets, webhooks Shwary)
+- **Roadmap README** : Phase 1 et Phase 2 marquées comme faites (commandes, livraison, validation tickets, webhooks pawaPay)
 
 ---
 
@@ -57,8 +57,8 @@
 14. **Phase 3 (roadmap)** : Notifications temps réel (WebSocket), 2FA, abonnements avancés, analytics, app mobile – non implémentés.
 
 ### Points de vigilance
-- **Webhooks** : `payments/webhook` et `shwary/callback` sont en POST public ; s’assurer que la vérification de signature (ex. `PAYMENT_WEBHOOK_SECRET`, Shwary) est bien implémentée et testée.
-- **Secrets** : Vérifier qu’aucune clé (Cloudinary, Shwary, etc.) n’est en dur dans le code et que `.env` / `.env.local` sont bien ignorés par Git.
+- **Webhooks** : `payments/webhook` et `pawapay/callback` sont en POST public ; s’assurer que la validation d’intégrité et les secrets éventuels sont cohérents en production.
+- **Secrets** : Vérifier qu’aucune clé (Cloudinary, pawaPay, etc.) n’est en dur dans le code et que `.env` / `.env.local` sont bien ignorés par Git.
 - **Base de données** : En production, prévoir PostgreSQL ou MySQL (au lieu de SQLite si encore utilisé en dev) et stratégie de sauvegarde.
 
 ---
@@ -67,7 +67,7 @@
 
 | Catégorie              | En place                         | Reste à faire / à finaliser        |
 |------------------------|----------------------------------|------------------------------------|
-| Backend / API          | ✅ Complet (auth, rôles, menus, commandes, Shwary, Cloudinary, tests) | Lint PHP, Form Requests (optionnel) |
+| Backend / API          | ✅ Complet (auth, rôles, menus, commandes, pawaPay, Cloudinary, tests) | Lint PHP, Form Requests (optionnel) |
 | Frontend               | ✅ Complet (dashboards, menus, promotions, upload) | Scénarios Playwright E2E complets  |
 | Config / env           | ✅ `.env.example` backend, `.env.local.example` frontend | —                                   |
 | Tests                  | ✅ PHPUnit, factories, CI backend + build frontend | E2E Playwright, load tests         |

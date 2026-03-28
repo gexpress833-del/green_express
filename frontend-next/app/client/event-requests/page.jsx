@@ -1,5 +1,5 @@
 "use client"
-import ClientSidebar from '@/components/ClientSidebar'
+import ClientSubpageHeader from '@/components/ClientSubpageHeader'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -44,23 +44,12 @@ export default function ClientEventRequestsPage() {
   return (
     <section className="page-section min-h-screen bg-[#0b1220] text-white">
       <div className="container">
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold mb-2" style={{
-            background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-          }}>
-            Mes demandes événementielles
-          </h1>
-          <p className="text-white/70 text-lg">
-            Suivi de vos demandes de devis et réponses de Green Express.
-          </p>
-        </header>
+        <ClientSubpageHeader
+          title="Mes demandes événementielles"
+          subtitle="Suivi de vos demandes de devis et réponses de Green Express."
+          icon="🎪"
+        />
 
-        <div className="dashboard-grid">
-          <ClientSidebar />
-          <main className="main-panel">
             <div className="mb-4">
               <Link
                 href="/evenements"
@@ -162,8 +151,6 @@ export default function ClientEventRequestsPage() {
                 ))}
               </div>
             )}
-          </main>
-        </div>
       </div>
     </section>
   )

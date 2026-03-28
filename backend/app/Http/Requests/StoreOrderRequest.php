@@ -19,6 +19,7 @@ class StoreOrderRequest extends FormRequest
             'items.*.quantity' => 'required|integer|min:1|max:100',
             'items.*.price' => 'nullable|numeric|min:0',
             'delivery_address' => 'required|string|max:500',
+            'client_phone_number' => 'required|string|max:30',
             'company_id' => 'nullable|integer|exists:users,id',
         ];
     }
@@ -29,6 +30,7 @@ class StoreOrderRequest extends FormRequest
             'items.required' => 'La commande doit contenir au moins un plat.',
             'items.*.menu_id.exists' => 'Un des plats sélectionnés est invalide.',
             'delivery_address.required' => 'L\'adresse de livraison est obligatoire.',
+            'client_phone_number.required' => 'Le numéro Mobile Money pour le paiement est obligatoire.',
         ];
     }
 }

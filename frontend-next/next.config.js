@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  /** Les navigateurs demandent souvent /favicon.ico alors que le projet n’a que public/favicon.svg */
+  async rewrites() {
+    return [{ source: '/favicon.ico', destination: '/favicon.svg' }]
+  },
   images: {
     loader: 'custom',
     loaderFile: './app/lib/imageLoader.js',

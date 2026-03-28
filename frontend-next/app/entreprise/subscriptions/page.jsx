@@ -4,6 +4,7 @@ import GoldButton from '@/components/GoldButton'
 import { useCompany } from '@/lib/useCompany'
 import { apiRequest, getApiErrorMessage } from '@/lib/api'
 import { pushToast } from '@/components/Toaster'
+import ConfirmModal from '@/components/ConfirmModal'
 import { useEffect, useState, useCallback } from 'react'
 
 const STATUS_LABELS = {
@@ -162,6 +163,7 @@ export default function EntrepriseSubscriptionsPage() {
   const [subscribing, setSubscribing] = useState(false)
   const [renewingId, setRenewingId] = useState(null)
   const [error, setError] = useState('')
+  const [confirmModal, setConfirmModal] = useState(null)
 
   const loadSubscriptions = useCallback(() => {
     if (!company?.id) return Promise.resolve()
@@ -196,7 +198,7 @@ export default function EntrepriseSubscriptionsPage() {
       : 'none'
   const statusDisplay = getSubscriptionStatusDisplay(subscriptionState, currentSub)
 
-  async function handleSubscribe() {
+  async function doSubscribe() {
     if (!company?.id || subscribing) return
     setError('')
     setSubscribing(true)
@@ -221,7 +223,19 @@ export default function EntrepriseSubscriptionsPage() {
     }
   }
 
-  async function handleRenew(sub) {
+  function handleSubscribe() {
+    if (!company?.id || subscribing) return
+    const montant = agentCount > 0 ? `${30 * agentCount} USD / mois` : ''
+    setConfirmModal({
+      title: 'Confirmer la souscription',
+      message: `Vous allez déposer une demande d'abonnement${montant ? ` pour ${agentCount} agent(s) — ${montant}` : ''}. L'administrateur l'activera après réception du paiement.`,
+      variant: 'info',
+      confirmLabel: 'Souscrire',
+      onConfirm: () => { setConfirmModal(null); doSubscribe() },
+    })
+  }
+
+  async function doRenew(sub) {
     if (!sub?.id || renewingId) return
     setError('')
     setRenewingId(sub.id)
@@ -240,6 +254,17 @@ export default function EntrepriseSubscriptionsPage() {
     } finally {
       setRenewingId(null)
     }
+  }
+
+  function handleRenew(sub) {
+    if (!sub?.id || renewingId) return
+    setConfirmModal({
+      title: 'Renouveler l\'abonnement',
+      message: 'Vous allez créer une nouvelle période d\'abonnement. L\'administrateur devra l\'activer après réception du paiement.',
+      variant: 'warning',
+      confirmLabel: 'Renouveler',
+      onConfirm: () => { setConfirmModal(null); doRenew(sub) },
+    })
   }
 
   const formatDate = (d) => (d ? new Date(d).toLocaleDateString('fr-FR') : '—')
@@ -402,7 +427,7 @@ export default function EntrepriseSubscriptionsPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleRenew(sub)}
-                                    disabled={!!renewingId}
+                                    disabled={!!renewingId || !!confirmModal}
                                     className="px-4 py-2 rounded-lg text-sm font-medium bg-[#d4af37] text-[#0b1220] hover:bg-[#e5c048] disabled:opacity-50"
                                   >
                                     {renewingId === sub.id ? 'Envoi…' : 'Renouveler'}
@@ -438,6 +463,12 @@ export default function EntrepriseSubscriptionsPage() {
           </main>
         </div>
       </div>
+      {confirmModal && (
+        <ConfirmModal
+          {...confirmModal}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
     </section>
   )
 }

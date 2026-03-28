@@ -6,6 +6,7 @@ use App\Services\CloudinaryService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class UploadController extends Controller
 {
@@ -40,10 +41,12 @@ class UploadController extends Controller
     public function uploadImage(Request $request): JsonResponse
     {
         try {
-            // Validation
+            $maxKb = (int) config('cloudinary.max_file_size', 5120);
+            $allowedFolders = array_keys(config('cloudinary.folders', []));
+
             $request->validate([
-                'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120', // 5MB
-                'folder' => 'sometimes|in:menus,promotions,uploads,profiles,green-express/menus,green-express/promotions,green-express/uploads,green-express/profiles',
+                'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:'.$maxKb,
+                'folder' => ['sometimes', Rule::in($allowedFolders)],
             ]);
 
             $file = $request->file('image');
@@ -54,7 +57,7 @@ class UploadController extends Controller
             if (($cloudinaryStatus['status'] ?? '') !== 'ok') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cloudinary n\'est pas configuré. Ajoutez CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY et CLOUDINARY_API_SECRET dans le fichier .env (voir .env.example).',
+                    'message' => 'Cloudinary n\'est pas configuré. Ajoutez CLOUDINARY_URL ou CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY et CLOUDINARY_API_SECRET dans .env (voir .env.example).',
                 ], 503);
             }
 

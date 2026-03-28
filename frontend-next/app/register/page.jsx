@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { register, registerCompany } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { getApiErrorMessage } from '@/lib/api'
 import { isValidEmail, isValidPassword } from '@/lib/helpers'
 import { pushToast } from '@/components/Toaster'
 
@@ -12,6 +13,7 @@ export default function RegisterPage(){
   const [email,setEmail]=useState('')
   const [password,setPassword]=useState('')
   const [confirmPassword,setConfirmPassword]=useState('')
+  const [clientPhone, setClientPhone] = useState('')
   const [error,setError]=useState('')
   const [loading,setLoading]=useState(false)
   
@@ -58,6 +60,11 @@ export default function RegisterPage(){
       return
     }
 
+    if (accountType === 'client' && !clientPhone.trim()) {
+      setError('Le numéro de téléphone mobile est obligatoire.')
+      return
+    }
+
     // Validation supplémentaire pour entreprise
     if(accountType === 'entreprise'){
       if(!companyName.trim()){
@@ -88,8 +95,7 @@ export default function RegisterPage(){
 
     try{
       if(accountType === 'client'){
-        // Inscription client
-        const response = await register(email, password, name)
+        await register(email, password, name, clientPhone.trim())
         router.push('/client')
       } else {
         // Inscription entreprise - demande d'approbation
@@ -116,7 +122,7 @@ export default function RegisterPage(){
       }
     }catch(err){
       console.error('❌ Erreur inscription:', err)
-      setError(err?.data?.message || err?.message || 'Erreur lors de l\'inscription.')
+      setError(getApiErrorMessage(err) || 'Erreur lors de l\'inscription.')
     }finally{
       setLoading(false)
     }
@@ -219,6 +225,26 @@ export default function RegisterPage(){
                 />
               </div>
             </div>
+
+            {accountType === 'client' && (
+              <div>
+                <label className="block text-white text-sm font-semibold mb-2">
+                  Téléphone mobile <span className="text-rose-300/90">*</span>
+                </label>
+                <input
+                  type="tel"
+                  autoComplete="tel"
+                  placeholder="08X XXX XXXX ou +243…"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#d4af37] transition"
+                />
+                <p className="mt-1.5 text-xs text-white/45">
+                  Obligatoire — format RDC (08…, 09… ou +243…). Sert aussi à vous connecter.
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>

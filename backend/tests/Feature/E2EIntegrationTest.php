@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class E2EIntegrationTest extends TestCase
@@ -25,7 +26,7 @@ class E2EIntegrationTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function test_complete_e2e_flow_menu_with_image()
     {
         /**

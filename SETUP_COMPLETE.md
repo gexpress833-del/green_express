@@ -180,7 +180,7 @@ npm run dev
 3. Protéger routes métier par middleware `role:X`
 
 ### Moyen terme
-1. Intégrer webhook paiement Shwary
+1. Intégrer webhook paiement pawaPay
 2. Créer tests automatisés (PHPUnit + Playwright)
 3. Optimiser performances (cache, CDN images)
 4. Ajouter monitoring (logs, sentry)

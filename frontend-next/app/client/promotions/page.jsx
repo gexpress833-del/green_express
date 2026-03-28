@@ -1,5 +1,5 @@
 "use client"
-import ClientSidebar from '@/components/ClientSidebar'
+import ClientSubpageHeader from '@/components/ClientSubpageHeader'
 import ReadOnlyGuard from '@/components/ReadOnlyGuard'
 import { useEffect, useState } from 'react'
 import { apiRequest, getApiErrorMessage } from '@/lib/api'
@@ -92,35 +92,23 @@ export default function ClientPromotions() {
 
   return (
     <ReadOnlyGuard allowedActions={['view', 'read', 'claim']} showWarning={false}>
-      <section className="page-section min-h-screen">
+      <section className="page-section min-h-screen bg-[#0b1220]">
         <div className="container">
-          <header className="mb-8 fade-in">
-            <h1 className="text-4xl font-extrabold mb-2" style={{
-              background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              textShadow: '0 0 40px rgba(0, 255, 255, 0.5)'
-            }}>
-              Promotion du moment
-            </h1>
-            <p className="text-white/70 text-lg mb-4">
-              Une seule promotion à réclamer avec vos points fidélité
-            </p>
-            {isLoggedIn === true && userPoints !== null && (
-              <div className="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-white/5 border border-amber-500/30">
+          <ClientSubpageHeader
+            title="Promotion du moment"
+            subtitle="Une seule promotion à réclamer avec vos points de fidélité."
+            icon="🎁"
+            desktopExtra={isLoggedIn === true && userPoints !== null ? (
+              <div className="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-white/5 border border-amber-500/30 mt-4">
                 <span className="text-2xl" aria-hidden>⭐</span>
                 <div>
                   <span className="text-white/60 text-sm block">Votre solde</span>
                   <span className="text-2xl font-bold text-amber-300">{userPoints} points</span>
                 </div>
               </div>
-            )}
-          </header>
+            ) : null}
+          />
 
-          <div className="dashboard-grid">
-            <ClientSidebar />
-            <main className="main-panel">
               {loading ? (
                 <div className="card text-center py-16">
                   <p className="text-white/60">Chargement de la promotion...</p>
@@ -152,8 +140,6 @@ export default function ClientPromotions() {
                   />
                 </div>
               )}
-            </main>
-          </div>
         </div>
       </section>
     </ReadOnlyGuard>

@@ -4,8 +4,80 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
-import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/notifications'
-import ProfileSidebar from '../profile/components/ProfileSidebar'
+import {
+  deleteAllNotifications,
+  deleteNotification,
+  fetchNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '@/lib/notifications'
+import { getNotificationType, NOTIFICATION_TABS } from '@/lib/notificationCategories'
+import {
+  getEventRequestDeepLink,
+  getOrderDeepLink,
+  getPromotionsDeepLink,
+  getSubscriptionsDeepLink,
+} from '@/lib/notificationNavigation'
+import { getApiErrorMessage } from '@/lib/api'
+import ConfirmModal from '@/components/ConfirmModal'
+import styles from './page.module.css'
+
+const LOAD_TIMEOUT_MS = 15000
+
+const TABS = NOTIFICATION_TABS
+
+const NOTIFICATION_THEMES = {
+  orders: {
+    icon: '🛍️',
+    cardClass: styles.cardOrder,
+    dotClass: styles.dotOrder,
+    iconClass: styles.iconOrder,
+    previewClass: styles.previewOrder,
+    actionClass: styles.actionOrder,
+    labelClass: styles.labelOrder,
+    label: 'Commande',
+  },
+  subscriptions: {
+    icon: '💳',
+    cardClass: styles.cardSubscription,
+    dotClass: styles.dotSubscription,
+    iconClass: styles.iconSubscription,
+    previewClass: styles.previewSubscription,
+    actionClass: styles.actionSubscription,
+    labelClass: styles.labelSubscription,
+    label: 'Abonnement',
+  },
+  promotions: {
+    icon: '🎁',
+    cardClass: styles.cardPromotion,
+    dotClass: styles.dotPromotion,
+    iconClass: styles.iconPromotion,
+    previewClass: styles.previewPromotion,
+    actionClass: styles.actionPromotion,
+    labelClass: styles.labelPromotion,
+    label: 'Promotion',
+  },
+  events: {
+    icon: '🎉',
+    cardClass: styles.cardEvent,
+    dotClass: styles.dotEvent,
+    iconClass: styles.iconEvent,
+    previewClass: styles.previewEvent,
+    actionClass: styles.actionEvent,
+    labelClass: styles.labelEvent,
+    label: 'Demande d’événement',
+  },
+  announcements: {
+    icon: '📢',
+    cardClass: styles.cardAnnouncement,
+    dotClass: styles.dotAnnouncement,
+    iconClass: styles.iconAnnouncement,
+    previewClass: styles.previewAnnouncement,
+    actionClass: styles.actionAnnouncement,
+    labelClass: styles.labelAnnouncement,
+    label: 'Annonce / info',
+  },
+}
 
 function formatRelative(date) {
   if (!date) return ''
@@ -14,153 +86,342 @@ function formatRelative(date) {
   const diffMs = now - d
   const diffM = Math.floor(diffMs / 60000)
   const diffH = Math.floor(diffMs / 3600000)
-  const diffD = Math.floor(diffMs / 86400000)
-  if (diffM < 1) return "À l'instant"
+
+  if (diffM < 1) return 'À l’instant'
   if (diffM < 60) return `Il y a ${diffM} min`
   if (diffH < 24) return `Il y a ${diffH} h`
-  if (diffD < 7) return `Il y a ${diffD} j`
-  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
 }
 
-const TABS = [
-  { id: 'all', label: 'Toutes' },
-  { id: 'orders', label: 'Commandes' },
-  { id: 'events', label: 'Événements' },
-  { id: 'system', label: 'Système' },
-]
+function getPreviewImage(notification) {
+  return (
+    notification?.data?.image ||
+    notification?.data?.image_url ||
+    notification?.data?.thumbnail ||
+    notification?.data?.photo ||
+    null
+  )
+}
 
 export default function NotificationsPage() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
+  const router = useRouter()
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [activeTab, setActiveTab] = useState('all')
   const [markingAll, setMarkingAll] = useState(false)
-  const router = useRouter()
+  const [deletingAll, setDeletingAll] = useState(false)
+  const [confirmModal, setConfirmModal] = useState(null)
+  const dashboardHref = user?.role ? `/${user.role}` : '/client'
+
+  async function requestNotifications(signal) {
+    const data = await fetchNotifications(50, { signal })
+    return Array.isArray(data?.notifications) ? data.notifications : []
+  }
 
   useEffect(() => {
     let cancelled = false
-    async function load() {
-      try {
-        const data = await fetchNotifications(50)
+    let timedOut = false
+    const controller = new AbortController()
+    setLoadError(null)
+    setLoading(true)
+    const timeoutId = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, LOAD_TIMEOUT_MS)
+
+    requestNotifications(controller.signal)
+      .then((items) => {
         if (cancelled) return
-        setNotifications(Array.isArray(data?.notifications) ? data.notifications : [])
-      } finally {
+        setNotifications(items)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        if (error?.name === 'AbortError') {
+          if (!timedOut) return
+          setLoadError('Le chargement a pris trop de temps. Vérifie que le backend répond bien.')
+        } else {
+          setLoadError(getApiErrorMessage(error))
+        }
+        setNotifications([])
+      })
+      .finally(() => {
+        clearTimeout(timeoutId)
         if (!cancelled) setLoading(false)
-      }
+      })
+
+    return () => {
+      cancelled = true
+      controller.abort()
+      clearTimeout(timeoutId)
     }
-    load()
-    return () => { cancelled = true }
   }, [])
 
-  const unreadCount = notifications.filter(n => !n.read_at).length
-  const orderCount = notifications.filter(n => n?.data?.order_id && !n.read_at).length
-  const eventCount = notifications.filter(n => n?.data?.event_request_id && !n.read_at).length
-  const systemCount = notifications.filter(n => !n?.data?.order_id && !n?.data?.event_request_id && !n.read_at).length
+  const unread = notifications.filter((notification) => !notification.read_at)
+  const allVisible = unread.length > 0 ? unread : notifications
+  const filteredNotifications =
+    activeTab === 'all'
+      ? allVisible
+      : allVisible.filter((notification) => getNotificationType(notification) === activeTab)
+
+  const unreadCount = unread.length
+  const readCount = notifications.filter((notification) => notification.read_at).length
+  const totalCount = notifications.length
+  const tabCounts = {
+    all: allVisible.length,
+    orders: allVisible.filter((n) => getNotificationType(n) === 'orders').length,
+    subscriptions: allVisible.filter((n) => getNotificationType(n) === 'subscriptions').length,
+    promotions: allVisible.filter((n) => getNotificationType(n) === 'promotions').length,
+    events: allVisible.filter((n) => getNotificationType(n) === 'events').length,
+    announcements: allVisible.filter((n) => getNotificationType(n) === 'announcements').length,
+  }
+
+  async function handleRetry() {
+    let timedOut = false
+    const controller = new AbortController()
+    setLoadError(null)
+    setLoading(true)
+    const timeoutId = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, LOAD_TIMEOUT_MS)
+
+    try {
+      const items = await requestNotifications(controller.signal)
+      setNotifications(items)
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        if (timedOut) {
+          setLoadError('Le chargement a pris trop de temps. Vérifie que le backend répond bien.')
+          setNotifications([])
+        }
+      } else {
+        setLoadError(getApiErrorMessage(error))
+        setNotifications([])
+      }
+    } finally {
+      clearTimeout(timeoutId)
+      setLoading(false)
+    }
+  }
 
   async function handleMarkAllRead() {
     if (unreadCount === 0) return
     setMarkingAll(true)
     try {
       await markAllNotificationsRead()
-      const data = await fetchNotifications(50)
-      setNotifications(Array.isArray(data?.notifications) ? data.notifications : [])
-      router.push('/notifications/historique')
+      setNotifications((current) =>
+        current.map((notification) => ({
+          ...notification,
+          read_at: notification.read_at || new Date().toISOString(),
+        }))
+      )
     } finally {
       setMarkingAll(false)
     }
   }
 
-  async function handleMarkRead(n) {
-    if (n.read_at) return
+  async function doDeleteAll() {
+    if (totalCount === 0 || deletingAll) return
+    setDeletingAll(true)
     try {
-      await markNotificationRead(n.id)
-      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x))
-      router.push('/notifications/historique')
+      await deleteAllNotifications()
+      setNotifications([])
+    } finally {
+      setDeletingAll(false)
+    }
+  }
+
+  function handleDeleteAll() {
+    if (totalCount === 0 || deletingAll) return
+    setConfirmModal({
+      title: 'Supprimer toutes les notifications',
+      message: `Vous allez supprimer définitivement ${totalCount} notification${totalCount > 1 ? 's' : ''}. Cette action est irréversible.`,
+      variant: 'danger',
+      confirmLabel: 'Tout supprimer',
+      onConfirm: () => { setConfirmModal(null); doDeleteAll() },
+    })
+  }
+
+  async function handleMarkRead(notification) {
+    if (notification.read_at) return
+    try {
+      await markNotificationRead(notification.id)
+      setNotifications((current) =>
+        current.map((entry) =>
+          entry.id === notification.id
+            ? { ...entry, read_at: new Date().toISOString() }
+            : entry
+        )
+      )
     } catch {}
   }
 
-  function goToOrder(n) {
-    const orderId = n?.data?.order_id
-    if (!orderId) return
-    router.push(`/client/orders?order=${orderId}`)
+  async function doDelete(notification) {
+    try {
+      await deleteNotification(notification.id)
+      setNotifications((current) => current.filter((entry) => entry.id !== notification.id))
+    } catch {}
+  }
+
+  function handleDelete(notification) {
+    const title = notification?.data?.title || 'cette notification'
+    setConfirmModal({
+      title: 'Supprimer la notification',
+      message: `Voulez-vous supprimer définitivement « ${title} » ?`,
+      variant: 'danger',
+      confirmLabel: 'Supprimer',
+      onConfirm: () => { setConfirmModal(null); doDelete(notification) },
+    })
+  }
+
+  function goToOrder(notification) {
+    const href = getOrderDeepLink(user?.role, notification?.data?.order_id)
+    if (href) router.push(href)
   }
 
   function goToEventRequest() {
-    router.push('/client/event-requests')
+    router.push(getEventRequestDeepLink(user?.role))
   }
 
-  function getNotificationType(n) {
-    if (n?.data?.order_id) return 'orders'
-    if (n?.data?.event_request_id) return 'events'
-    return 'system'
+  function goToSubscriptions() {
+    router.push(getSubscriptionsDeepLink(user?.role))
   }
 
-  const unread = notifications.filter(n => !n.read_at)
-  const filterByTab = (list) =>
-    activeTab === 'all' ? list : list.filter(n => getNotificationType(n) === activeTab)
-  const unreadFiltered = filterByTab(unread)
-  const readCount = notifications.filter(n => n.read_at).length
-  const tabCounts = { all: unreadCount, orders: orderCount, events: eventCount, system: systemCount }
-
-  async function handleLogout() {
-    await logout()
-    router.push('/')
+  function goToPromotions(n) {
+    router.push(getPromotionsDeepLink(user?.role, n?.data?.promotion_id))
   }
 
-  function renderCard(n) {
-    const isUnread = !n.read_at
-    const title = n?.data?.title || 'Notification'
-    const message = n?.data?.message || ''
-    const originLabel = n?.data?.origin_label
-    const icon = n?.data?.order_id ? '📦' : n?.data?.event_request_id ? '📅' : '🔔'
+  function renderCard(notification) {
+    const type = getNotificationType(notification)
+    const theme = NOTIFICATION_THEMES[type] || NOTIFICATION_THEMES.announcements
+    const title = notification?.data?.title || theme.label
+    const message = notification?.data?.message || 'Vous avez une nouvelle notification.'
+    const isAnnouncementCard = type === 'announcements'
+    const previewImage = getPreviewImage(notification)
+    const orderId = notification?.data?.order_id
+    const subtitleParts = []
+
+    if (orderId) subtitleParts.push(`Commande #${orderId}`)
+    if (type === 'events') subtitleParts.push('Nouvelle demande')
+    if (type === 'subscriptions' && notification?.data?.plan_name) subtitleParts.push(notification.data.plan_name)
+    if (type === 'promotions' && notification?.data?.promotion_kind === 'special') subtitleParts.push('Mise en avant')
+    if (notification?.data?.category === 'announcement' || notification?.data?.kind === 'announcement') {
+      subtitleParts.push('Green Express')
+    }
+    subtitleParts.push(formatRelative(notification.created_at))
+
     return (
       <article
-        key={n.id}
-        className={`rounded-2xl border p-6 transition-colors ${
-          isUnread ? 'border-cyan-500/20 bg-[#0f172a]' : 'border-white/5 bg-[#0f172a]/50'
-        }`}
+        key={notification.id}
+        className={`${styles.card} ${theme.cardClass}`}
       >
-        <div className="flex gap-4">
-          <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center text-xl">
-            {icon}
+        <span className={`${styles.dot} ${theme.dotClass}`} />
+
+        <div className={styles.cardTop}>
+          <div className={`${styles.iconWrap} ${theme.iconClass}`}>
+            {theme.icon}
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-white">{title}</h3>
-            {originLabel && (
-              <p className="text-cyan-400/90 text-xs mt-0.5">
-                De : {originLabel}
-              </p>
-            )}
-            {message && <p className="text-white/60 text-sm mt-1">{message}</p>}
-            <p className="text-white/40 text-xs mt-2">{formatRelative(n.created_at)}</p>
-            <div className="flex flex-wrap gap-2 mt-4">
-              {n?.data?.order_id && (
+
+          <div className={styles.cardBody}>
+            <div>
+              <div>
+                <h3 className={styles.cardTitle}>
+                  {title}
+                </h3>
+                <p className={styles.cardMeta}>
+                  {subtitleParts.filter(Boolean).join(' · ')}
+                </p>
+              </div>
+            </div>
+
+            <div className={`${styles.preview} ${theme.previewClass}`}>
+              {previewImage ? (
+                <img
+                  src={previewImage}
+                  alt={title}
+                  className={styles.previewImage}
+                />
+              ) : (
+                <div className={`${styles.previewFallback} ${theme.iconClass}`}>
+                  {theme.icon}
+                </div>
+              )}
+
+              <div className={styles.previewText}>
+                <p
+                  className={
+                    isAnnouncementCard
+                      ? `${styles.previewMessage} ${styles.previewMessageAnnouncement}`
+                      : styles.previewMessage
+                  }
+                >
+                  {message}
+                </p>
+                <p className={`${styles.previewLabel} ${theme.labelClass}`}>
+                  {theme.label}
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.actions}>
+              {notification?.data?.order_id && (
                 <button
                   type="button"
-                  onClick={() => goToOrder(n)}
-                  className="px-3 py-2 rounded-lg text-sm font-medium bg-[#d4af37]/90 text-[#0b1220] hover:bg-[#d4af37] transition-colors"
+                  onClick={() => goToOrder(notification)}
+                  className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
                 >
                   Voir la commande
                 </button>
               )}
-              {n?.data?.event_request_id && (
+
+              {notification?.data?.event_request_id && (
                 <button
                   type="button"
                   onClick={goToEventRequest}
-                  className="px-3 py-2 rounded-lg text-sm font-medium bg-cyan-500/80 text-[#0b1220] hover:bg-cyan-400 transition-colors"
+                  className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
                 >
                   Voir la demande
                 </button>
               )}
-              {isUnread && (
+
+              {notification?.data?.subscription_id && (
                 <button
                   type="button"
-                  onClick={() => handleMarkRead(n)}
-                  className="px-3 py-2 rounded-lg text-sm font-medium text-white/80 border border-white/15 hover:bg-white/5 transition-colors"
+                  onClick={goToSubscriptions}
+                  className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
                 >
-                  Marquer lue
+                  Voir mes abonnements
                 </button>
               )}
+
+              {notification?.data?.promotion_id && (
+                <button
+                  type="button"
+                  onClick={() => goToPromotions(notification)}
+                  className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
+                >
+                  Voir les promotions
+                </button>
+              )}
+
+              {!notification.read_at && (
+                <button
+                  type="button"
+                  onClick={() => handleMarkRead(notification)}
+                  className={`${styles.buttonReset} ${styles.actionMuted}`}
+                >
+                  Marquer comme lue
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleDelete(notification)}
+                className={`${styles.buttonReset} ${styles.actionDanger}`}
+              >
+                Supprimer
+              </button>
             </div>
           </div>
         </div>
@@ -169,87 +430,105 @@ export default function NotificationsPage() {
   }
 
   return (
-    <section className="page-section min-h-screen bg-[#0b1220]">
-      <div className="container py-8">
-        <div className="dashboard-grid gap-6 lg:gap-8">
-          <ProfileSidebar
-            onLogout={handleLogout}
-            dashboardHref={user?.role ? `/${user.role}` : '/client'}
-          />
-
-          <main className="main-panel min-w-0">
-            <header className="mb-8">
-              <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">
-                Notifications
-              </h1>
-              <p className="mt-1 text-sm text-white/50">
+    <section className={styles.page}>
+      <div className={styles.shell}>
+        <div className={styles.header}>
+          <div className={styles.headerLeft}>
+            <Link
+              href={dashboardHref}
+              className={styles.backButton}
+              aria-label="Retour"
+            >
+              ←
+            </Link>
+            <div className={styles.titleWrap}>
+              <h1 className={styles.title}>Notifications</h1>
+              <p className={styles.subtitle}>
+                Mes notifications.
+                {' '}
                 {unreadCount > 0 ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` : 'Tout est lu'}
               </p>
-            </header>
-
-            <div className="flex flex-wrap items-center gap-3 mb-6">
-              <button
-                type="button"
-                onClick={handleMarkAllRead}
-                disabled={unreadCount === 0 || markingAll}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white/90 border border-white/15 hover:bg-white/5 disabled:opacity-50 transition-colors"
-              >
-                {markingAll ? 'Marquage…' : 'Tout marquer lu'}
-              </button>
-              <Link
-                href="/notifications/historique"
-                className="px-4 py-2 rounded-lg text-sm font-medium text-cyan-400/90 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors"
-              >
-                Historique{readCount > 0 ? ` (${readCount})` : ''}
-              </Link>
             </div>
+          </div>
 
-            <div className="flex flex-wrap gap-2 mb-6">
-              {TABS.map((tab) => {
-                const count = tabCounts[tab.id] ?? 0
-                const isActive = activeTab === tab.id
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-white/10 text-white'
-                        : 'text-white/60 hover:text-white/80 hover:bg-white/5'
-                    }`}
-                  >
-                    {tab.label}
-                    {count > 0 && <span className="ml-1 text-white/50">({count})</span>}
-                  </button>
-                )
-              })}
-            </div>
-
-            <div>
-              <h2 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-4">
-                Non lues {unreadCount > 0 && `· ${unreadCount}`}
-              </h2>
-              {loading ? (
-                <div className="rounded-2xl border border-white/5 bg-[#0f172a]/50 py-20 text-center">
-                  <div className="w-8 h-8 border-2 border-white/20 border-t-cyan-500 rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-white/50 text-sm">Chargement…</p>
-                </div>
-              ) : unreadFiltered.length === 0 ? (
-                <div className="rounded-2xl border border-white/5 bg-[#0f172a]/30 py-16 text-center">
-                  <p className="text-white/40 text-sm">
-                    {unreadCount === 0
-                      ? 'Aucune notification non lue.'
-                      : `Aucune dans « ${TABS.find(t => t.id === activeTab)?.label} ».`}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">{unreadFiltered.map(renderCard)}</div>
-              )}
-            </div>
-          </main>
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              onClick={handleDeleteAll}
+              disabled={totalCount === 0 || deletingAll}
+              className={`${styles.buttonReset} ${styles.actionDanger}`}
+            >
+              {deletingAll ? 'Suppression...' : 'Tout supprimer'}
+            </button>
+            <button
+              type="button"
+              onClick={handleMarkAllRead}
+              disabled={unreadCount === 0 || markingAll}
+              className={`${styles.buttonReset} ${styles.markAllButton}`}
+            >
+              {markingAll ? 'Patiente...' : 'Tout marquer lu'}
+            </button>
+          </div>
         </div>
+
+        <div className={styles.tabs}>
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`${styles.buttonReset} ${styles.tabButton} ${isActive ? styles.tabButtonActive : ''}`}
+              >
+                {tab.label}
+                {tabCounts[tab.id] > 0 ? ` (${tabCounts[tab.id]})` : ''}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className={styles.historyRow}>
+          <Link
+            href="/notifications/historique"
+            className={styles.historyLink}
+          >
+            Voir l’historique{readCount > 0 ? ` (${readCount})` : ''}
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className={styles.stateCard}>
+            <div className={styles.spinner} />
+            <p className={styles.stateText}>Chargement des notifications...</p>
+          </div>
+        ) : loadError ? (
+          <div className={styles.stateCard}>
+            <p className={`${styles.stateText} ${styles.errorText}`}>{loadError}</p>
+            <button
+              type="button"
+              onClick={handleRetry}
+              className={`${styles.buttonReset} ${styles.retryButton}`}
+            >
+              Réessayer
+            </button>
+          </div>
+        ) : filteredNotifications.length === 0 ? (
+          <div className={styles.stateCard}>
+            <p className={styles.stateText}>Aucune notification à afficher.</p>
+          </div>
+        ) : (
+          <div className={styles.cards}>
+            {filteredNotifications.map(renderCard)}
+          </div>
+        )}
       </div>
+      {confirmModal && (
+        <ConfirmModal
+          {...confirmModal}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
     </section>
   )
 }
