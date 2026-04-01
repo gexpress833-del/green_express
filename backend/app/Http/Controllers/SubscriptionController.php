@@ -42,6 +42,7 @@ class SubscriptionController extends Controller
         } else {
             $list->each(function (Subscription $sub) {
                 $sub->days_until_expiry = $sub->daysUntilExpiry();
+                $sub->days_until_start = $sub->daysUntilStart();
                 $sub->has_payment_received = Payment::where('subscription_id', $sub->id)
                     ->whereIn('status', ['completed', 'paid'])->exists();
             });
@@ -67,7 +68,7 @@ class SubscriptionController extends Controller
 
         $userId = $request->user()->id;
         $hasOngoing = Subscription::where('user_id', $userId)
-            ->whereIn('status', [Subscription::STATUS_PENDING, Subscription::STATUS_ACTIVE])
+            ->whereIn('status', [Subscription::STATUS_PENDING, Subscription::STATUS_SCHEDULED, Subscription::STATUS_ACTIVE])
             ->exists();
         if ($hasOngoing) {
             return response()->json(['message' => 'Vous avez déjà un abonnement en cours (en attente ou actif). Vous ne pouvez pas souscrire à un autre tant qu\'il n\'est pas expiré ou traité.'], 400);
@@ -168,6 +169,11 @@ class SubscriptionController extends Controller
                 'raw_response' => $shwaryResponse,
             ]);
 
+            if ($payment->status === 'completed') {
+                Subscription::applyPaymentConfirmedScheduling($subscription->fresh(), now());
+                $this->appNotifications->notifyClientAndAdminsAfterSubscriptionPayment($subscription->fresh());
+            }
+
             $countries = ShwaryService::getSupportedCountries();
             $currencyDebit = $shwaryResponse['currency'] ?? $countries[$data['country_code']]['currency'] ?? 'CDF';
             return response()->json([
@@ -177,7 +183,7 @@ class SubscriptionController extends Controller
                 'amount_to_debit' => $amountLocal,
                 'currency_to_debit' => $currencyDebit,
                 'message' => $payment->status === 'completed'
-                    ? 'Paiement reçu. Votre demande sera examinée par l\'équipe et l\'abonnement sera activé après validation.'
+                    ? $this->subscriptionPaidMessage($subscription->fresh())
                     : 'Paiement initié. En attente de confirmation sur votre mobile.',
                 'payment_completed' => $payment->status === 'completed',
             ]);
@@ -194,7 +200,7 @@ class SubscriptionController extends Controller
     }
 
     /**
-     * Admin : valider une demande (après vérification paiement). Passe en active et définit les dates.
+     * Admin : valider une demande (paiement vérifié manuellement). Planifie le premier jour ouvré + fin.
      */
     public function validateSubscription(Request $request, int $id)
     {
@@ -207,16 +213,8 @@ class SubscriptionController extends Controller
             return response()->json(['message' => 'Cette demande n\'est plus en attente.'], 400);
         }
 
-        $startedAt = now();
-        $subscription->update([
-            'status' => Subscription::STATUS_ACTIVE,
-            'started_at' => $startedAt,
-            'expires_at' => Subscription::computeExpiresAt($startedAt, $subscription->period),
-            'rejected_reason' => null,
-        ]);
-        \App\Models\Invoice::createForSubscriptionIfMissing($subscription->fresh());
-
-        $this->appNotifications->notifySubscription($subscription->fresh(), 'validated');
+        Subscription::applyPaymentConfirmedScheduling($subscription, now());
+        $this->appNotifications->notifyClientAfterAdminScheduling($subscription->fresh());
 
         return response()->json($subscription->fresh()->load(['user', 'subscriptionPlan']));
     }
@@ -268,8 +266,6 @@ class SubscriptionController extends Controller
         $plan = SubscriptionPlan::findOrFail($data['subscription_plan_id']);
         $period = 'week';
         $price = (float) $plan->price_week;
-        $startedAt = now();
-        $expiresAt = Subscription::computeExpiresAt($startedAt, $period);
 
         $sub = Subscription::create([
             'uuid' => (string) Str::uuid(),
@@ -279,12 +275,15 @@ class SubscriptionController extends Controller
             'price' => $price,
             'period' => $period,
             'currency' => $plan->currency ?? 'CDF',
-            'status' => Subscription::STATUS_ACTIVE,
-            'started_at' => $startedAt,
-            'expires_at' => $expiresAt,
+            'status' => Subscription::STATUS_PENDING,
+            'started_at' => null,
+            'expires_at' => null,
         ]);
 
-        return response()->json($sub->load('subscriptionPlan'), 201);
+        Subscription::applyPaymentConfirmedScheduling($sub->fresh(), now());
+        $this->appNotifications->notifySubscription($sub->fresh(), 'admin_scheduled');
+
+        return response()->json($sub->fresh()->load('subscriptionPlan'), 201);
     }
 
     /**
@@ -350,9 +349,9 @@ class SubscriptionController extends Controller
 
         $subscription = Subscription::where('user_id', $user->id)->whereKey($id)->firstOrFail();
 
-        if (in_array($subscription->status, [Subscription::STATUS_PENDING, Subscription::STATUS_ACTIVE], true)) {
+        if (in_array($subscription->status, [Subscription::STATUS_PENDING, Subscription::STATUS_SCHEDULED, Subscription::STATUS_ACTIVE], true)) {
             return response()->json([
-                'message' => 'Vous ne pouvez pas supprimer un abonnement en attente ou actif depuis l’historique.',
+                'message' => 'Vous ne pouvez pas supprimer un abonnement en attente, planifié ou actif depuis l’historique.',
             ], 400);
         }
 
@@ -388,5 +387,16 @@ class SubscriptionController extends Controller
                 : 'Aucune entrée à effacer.',
             'deleted' => $deleted,
         ], 200);
+    }
+
+    private function subscriptionPaidMessage(Subscription $sub): string
+    {
+        if (! $sub->started_at) {
+            return 'Paiement confirmé. Votre abonnement sera configuré sous peu.';
+        }
+
+        $dateStr = $sub->started_at->timezone(config('app.timezone'))->locale('fr')->translatedFormat('d F Y');
+
+        return "Paiement confirmé. Votre abonnement sera actif à partir du {$dateStr}. Vous recevrez vos repas à partir de cette date.";
     }
 }

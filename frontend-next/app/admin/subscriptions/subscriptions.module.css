@@ -1,0 +1,319 @@
+/* Page abonnements admin — alignée sur le tableau de bord (glass, néon, #0b0f1a) */
+
+/* Le vertical est géré par .page-section--admin-tight sur la même balise. */
+.page {
+  position: relative;
+  z-index: 1;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  box-sizing: border-box;
+}
+
+/* Une seule couche : le layout racine fournit déjà .container (padding + max-width). */
+.pageInner {
+  width: 100%;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+@media (min-width: 1024px) {
+  .hero {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.35rem, 4vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  background: linear-gradient(120deg, #f8fafc 0%, #a5f3fc 40%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.lead {
+  margin: 0;
+  font-size: clamp(0.875rem, 2vw, 1.05rem);
+  line-height: 1.55;
+  color: rgba(203, 213, 225, 0.78);
+  max-width: 48rem;
+}
+
+.lead strong {
+  color: rgba(253, 230, 138, 0.95);
+  font-weight: 600;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+  flex-shrink: 0;
+}
+
+/* Bouton secondaire (lien Plans) — glass cyan */
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.65rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.7rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  color: rgba(226, 232, 240, 0.95);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(0, 255, 255, 0.22);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 4px 16px -4px rgba(0, 0, 0, 0.4);
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.btnGhost:hover {
+  background: rgba(6, 182, 212, 0.12);
+  border-color: rgba(34, 211, 238, 0.45);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 20px -4px rgba(34, 211, 238, 0.25);
+}
+
+/* GoldButton dans la toolbar : largeur raisonnable */
+.toolbar :global(.gold) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.65rem;
+  padding-left: 1.1rem;
+  padding-right: 1.1rem;
+  border-radius: 0.7rem;
+  font-size: 0.8125rem;
+}
+
+.filtersBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.filterField label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.95);
+  margin-bottom: 0.35rem;
+}
+
+.select {
+  min-width: 11rem;
+  padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: rgba(248, 250, 252, 0.95);
+  background-color: rgba(15, 23, 42, 0.85);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2367e8f9' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 0.55rem;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.select:focus {
+  outline: none;
+  border-color: rgba(34, 211, 238, 0.55);
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+}
+
+.select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.select option {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+.btnFilterToggle {
+  min-height: 2.45rem;
+  padding: 0.45rem 1rem;
+  border-radius: 0.55rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(248, 250, 252, 0.92);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btnFilterToggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(0, 255, 255, 0.25);
+}
+
+.btnFilterToggleActive {
+  border-color: rgba(52, 211, 153, 0.5);
+  background: rgba(16, 185, 129, 0.18);
+  color: rgba(209, 250, 229, 0.98);
+  box-shadow: 0 0 16px -4px rgba(52, 211, 153, 0.25);
+}
+
+/* Cartes liste */
+.cardList {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  padding: 1rem 1.1rem;
+}
+
+.pendingBanner {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(255, 255, 255, 0.02));
+  padding: 1rem 1.1rem;
+}
+
+.sectionHeading {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: rgba(248, 250, 252, 0.95);
+  letter-spacing: -0.02em;
+}
+
+/* Boutons d’action — base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 0.55rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnSuccess {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(5, 150, 105, 0.45));
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #ecfdf5;
+  box-shadow: 0 0 12px -2px rgba(52, 211, 153, 0.35);
+}
+
+.btnSuccess:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.5), rgba(5, 150, 105, 0.55));
+}
+
+.btnDanger {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.45), rgba(185, 28, 28, 0.5));
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fef2f2;
+  box-shadow: 0 0 12px -2px rgba(248, 113, 113, 0.25);
+}
+
+.btnDanger:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.6), rgba(185, 28, 28, 0.65));
+}
+
+.btnMuted {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(248, 250, 252, 0.92);
+}
+
+.btnMuted:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(0, 255, 255, 0.22);
+}
+
+.btnAmber {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.45), rgba(180, 83, 9, 0.5));
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fffbeb;
+  box-shadow: 0 0 12px -2px rgba(251, 191, 36, 0.2);
+}
+
+.btnAmber:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.6), rgba(180, 83, 9, 0.65));
+}
+
+.linkQuiet {
+  background: none;
+  border: none;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.8125rem;
+  color: rgba(148, 163, 184, 0.95);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.linkQuiet:hover {
+  color: rgba(226, 232, 240, 0.95);
+}
+
+.inputInline {
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.45rem;
+  font-size: 0.8125rem;
+  color: rgba(248, 250, 252, 0.95);
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  min-width: 0;
+  max-width: 12rem;
+}
+
+.inputInline:focus {
+  outline: none;
+  border-color: rgba(34, 211, 238, 0.45);
+}
+
+.h2Filters {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.95);
+}

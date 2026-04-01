@@ -100,7 +100,7 @@ export default function CreatePromotionPage() {
   }
 
   return (
-    <div className="p-6 bg-[#0b1220] text-white min-h-screen">
+    <section className="page-section page-section--admin-tight bg-[#0b1220] text-white min-h-screen">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-[#d4af37] mb-6">Créer une promotion</h1>
 
@@ -282,6 +282,6 @@ export default function CreatePromotionPage() {
           </button>
         </form>
       </div>
-    </div>
+    </section>
   );
 }

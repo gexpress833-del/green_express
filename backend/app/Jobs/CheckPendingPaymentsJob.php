@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\Subscription;
+use App\Services\AppNotificationService;
 use App\Services\OrderNotificationService;
 use App\Services\ShwaryService;
 use Illuminate\Bus\Queueable;
@@ -20,7 +22,7 @@ class CheckPendingPaymentsJob implements ShouldQueue
     public $tries = 1;
     public $timeout = 120;
 
-    public function handle(ShwaryService $shwaryService, OrderNotificationService $orderNotifications): void
+    public function handle(ShwaryService $shwaryService, OrderNotificationService $orderNotifications, AppNotificationService $appNotifications): void
     {
         $maxRetries = 5;
         $maxAge = now()->subMinutes(10);
@@ -41,14 +43,15 @@ class CheckPendingPaymentsJob implements ShouldQueue
                 'retry_count' => $payment->retry_count + 1,
             ]);
 
-            $this->pollShwary($payment, $shwaryService, $orderNotifications);
+            $this->pollShwary($payment, $shwaryService, $orderNotifications, $appNotifications);
         }
     }
 
     private function pollShwary(
         Payment $payment,
         ShwaryService $shwaryService,
-        OrderNotificationService $orderNotifications
+        OrderNotificationService $orderNotifications,
+        AppNotificationService $appNotifications
     ): void
     {
         $data = $shwaryService->getTransactionStatus($payment->provider_payment_id);
@@ -58,25 +61,32 @@ class CheckPendingPaymentsJob implements ShouldQueue
 
         $status = strtolower((string) ($data['status'] ?? ''));
 
-        if ($status === 'completed') {
-            $payment->update([
-                'status' => 'completed',
-                'raw_response' => array_merge($payment->raw_response ?? [], ['last_poll' => $data]),
-            ]);
-            if ($payment->order && $payment->order->status === 'pending_payment') {
-                $order = $payment->order;
-                $oldStatus = (string) $order->status;
-                $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                while (Order::where('delivery_code', $deliveryCode)->exists()) {
-                    $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                }
-                $order->update([
-                    'status' => 'paid',
-                    'delivery_code' => $deliveryCode,
+            if ($status === 'completed') {
+                $payment->update([
+                    'status' => 'completed',
+                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_poll' => $data]),
                 ]);
-                $orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
-            }
-        } elseif ($status === 'failed') {
+                if ($payment->order && $payment->order->status === 'pending_payment') {
+                    $order = $payment->order;
+                    $oldStatus = (string) $order->status;
+                    $deliveryCode = 'GX-' . strtoupper(Str::random(6));
+                    while (Order::where('delivery_code', $deliveryCode)->exists()) {
+                        $deliveryCode = 'GX-' . strtoupper(Str::random(6));
+                    }
+                    $order->update([
+                        'status' => 'paid',
+                        'delivery_code' => $deliveryCode,
+                    ]);
+                    $orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
+                }
+                if ($payment->subscription_id) {
+                    $sub = Subscription::find($payment->subscription_id);
+                    if ($sub && $sub->isPending()) {
+                        Subscription::applyPaymentConfirmedScheduling($sub, now());
+                        $appNotifications->notifyClientAndAdminsAfterSubscriptionPayment($sub->fresh());
+                    }
+                }
+            } elseif ($status === 'failed') {
             $payment->update([
                 'status' => 'failed',
                 'failure_reason' => $data['failureReason'] ?? null,

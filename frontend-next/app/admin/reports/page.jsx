@@ -191,8 +191,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <section className="page-section bg-[#0b1220] text-white min-h-screen">
-      <div className="container">
+    <section className="page-section page-section--admin-tight bg-[#0b1220] text-white min-h-screen">
         <header className="mb-8">
           <h1 className="text-3xl font-extrabold text-[#d4af37]">Rapports administratifs</h1>
           <p className="text-white/70 mt-2">
@@ -300,7 +299,6 @@ export default function ReportsPage() {
         </div>
           </main>
         </div>
-      </div>
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => !loading && setModalOpen(false)}>

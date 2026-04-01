@@ -85,8 +85,7 @@ export default function AdminNotifications() {
   }
 
   return (
-    <section className="page-section bg-[#0b1220] text-white min-h-screen">
-      <div className="container">
+    <section className="page-section page-section--admin-tight bg-[#0b1220] text-white min-h-screen">
         <header className="mb-6">
           <h1 className="text-3xl font-extrabold text-[#d4af37]">Notifications</h1>
           <p className="text-white/70 mt-2">Centre des notifications — commandes, paiements, alertes système.</p>
@@ -201,7 +200,6 @@ export default function AdminNotifications() {
             </div>
           </main>
         </div>
-      </div>
     </section>
   )
 }

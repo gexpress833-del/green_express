@@ -17,7 +17,7 @@ class CloudinaryUploadTest extends TestCase
     {
         parent::setUp();
         $this->chef = User::factory()->create([
-            'role' => 'CHEF',
+            'role' => 'cuisinier',
             'email' => 'chef@test.com',
         ]);
     }
@@ -49,7 +49,7 @@ class CloudinaryUploadTest extends TestCase
         $file = UploadedFile::fake()->image('menu.jpg', 100, 100);
 
         $this->actingAs($this->chef, 'api')
-            ->postJson('/api/upload-image', [
+            ->post('/api/upload-image', [
                 'image' => $file,
                 'folder' => 'menus',
             ])
@@ -68,7 +68,7 @@ class CloudinaryUploadTest extends TestCase
     public function test_upload_image_missing_file()
     {
         $this->actingAs($this->chef, 'api')
-            ->postJson('/api/upload-image', [])
+            ->post('/api/upload-image', [])
             ->assertStatus(422)
             ->assertJsonStructure(['errors']);
     }
@@ -81,7 +81,7 @@ class CloudinaryUploadTest extends TestCase
         $file = UploadedFile::fake()->create('document.txt', 100);
 
         $this->actingAs($this->chef, 'api')
-            ->postJson('/api/upload-image', [
+            ->post('/api/upload-image', [
                 'image' => $file,
             ])
             ->assertStatus(422);
@@ -120,8 +120,12 @@ class CloudinaryUploadTest extends TestCase
     {
         $file = UploadedFile::fake()->image('menu.jpg');
 
-        $this->postJson('/api/upload-image', [
-            'image' => $file,
-        ])->assertStatus(401);
+        // Sans Accept: application/json, Laravel peut répondre en 302 (redirect) au lieu du JSON 401.
+        $this->withHeaders(['Accept' => 'application/json'])
+            ->post('/api/upload-image', [
+                'image' => $file,
+            ])
+            ->assertStatus(401)
+            ->assertJson(['message' => 'Unauthenticated.']);
     }
 }

@@ -7,6 +7,14 @@ La source de vérité versionnée pour la configuration locale/projet est :
 
 - `backend/.env.example`
 
+### Développement local avec **MySQL**
+
+En local, le projet est prévu pour une base **MySQL** (`DB_CONNECTION=mysql`, `DB_HOST`, `DB_DATABASE`, etc.). Créer la base `green_express` (utf8mb4), puis `php artisan migrate`.
+
+### Sauvegarde production (`.env.production`)
+
+Sur ta machine uniquement, tu peux conserver une copie **`backend/.env.production`** avec les variables Render / PostgreSQL / secrets (fichier **ignoré par Git** — voir `.gitignore`). Elle sert à recopier les clés dans le dashboard hébergé ou à restaurer un poste ; **ne pas** la committer.
+
 ## Variables importantes
 
 ### Application

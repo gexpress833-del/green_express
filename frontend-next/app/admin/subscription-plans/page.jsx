@@ -236,18 +236,19 @@ export default function AdminSubscriptionPlansPage() {
   }
 
   return (
-    <section className="page-section min-h-screen bg-[#0b1220] text-white">
-      <div className="container">
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <Link href="/admin/subscriptions" className="text-white/60 hover:text-white text-sm mb-2 inline-block">← Abonnements</Link>
-            <h1 className="text-4xl font-bold mb-2" style={{ background: 'linear-gradient(135deg, #d4af37 0%, #f5e08a 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Plans d&apos;abonnement</h1>
-            <p className="text-white/70 text-lg">
+    <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220] text-white">
+        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0 flex-1">
+            <Link href="/admin/subscriptions" className="text-white/60 hover:text-white text-sm mb-1.5 inline-block">← Abonnements</Link>
+            <h1 className="text-3xl sm:text-4xl font-bold mb-2 leading-tight" style={{ background: 'linear-gradient(135deg, #d4af37 0%, #f5e08a 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Plans d&apos;abonnement</h1>
+            <p className="text-white/70 text-base sm:text-lg leading-snug max-w-3xl m-0">
               Définissez les offres et les plats illustrés. Un plan n’apparaît sur la page Abonnements client que si vous cochez{' '}
               <strong className="text-white/90">Publier sur la vitrine</strong> (sinon il reste en brouillon).
             </p>
           </div>
-          <GoldButton onClick={openCreate}>Créer un plan</GoldButton>
+          <div className="shrink-0 sm:pt-1">
+            <GoldButton onClick={openCreate}>Créer un plan</GoldButton>
+          </div>
         </header>
         <div className="dashboard-grid">
           <Sidebar />
@@ -279,9 +280,9 @@ export default function AdminSubscriptionPlansPage() {
                         <span className="inline-block mt-2 px-2 py-0.5 rounded text-xs font-semibold bg-white/10 text-white/70 border border-white/20">Brouillon — masqué côté client</span>
                       )}
                     </div>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => openEdit(plan)} className="px-3 py-1.5 rounded-lg text-sm border border-white/30 text-white/90 hover:bg-white/10">Modifier</button>
-                      <button type="button" onClick={() => handleDelete(plan.id)} className="px-3 py-1.5 rounded-lg text-sm bg-red-600/80 text-white hover:bg-red-500">Supprimer</button>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => openEdit(plan)} className="px-3 py-2 rounded-lg text-sm font-semibold border border-white/30 bg-white/[0.08] text-white hover:bg-white/15">Modifier</button>
+                      <button type="button" onClick={() => handleDelete(plan.id)} className="px-3 py-2 rounded-lg text-sm font-semibold bg-red-600/85 text-white hover:bg-red-500 border border-red-500/40">Supprimer</button>
                     </div>
                   </div>
                 ))}
@@ -289,20 +290,28 @@ export default function AdminSubscriptionPlansPage() {
             )}
           </main>
         </div>
-      </div>
 
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={() => !saving && setModal(null)}>
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center p-4 sm:p-6 bg-black/70"
+          onClick={() => !saving && setModal(null)}
+        >
           <div
-            className="bg-[#0b1220] border border-white/20 rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto p-6 shadow-xl"
+            className="bg-[#0b1220] border border-white/20 rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-xl font-semibold text-white mb-2">{modal === 'create' ? 'Nouveau plan' : 'Modifier le plan'}</h3>
-            <p className="text-white/55 text-sm mb-4">
-              Ajoutez les plats inclus dans l&apos;abonnement : titre, description marketing, image (catalogue ou upload). L&apos;ordre défini l&apos;affichage côté client.
-            </p>
-            {error && <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">{error}</div>}
-            <form onSubmit={handleSave} className="space-y-4">
+            {/* En-tête hors zone scroll : évite le rognage du titre (overflow sur le parent) */}
+            <header className="shrink-0 px-6 sm:px-8 pt-10 sm:pt-12 pb-5 border-b border-white/10 bg-[#0b1220] rounded-t-2xl">
+              <h3 className="text-xl sm:text-2xl font-semibold text-white m-0 mb-2 pt-0.5 leading-[1.35] tracking-tight">
+                {modal === 'create' ? 'Nouveau plan' : 'Modifier le plan'}
+              </h3>
+              <p className="text-white/55 text-sm m-0 leading-relaxed max-w-2xl">
+                Ajoutez les plats inclus dans l&apos;abonnement : titre, description marketing, image (catalogue ou upload). L&apos;ordre défini l&apos;affichage côté client.
+              </p>
+            </header>
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-8 py-5 pb-8 [scrollbar-width:thin] [scrollbar-color:rgba(34,211,238,0.35)_rgba(15,23,42,0.5)]">
+              {error && <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">{error}</div>}
+              <form onSubmit={handleSave} className="space-y-4">
               <div>
                 <label className="block text-white/80 text-sm mb-1">Nom *</label>
                 <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/20 text-white" />
@@ -467,7 +476,8 @@ export default function AdminSubscriptionPlansPage() {
                 <button type="submit" disabled={saving || uploadingIndex !== null} className="px-4 py-2 rounded-lg font-semibold bg-[#d4af37] text-[#0b1220] hover:bg-[#e5c048] disabled:opacity-50">{saving ? 'Enregistrement...' : 'Enregistrer'}</button>
                 <button type="button" onClick={() => !saving && setModal(null)} className="px-4 py-2 rounded-lg border border-white/30 text-white/90 hover:bg-white/10">Annuler</button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}

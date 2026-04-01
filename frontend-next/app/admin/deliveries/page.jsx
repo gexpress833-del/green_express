@@ -45,8 +45,7 @@ export default function AdminDeliveriesPage() {
   const formatDate = (d) => (d ? new Date(d).toLocaleDateString("fr-FR") : "—")
 
   return (
-    <section className="page-section min-h-screen bg-[#0b1220]">
-      <div className="container">
+    <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220]">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-white">Gestion des livraisons</h1>
           <p className="text-white/70 mt-1">Suivi et validation des livraisons par entreprise et par date.</p>
@@ -105,7 +104,6 @@ export default function AdminDeliveriesPage() {
             </div>
           </main>
         </div>
-      </div>
     </section>
   )
 }

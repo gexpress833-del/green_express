@@ -76,7 +76,7 @@ class E2EIntegrationTest extends TestCase
         );
         
         $uploadResponse = $this->actingAs($this->user)
-                              ->postJson('/api/upload-image', [
+                              ->post('/api/upload-image', [
                                   'image' => $uploadFile,
                                   'folder' => 'menus',
                               ]);

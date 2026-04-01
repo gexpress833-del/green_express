@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiRequest, uploadImageFile } from '@/lib/api';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -33,26 +33,16 @@ export default function EditPromotionPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    if (id) {
-      loadPromotion();
-    }
-  }, [id]);
-
-  useEffect(() => {
-    loadMenus();
-  }, []);
-
-  async function loadMenus() {
+  const loadMenus = useCallback(async () => {
     try {
       const data = await apiRequest('/api/menus?per_page=100', { method: 'GET' });
       setMenus(data.data || data || []);
     } catch (err) {
       console.error('Erreur chargement menus:', err);
     }
-  }
+  }, []);
 
-  async function loadPromotion() {
+  const loadPromotion = useCallback(async () => {
     if (!id) return;
     try {
       setLoadingPromo(true);
@@ -73,7 +63,17 @@ export default function EditPromotionPage() {
     } finally {
       setLoadingPromo(false);
     }
-  }
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      loadPromotion();
+    }
+  }, [id, loadPromotion]);
+
+  useEffect(() => {
+    loadMenus();
+  }, [loadMenus]);
 
   async function handleImageUpload(e) {
     const file = e?.target?.files?.[0];
@@ -139,7 +139,7 @@ export default function EditPromotionPage() {
   }
 
   return (
-    <div className="p-6 bg-[#0b1220] text-white min-h-screen">
+    <section className="page-section page-section--admin-tight bg-[#0b1220] text-white min-h-screen">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-[#d4af37]">Modifier la promotion</h1>
@@ -307,6 +307,6 @@ export default function EditPromotionPage() {
           </button>
         </form>
       </div>
-    </div>
+    </section>
   );
 }

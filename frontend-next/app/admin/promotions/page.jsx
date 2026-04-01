@@ -42,7 +42,7 @@ export default function PromotionsList(){
   }
 
   return (
-    <section className="page-section bg-[#0b1220] text-white min-h-screen">
+    <section className="page-section page-section--admin-tight bg-[#0b1220] text-white min-h-screen">
       <div className="max-w-6xl mx-auto">
         <header className="mb-6">
           <h1 className="text-3xl font-extrabold text-[#d4af37]">Promotions</h1>

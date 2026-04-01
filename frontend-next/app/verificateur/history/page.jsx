@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
 import VerificateurSidebar from '@/components/VerificateurSidebar'
@@ -18,7 +18,7 @@ export default function VerifierHistory() {
     if (!isAuthenticated) router.push('/login')
   }, [initialised, isAuthenticated, router])
 
-  const load = (page = 1) => {
+  const load = useCallback((page = 1) => {
     setLoading(true)
     apiRequest(`/api/verificateur/history?page=${page}&per_page=15`, { method: 'GET' })
       .then((r) => {
@@ -32,11 +32,11 @@ export default function VerifierHistory() {
       })
       .catch(() => setHistory([]))
       .finally(() => setLoading(false))
-  }
+  }, [])
 
   useEffect(() => {
-    load(pagination.current_page)
-  }, [])
+    load(1)
+  }, [load])
 
   const formatDate = (iso) => {
     if (!iso) return '—'

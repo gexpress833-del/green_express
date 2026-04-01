@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { flushSync } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -36,7 +36,7 @@ function EyeOffIcon({ className }) {
   )
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -101,12 +101,15 @@ export default function LoginPage() {
       const target = !isProfileOnly && isOwnDashboard ? returnUrl : dashboardByRole
       window.location.href = target
     } catch (err) {
-      const msg =
+      let msg =
         err?.data?.errors?.login?.[0] ??
         err?.data?.errors?.email?.[0] ??
         err?.data?.message ??
         err?.message ??
         'Erreur de connexion. Vérifiez vos identifiants.'
+      if (msg === 'auth.failed' || String(msg).includes('auth.failed')) {
+        msg = 'Identifiants incorrects. Vérifiez l’e-mail ou le numéro et le mot de passe.'
+      }
       setError(msg)
     } finally {
       setLoading(false)
@@ -145,7 +148,10 @@ export default function LoginPage() {
             <span className={styles.titleGradient}>Green Express</span>
           </h1>
           <p className={styles.subtitle}>
-            Accédez à votre espace livraison — connectez-vous avec votre e-mail ou votre mobile enregistré.
+            Connectez-vous avec l&apos;e-mail ou le mobile enregistré — selon votre inscription : compte <strong>repas</strong> (parcours client) ou compte <strong>entreprise</strong> (gestion d&apos;équipe).
+          </p>
+          <p id="entreprise-help" className={`${styles.hint} max-w-md mx-auto mt-3 text-center`} style={{ lineHeight: 1.5 }}>
+            Repas pris en charge par votre structure : utilisez un compte <strong>repas</strong>. Responsable RH ou finance : compte <strong>entreprise</strong>.
           </p>
         </div>
 
@@ -210,5 +216,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className={styles.shell} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}>
+          <p className={styles.subtitle} style={{ margin: 0 }}>Chargement…</p>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   )
 }

@@ -6,6 +6,7 @@ use App\Jobs\CheckPendingPaymentsJob;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\AppNotificationService;
 use App\Services\OrderNotificationService;
 use App\Services\ShwaryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -136,10 +137,12 @@ class ShwaryPaymentTest extends TestCase
             ]);
         App::instance(ShwaryService::class, $fakeShwary);
 
-        $notifications = App::make(OrderNotificationService::class);
-
         $job = new CheckPendingPaymentsJob();
-        $job->handle($fakeShwary, $notifications);
+        $job->handle(
+            $fakeShwary,
+            App::make(OrderNotificationService::class),
+            App::make(AppNotificationService::class),
+        );
 
         $payment->refresh();
         $order->refresh();

@@ -181,7 +181,7 @@ export function getRoleLabel(role) {
   return config ? config.label : role
 }
 
-export default {
+const permissions = {
   hasRole,
   canAccess,
   canPerform,
@@ -191,3 +191,5 @@ export default {
   isOwnerOrAdmin,
   getRoleLabel,
 }
+
+export default permissions

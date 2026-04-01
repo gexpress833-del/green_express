@@ -8,15 +8,15 @@ export default function ClientSidebar(){
   const { itemCount } = useCart()
   
   const menuItems = [
-    { href: '/client', label: 'Tableau de bord', icon: '📊' },
+    { href: '/client', label: 'Accueil repas', icon: '📊' },
     { href: '/client/menus', label: 'Menus', icon: '🍽️' },
     { href: '/client/cart', label: 'Panier', icon: '🛒', badge: itemCount },
     { href: '/client/orders', label: 'Mes commandes', icon: '📦' },
-    { href: '/client/promotions', label: 'Promotions', icon: '🎁' },
     { href: '/client/subscriptions', label: 'Abonnements', icon: '💳' },
+    { href: '/client/promotions', label: 'Promotions', icon: '🎁' },
+    { href: '/client/invoices', label: 'Factures', icon: '📄' },
     { href: '/evenements', label: 'Service événementiel', icon: '🎉' },
     { href: '/client/event-requests', label: 'Mes demandes événements', icon: '📋' },
-    { href: '/client/invoices', label: 'Factures', icon: '📄' },
     { href: '/profile', label: 'Mon profil', icon: '👤' },
   ]
 

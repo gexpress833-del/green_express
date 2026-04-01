@@ -110,7 +110,7 @@ body::before {
   -webkit-backdrop-filter: blur(30px) saturate(180%);
   border-bottom: 1px solid rgba(0, 255, 255, 0.3);
   box-shadow: 0 0 20px rgba(0, 255, 255, 0.15), inset 0 0 20px rgba(157, 78, 221, 0.08);
-  padding: 16px 0;
+  padding: 10px 0;
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -242,15 +242,26 @@ body.nav-open .nav-toggle-bar:nth-child(3) {
   color: #f6f7f9;
   text-decoration: none;
   font-weight: 600;
-  padding: 10px 16px;
+  padding: 12px 20px;
   border-radius: 8px;
   transition: all 0.18s ease;
   position: relative;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid transparent;
   cursor: pointer;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  box-sizing: border-box;
+  line-height: 1.2;
+  white-space: nowrap;
   pointer-events: auto;
+}
+
+/* Laisse de la place au badge non lu sans écraser le libellé */
+.nav-links a.nav-link-has-badge {
+  padding-right: 1.85rem;
 }
 
 .nav-links a::before {
@@ -295,18 +306,28 @@ body.nav-open .nav-toggle-bar:nth-child(3) {
 }
 
 .nav-link-button {
-  background: rgba(0, 255, 255, 0.05);
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid transparent;
-  color: var(--color-white);
+  color: #f6f7f9;
   text-decoration: none;
   font-weight: 600;
-  padding: 10px 20px;
-  border-radius: 10px;
-  transition: all 0.3s ease;
+  padding: 12px 20px;
+  border-radius: 8px;
+  transition: all 0.18s ease;
   cursor: pointer;
   font-family: inherit;
   font-size: inherit;
   pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  box-sizing: border-box;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .nav-links a:hover::before {
@@ -982,7 +1003,7 @@ input::placeholder {
   .stats-row { grid-template-columns: repeat(2, 1fr); gap: 20px; }
 }
 @media (min-width: 768px) {
-  .stats-row { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; margin-bottom: 32px; }
+  .stats-row { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin-bottom: 32px; }
 }
 
 .stat-card {
@@ -998,6 +1019,8 @@ input::placeholder {
   position: relative;
   overflow: hidden;
   min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 @media (min-width: 480px) {
   .stat-card { padding: 18px; border-radius: 14px; }
@@ -1068,8 +1091,12 @@ input::placeholder {
 
 .stat-card p {
   margin: 0;
+}
+/* Chiffre principal : uniquement le paragraphe qui suit le titre (évite d’appliquer le style « métrique » aux libellés / notes) */
+.stat-card h4 + p {
   font-size: 28px;
   font-weight: 900;
+  line-height: 1.15;
   background: var(--gradient-neon-multi);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -1077,10 +1104,10 @@ input::placeholder {
   filter: drop-shadow(0 0 6px rgba(0, 255, 255, 0.3));
 }
 @media (min-width: 480px) {
-  .stat-card p { font-size: 32px; }
+  .stat-card h4 + p { font-size: 32px; }
 }
 @media (min-width: 768px) {
-  .stat-card p { font-size: 36px; }
+  .stat-card h4 + p { font-size: 36px; }
 }
 
 /* Points fidélité — carte dédiée (responsive dès le plus petit écran) */
@@ -1239,6 +1266,49 @@ input::placeholder {
   box-shadow: 0 4px 16px rgba(212, 175, 55, 0.4);
 }
 
+/* Dashboard client — CTAs dans les cartes stats (lisibilité, thème vert / or) */
+.client-stat-cta {
+  margin-top: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none !important;
+  border: 1px solid rgba(52, 211, 153, 0.5);
+  background: rgba(16, 185, 129, 0.14);
+  color: #d1fae5;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+}
+.client-stat-cta:hover {
+  background: rgba(16, 185, 129, 0.26);
+  border-color: rgba(110, 231, 183, 0.65);
+  color: #ecfdf5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.2);
+}
+.client-stat-cta:focus-visible {
+  outline: 2px solid rgba(52, 211, 153, 0.75);
+  outline-offset: 2px;
+}
+.client-stat-cta--gold {
+  border-color: rgba(212, 175, 55, 0.55);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.22) 0%, rgba(16, 185, 129, 0.16) 100%);
+  color: #fef9c3;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.client-stat-cta--gold:hover {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.32) 0%, rgba(16, 185, 129, 0.24) 100%);
+  border-color: rgba(250, 204, 21, 0.65);
+  color: #fffbeb;
+}
+
 /* Tables - Neon Glassmorphism */
 .table {
   width: 100%;
@@ -1368,6 +1438,25 @@ input::placeholder {
   border-color: rgba(255, 215, 0, 0.4);
 }
 
+/* Abonnements : pending = orange, scheduled = bleu, active = vert (voir ClientOngoingSubscriptionCard) */
+.badge-sub-pending {
+  background: rgba(249, 115, 22, 0.18);
+  color: #fb923c;
+  border-color: rgba(249, 115, 22, 0.45);
+}
+
+.badge-scheduled {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+.badge-expired {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
 .badge-error {
   background: rgba(255, 20, 147, 0.15);
   color: #ff6b9d;
@@ -1421,7 +1510,7 @@ input::placeholder {
   }
   
   .navbar {
-    padding: 12px 0;
+    padding: 8px 0;
   }
 }
 
@@ -1434,6 +1523,24 @@ input::placeholder {
 }
 @media (min-width: 1024px) {
   .page-section { padding: 2rem; }
+}
+
+/* Pages admin : moins d’air en haut (le layout fournit déjà le .container) */
+.page-section--admin-tight {
+  padding-top: 0.35rem;
+  padding-bottom: 1rem;
+}
+@media (min-width: 640px) {
+  .page-section--admin-tight {
+    padding-top: 0.5rem;
+    padding-bottom: 1.25rem;
+  }
+}
+@media (min-width: 1024px) {
+  .page-section--admin-tight {
+    padding-top: 0.65rem;
+    padding-bottom: 1.5rem;
+  }
 }
 
 /* Mobile menu (navbar) - toggled via .nav-open on body */
@@ -2041,7 +2148,7 @@ a.link-visible-cyan:hover,
 
 /* En-tête page admin Entreprises — responsive */
 .admin-companies-header {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 .admin-companies-title {
   font-size: 1.25rem;
@@ -2056,7 +2163,7 @@ a.link-visible-cyan:hover,
   line-height: 1.4;
 }
 @media (min-width: 640px) {
-  .admin-companies-header { margin-bottom: 2rem; }
+  .admin-companies-header { margin-bottom: 1.25rem; }
   .admin-companies-title { font-size: 1.5rem; }
   .admin-companies-desc { font-size: 1rem; }
 }
@@ -3163,6 +3270,12 @@ a.link-visible-cyan:hover,
     0 0 0 1px rgba(251, 191, 36, 0.1),
     0 20px 50px rgba(0, 0, 0, 0.45);
 }
+.client-sub-ongoing--scheduled {
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.12),
+    0 20px 50px rgba(0, 0, 0, 0.45);
+}
 .client-sub-ongoing__glow {
   pointer-events: none;
   position: absolute;
@@ -3178,6 +3291,9 @@ a.link-visible-cyan:hover,
 }
 .client-sub-ongoing--pending .client-sub-ongoing__glow {
   background: radial-gradient(circle, rgba(251, 191, 36, 0.12) 0%, transparent 65%);
+}
+.client-sub-ongoing--scheduled .client-sub-ongoing__glow {
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.14) 0%, transparent 65%);
 }
 .client-sub-ongoing__badge {
   position: absolute;
@@ -3237,9 +3353,295 @@ a.link-visible-cyan:hover,
   border-color: transparent;
   box-shadow: 0 4px 14px rgba(45, 212, 191, 0.35);
 }
+button.client-sub-ongoing__day {
+  cursor: pointer;
+  font: inherit;
+  font-family: inherit;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+button.client-sub-ongoing__day:hover {
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(212, 175, 55, 0.35);
+  transform: translateY(-1px);
+}
+.client-sub-ongoing__day--selected:not(.client-sub-ongoing__day--today) {
+  color: #fef9c3;
+  background: linear-gradient(145deg, rgba(212, 175, 55, 0.22), rgba(16, 185, 129, 0.12));
+  border-color: rgba(212, 175, 55, 0.45);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.2), 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+.client-sub-ongoing__day--today.client-sub-ongoing__day--selected {
+  box-shadow: 0 0 0 2px rgba(254, 249, 195, 0.5), 0 6px 20px rgba(45, 212, 191, 0.45);
+}
 .client-sub-ongoing__visual {
   margin-bottom: 1.25rem;
 }
+
+/* Bloc « plat du jour » — carte premium */
+.client-sub-dayplate {
+  position: relative;
+  border-radius: 1.125rem;
+  overflow: hidden;
+  border: 1px solid rgba(45, 212, 191, 0.22);
+  background: linear-gradient(155deg, rgba(6, 78, 59, 0.45) 0%, rgba(15, 23, 42, 0.92) 48%, rgba(15, 23, 42, 0.98) 100%);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.client-sub-dayplate__mesh {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  background-image: radial-gradient(circle at 20% 20%, rgba(45, 212, 191, 0.2), transparent 45%),
+    radial-gradient(circle at 88% 72%, rgba(212, 175, 55, 0.12), transparent 42%);
+  pointer-events: none;
+}
+.client-sub-dayplate__frame {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 520px) {
+  .client-sub-dayplate__frame--split {
+    grid-template-columns: minmax(0, 38%) 1fr;
+    min-height: 11rem;
+  }
+}
+.client-sub-dayplate__photo {
+  position: relative;
+  min-height: 9.5rem;
+  background: rgba(0, 0, 0, 0.4);
+}
+@media (min-width: 520px) {
+  .client-sub-dayplate__photo {
+    min-height: 100%;
+  }
+}
+.client-sub-dayplate__photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  min-height: 9.5rem;
+}
+.client-sub-dayplate__photo-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(11, 18, 32, 0.1) 0%, rgba(11, 18, 32, 0.75) 100%);
+  pointer-events: none;
+}
+@media (max-width: 519px) {
+  .client-sub-dayplate__photo-scrim {
+    background: linear-gradient(180deg, transparent 30%, rgba(11, 18, 32, 0.88) 100%);
+  }
+}
+.client-sub-dayplate__content {
+  position: relative;
+  z-index: 1;
+  padding: 1.1rem 1.15rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.client-sub-dayplate__content--on-photo {
+  padding-top: 1rem;
+}
+.client-sub-dayplate__kicker {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(45, 212, 191, 0.95);
+}
+.client-sub-dayplate__date {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.96);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.client-sub-dayplate__context {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.client-sub-dayplate__today-pill {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0b1220;
+  background: linear-gradient(135deg, #fbbf24, #34d399);
+}
+.client-sub-dayplate__main {
+  margin-top: 0.25rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.client-sub-dayplate__emoji {
+  display: block;
+  font-size: 2rem;
+  line-height: 1.2;
+  margin-bottom: 0.35rem;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
+}
+.client-sub-dayplate__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.client-sub-dayplate__detail {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: rgba(226, 232, 240, 0.88);
+  max-height: 5.5rem;
+  overflow: auto;
+}
+.client-sub-dayplate__multilist {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.client-sub-dayplate__multirow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.5rem 0.5rem;
+  border-radius: 0.65rem;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.client-sub-dayplate__multi-emoji {
+  font-size: 1.35rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+.client-sub-dayplate__multi-label {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.875rem;
+}
+.client-sub-dayplate__multi-detail {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgba(203, 213, 225, 0.9);
+}
+
+/* État vide — même « carte » que le plat du jour, sans pointillés ni emoji cheap */
+.client-sub-dayplate--empty {
+  border-color: rgba(45, 212, 191, 0.18);
+}
+.client-sub-dayplate__empty-body {
+  position: relative;
+  z-index: 1;
+  padding: 1.1rem 1.15rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.65rem;
+}
+.client-sub-dayplate__empty-head {
+  width: 100%;
+  text-align: left;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.client-sub-dayplate__empty-head .client-sub-dayplate__context {
+  margin-bottom: 0;
+}
+.client-sub-dayplate__empty-visual {
+  position: relative;
+  width: 4.25rem;
+  height: 4.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0.15rem 0 0.15rem;
+}
+.client-sub-dayplate__empty-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 200deg,
+    rgba(52, 211, 153, 0.45),
+    rgba(212, 175, 55, 0.3),
+    rgba(45, 212, 191, 0.35),
+    rgba(52, 211, 153, 0.45)
+  );
+  animation: client-sub-empty-glow 5s ease-in-out infinite;
+}
+.client-sub-dayplate__empty-ring::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: linear-gradient(165deg, rgba(11, 18, 32, 0.97), rgba(15, 23, 42, 0.99));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+@keyframes client-sub-empty-glow {
+  0%,
+  100% {
+    opacity: 0.88;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+.client-sub-dayplate__empty-monogram {
+  position: relative;
+  z-index: 1;
+  font-size: 0.8125rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  padding-left: 0.12em;
+  background: linear-gradient(135deg, #6ee7b7 0%, #fbbf24 55%, #34d399 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.client-sub-dayplate__empty-title {
+  margin: 0.15rem 0 0;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.96);
+  letter-spacing: -0.02em;
+}
+.client-sub-dayplate__empty-text {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: rgba(203, 213, 225, 0.9);
+  max-width: 26rem;
+}
+.client-sub-dayplate__empty-hint {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: rgba(148, 163, 184, 0.88);
+  max-width: 22rem;
+}
+
 .client-sub-ongoing__thumbs {
   display: flex;
   flex-wrap: wrap;
@@ -3268,40 +3670,6 @@ a.link-visible-cyan:hover,
   width: 100%;
   height: 100%;
   font-size: 1.25rem;
-}
-.client-sub-ongoing__placeholder {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 5.5rem;
-  border-radius: 1rem;
-  background: linear-gradient(145deg, rgba(0, 255, 255, 0.06), rgba(157, 78, 221, 0.08));
-  border: 1px dashed rgba(255, 255, 255, 0.15);
-}
-.client-sub-ongoing__placeholder-icon {
-  font-size: 2.5rem;
-  z-index: 1;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
-}
-.client-sub-ongoing__placeholder-ring {
-  position: absolute;
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 50%;
-  border: 2px solid rgba(212, 175, 55, 0.25);
-  animation: client-sub-pulse 2.8s ease-in-out infinite;
-}
-@keyframes client-sub-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1.08);
-    opacity: 0.85;
-  }
 }
 .client-sub-ongoing__price-block {
   display: flex;
@@ -3382,3 +3750,41 @@ a.link-visible-cyan:hover,
   }
 }
 
+/* Écrans RequireAuth (sans dépendre des utilitaires Tailwind) */
+.auth-gate-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b1220;
+}
+.auth-gate-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 2px solid rgba(212, 175, 55, 0.45);
+  border-top-color: #d4af37;
+  border-radius: 50%;
+  animation: auth-gate-spin 0.75s linear infinite;
+}
+@keyframes auth-gate-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.auth-gate-unauth {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: #0b1220;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: center;
+  padding: 1rem;
+}
+.auth-gate-unauth-hint {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0;
+}

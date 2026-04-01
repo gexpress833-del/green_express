@@ -41,4 +41,10 @@ return [
 
     'max_file_size' => 5120,
     'allowed_mimes' => ['image/jpeg', 'image/png', 'image/webp'],
+
+    /**
+     * Tests PHPUnit uniquement : simule upload/suppression sans appeler l’API Cloudinary.
+     * Jamais activé en production (phpunit.xml ou .env.testing).
+     */
+    'mock_uploads' => env('CLOUDINARY_MOCK_UPLOADS', false),
 ];

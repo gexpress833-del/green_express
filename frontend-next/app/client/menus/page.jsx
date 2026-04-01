@@ -2,7 +2,7 @@
 import ReadOnlyGuard from '@/components/ReadOnlyGuard'
 import MenuCard from '@/components/MenuCard'
 import ClientSubpageHeader from '@/components/ClientSubpageHeader'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { apiRequest } from '@/lib/api'
 
 export default function ClientMenus() {
@@ -10,16 +10,28 @@ export default function ClientMenus() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [error, setError] = useState('')
+  const searchRef = useRef(searchTerm)
+  searchRef.current = searchTerm
 
-  useEffect(() => {
-    loadMenus()
+  const catalogueLabel = useMemo(() => {
+    try {
+      return new Date().toLocaleDateString('fr-CD', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    } catch {
+      return ''
+    }
   }, [])
 
-  const loadMenus = async () => {
+  const loadMenus = useCallback(async () => {
     try {
       setLoading(true)
       const params = new URLSearchParams({ status: 'approved' })
-      if (searchTerm) params.append('search', searchTerm)
+      const term = searchRef.current
+      if (term) params.append('search', term)
 
       const response = await apiRequest(`/api/menus/browse?${params.toString()}`, {
         method: 'GET',
@@ -43,7 +55,11 @@ export default function ClientMenus() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadMenus()
+  }, [loadMenus])
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -60,7 +76,9 @@ export default function ClientMenus() {
             icon="🍜"
           />
 
-          <p className="client-menus-kicker">Catalogue en direct</p>
+          <p className="client-menus-kicker">
+            Catalogue du moment · {catalogueLabel}
+          </p>
 
           <div className="client-menus-search-panel">
             <div className="client-menus-search-head">

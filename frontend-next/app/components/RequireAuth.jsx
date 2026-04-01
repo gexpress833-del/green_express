@@ -24,17 +24,17 @@ export default function RequireAuth({ children }) {
 
   if (!initialised) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0b1220]">
-        <div className="w-10 h-10 border-2 border-[#d4af37]/50 border-t-[#d4af37] rounded-full animate-spin" />
+      <div className="auth-gate-screen">
+        <div className="auth-gate-spinner" aria-hidden />
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#0b1220] text-white/80">
+      <div className="auth-gate-unauth">
         <p>Vous devez être connecté pour accéder à cette page.</p>
-        <p className="text-sm text-white/50">Redirection vers la connexion…</p>
+        <p className="auth-gate-unauth-hint">Redirection vers la connexion…</p>
       </div>
     );
   }

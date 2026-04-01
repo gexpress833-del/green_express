@@ -135,7 +135,11 @@ export default function Navbar(){
                   : clientHubLabel || 'Tableau de bord'}
               </Link>
               {isClient && (
-                <Link href="/client/cart" className={pathname === '/client/cart' ? 'active' : ''} style={{ position: 'relative' }}>
+                <Link
+                  href="/client/cart"
+                  className={`${pathname === '/client/cart' ? 'active' : ''} ${cartCount > 0 ? 'nav-link-has-badge' : ''}`.trim()}
+                  style={{ position: 'relative' }}
+                >
                   🛒 Panier
                   {cartCount > 0 && (
                     <span style={{ ...badgeStyle, background: 'rgba(212, 175, 55, 0.95)' }}>
@@ -148,7 +152,11 @@ export default function Navbar(){
                 Mon profil
               </Link>
 
-              <Link href="/notifications" className={pathname === '/notifications' ? 'active' : ''} style={{ position: 'relative' }}>
+              <Link
+                href="/notifications"
+                className={`${pathname === '/notifications' ? 'active' : ''} ${unreadCount > 0 ? 'nav-link-has-badge' : ''}`.trim()}
+                style={{ position: 'relative' }}
+              >
                 Notifications
                 {unreadCount > 0 && (
                   <span

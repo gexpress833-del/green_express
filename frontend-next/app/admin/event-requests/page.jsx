@@ -95,8 +95,7 @@ export default function AdminEventRequestsPage() {
   }
 
   return (
-    <section className="page-section min-h-screen bg-[#0b1220] text-white">
-      <div className="container">
+    <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220] text-white">
         <header className="mb-8">
           <h1 className="text-4xl font-bold mb-2" style={{
             background: 'linear-gradient(135deg, #ffd700 0%, #ffed4e 100%)',
@@ -264,7 +263,6 @@ export default function AdminEventRequestsPage() {
             </div>
           </div>
         )}
-      </div>
     </section>
   )
 }

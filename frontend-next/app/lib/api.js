@@ -40,9 +40,13 @@ export async function getCsrfCookie() {
     });
   } catch (err) {
     const base = typeof window !== 'undefined' ? API_BASE : process.env.NEXT_PUBLIC_API_URL || '(build-time)';
-    throw new Error(
-      `Impossible de contacter le serveur. URL utilisée : ${base}. Vérifiez NEXT_PUBLIC_API_URL sur Vercel (ex. https://green-express-rdc.onrender.com) puis redéployez.`
-    );
+    const isLocal =
+      typeof base === 'string' &&
+      (base.includes('localhost') || base.includes('127.0.0.1'));
+    const hint = isLocal
+      ? `Démarrez l’API dans un terminal : cd backend puis php artisan serve (port 8000). Vérifiez aussi MySQL et le fichier backend/.env.`
+      : `Vérifiez NEXT_PUBLIC_API_URL (ex. https://green-express-rdc.onrender.com) sur l’hébergeur du front puis redéployez.`;
+    throw new Error(`Impossible de contacter le serveur. URL utilisée : ${base}. ${hint}`);
   }
   if (!res.ok) {
     throw new Error(
@@ -55,11 +59,24 @@ export async function getCsrfCookie() {
  * Construit un message lisible à partir d'une réponse d'erreur API (surtout 422 validation Laravel).
  * Laravel renvoie souvent { message: "...", errors: { champ: ["msg"] } }.
  */
+/** Remplace les clés Laravel non traduites (ex. sans fichiers lang/) par un texte lisible. */
+function humanizeLaravelValidationMessage(msg) {
+  if (typeof msg !== 'string') return msg;
+  const s = msg.trim();
+  if (s === 'validation.unique') {
+    return 'Cette valeur est déjà utilisée.';
+  }
+  if (s.startsWith('validation.')) {
+    return 'Erreur de validation. Vérifiez les champs du formulaire.';
+  }
+  return msg;
+}
+
 function formatApiErrorMessage(status, errorData) {
   const generic = errorData?.message ?? errorData?.error ?? `Erreur ${status}`;
   if (status === 422 && errorData?.errors && typeof errorData.errors === 'object') {
     const first = Object.values(errorData.errors).flat().find(Boolean);
-    if (first) return first;
+    if (first) return humanizeLaravelValidationMessage(first);
   }
   if (status === 422 && errorData?.message && errorData.message !== 'The given data was invalid.') {
     return errorData.message;
@@ -72,13 +89,13 @@ function formatApiErrorMessage(status, errorData) {
  * Utilise err.message (déjà formaté pour 422) ou err.data.
  */
 export function getApiErrorMessage(err) {
-  if (err?.message) return err.message;
-  if (err?.data?.message) return err.data.message;
+  if (err?.message) return humanizeLaravelValidationMessage(err.message);
+  if (err?.data?.message) return humanizeLaravelValidationMessage(err.data.message);
   if (err?.data?.errors && typeof err.data.errors === 'object') {
     const first = Object.values(err.data.errors).flat().find(Boolean);
-    if (first) return first;
+    if (first) return humanizeLaravelValidationMessage(first);
   }
-  return err?.data?.error || 'Une erreur est survenue';
+  return humanizeLaravelValidationMessage(err?.data?.error) || 'Une erreur est survenue';
 }
 
 /**

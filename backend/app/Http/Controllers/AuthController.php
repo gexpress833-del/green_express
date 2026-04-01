@@ -24,12 +24,18 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
-        $data = $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|min:6',
-            'phone' => 'required|string|max:30',
-        ]);
+        $data = $request->validate(
+            [
+                'name' => 'required|string',
+                'email' => 'required|email|unique:users',
+                'password' => 'required|min:6',
+                'phone' => 'required|string|max:30',
+            ],
+            [
+                'email.unique' => 'Cette adresse e-mail est déjà utilisée.',
+                'email.email' => 'Veuillez entrer une adresse e-mail valide.',
+            ]
+        );
 
         $phoneNorm = PhoneRDCService::formatPhoneRDC($data['phone']);
         if (! PhoneRDCService::isValidPhoneRDC($phoneNorm)) {
@@ -65,21 +71,28 @@ class AuthController extends Controller
     {
         Log::info('🔵 [registerCompany] Requête reçue', $request->all());
 
-        $data = $request->validate([
-            'contact_name' => 'required|string',
-            'contact_email' => 'required|email|unique:users,email',
-            'contact_password' => 'required|min:6',
-            'company_name' => 'required|string|max:255',
-            'institution_type' => 'required|in:etat,hopital,ecole,universite,privee',
-            'company_phone' => 'required|string|max:20',
-            'company_address' => 'required|string',
-            'employee_count' => 'required|integer|min:1',
-            'employees' => 'required|array|min:1',
-            'employees.*.full_name' => 'required|string|max:255',
-            'employees.*.matricule' => 'nullable|string|max:50',
-            'employees.*.function' => 'nullable|string|max:255',
-            'employees.*.phone' => 'nullable|string|max:30',
-        ]);
+        $data = $request->validate(
+            [
+                'contact_name' => 'required|string',
+                'contact_email' => 'required|email|unique:users,email',
+                'contact_password' => 'required|min:6',
+                'company_name' => 'required|string|max:255',
+                'institution_type' => 'required|in:etat,hopital,ecole,universite,privee',
+                'company_phone' => 'required|string|max:20',
+                'company_address' => 'required|string',
+                'employee_count' => 'required|integer|min:1',
+                'employees' => 'required|array|min:1',
+                'employees.*.full_name' => 'required|string|max:255',
+                'employees.*.matricule' => 'nullable|string|max:50',
+                'employees.*.function' => 'nullable|string|max:255',
+                'employees.*.phone' => 'nullable|string|max:30',
+            ],
+            [
+                'contact_email.unique' => 'Cette adresse e-mail est déjà utilisée pour un compte. Utilisez un autre e-mail ou connectez-vous avec ce compte.',
+                'contact_email.email' => 'Veuillez entrer une adresse e-mail valide.',
+                'contact_password.min' => 'Le mot de passe doit contenir au moins :min caractères.',
+            ]
+        );
 
         if (count($data['employees']) != $data['employee_count']) {
             return response()->json([
@@ -149,7 +162,7 @@ class AuthController extends Controller
 
         if (! $user || ! Hash::check($password, (string) $user->getAuthPassword())) {
             throw ValidationException::withMessages([
-                'login' => [__('auth.failed')],
+                'login' => ['Identifiants incorrects. Vérifiez l’e-mail ou le numéro et le mot de passe.'],
             ]);
         }
 

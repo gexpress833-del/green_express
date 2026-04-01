@@ -84,6 +84,18 @@ class CloudinaryService
 
     public static function checkConfiguration(): array
     {
+        if (app()->environment('testing') && config('cloudinary.mock_uploads')) {
+            $cloudName = config('cloudinary.cloud_name') ?: 'demo';
+            $apiKey = config('cloudinary.api_key') ?: 'test';
+
+            return [
+                'status' => 'ok',
+                'cloud_name' => $cloudName,
+                'api_key' => $apiKey ? substr((string) $apiKey, 0, 5).'***' : '***',
+                'message' => 'Cloudinary est configuré (mode test / mock)',
+            ];
+        }
+
         $url = config('cloudinary.url');
         $hasUrl = is_string($url) && $url !== '';
 

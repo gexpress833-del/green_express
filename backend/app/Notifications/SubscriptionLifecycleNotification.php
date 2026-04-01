@@ -32,6 +32,18 @@ class SubscriptionLifecycleNotification extends Notification
                 'Demande d’abonnement enregistrée',
                 "Votre demande pour le plan « {$plan} » est en attente de validation après paiement.",
             ],
+            'scheduled' => [
+                'Abonnement planifié',
+                'Paiement confirmé. Votre abonnement démarre à la prochaine date ouvrée indiquée sur votre espace.',
+            ],
+            'admin_scheduled' => [
+                'Abonnement planifié pour vous',
+                "Un abonnement « {$plan} » a été enregistré : il démarre à la prochaine date ouvrée.",
+            ],
+            'activated' => [
+                'Abonnement actif',
+                "Votre abonnement « {$plan} » est maintenant actif.",
+            ],
             'validated' => [
                 'Abonnement activé',
                 "Votre abonnement « {$plan} » est maintenant actif.",
@@ -57,6 +69,18 @@ class SubscriptionLifecycleNotification extends Notification
             'cancelled' => [
                 'Abonnement annulé',
                 "Votre abonnement « {$plan} » a été annulé.",
+            ],
+            'starts_tomorrow' => [
+                'Votre abonnement démarre demain',
+                "Le plan « {$plan} » : préparez-vous pour le premier jour de repas demain.",
+            ],
+            'expires_tomorrow' => [
+                'Votre abonnement expire demain',
+                "Le plan « {$plan} » se termine demain — renouvelez maintenant pour ne pas interrompre le service.",
+            ],
+            'expired' => [
+                'Votre abonnement a expiré',
+                "Le plan « {$plan} » n’est plus actif — réabonnez-vous depuis votre espace client.",
             ],
             default => [
                 'Abonnement',

@@ -31,5 +31,9 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="CLOUDINARY_CLOUD_NAME" value="demo"/>
+        <env name="CLOUDINARY_API_KEY" value="123456789012345"/>
+        <env name="CLOUDINARY_API_SECRET" value="abcdefghijklmnopqrstuvwxyz123456789012"/>
+        <env name="CLOUDINARY_MOCK_UPLOADS" value="true"/>
     </php>
 </phpunit>

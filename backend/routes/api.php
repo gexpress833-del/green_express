@@ -8,6 +8,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\SubscriptionPlanController;
+use App\Http\Controllers\OperationalSubscriptionController;
 
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PromotionController;
@@ -196,6 +197,11 @@ Route::get('admin/stats/export-pdf', [AdminController::class, 'statsPdf'])->midd
 Route::get('admin/deliveries', [AdminController::class, 'deliveries'])->middleware('throttle:api');
 Route::get('admin/roles', [AdminController::class, 'roles'])->middleware('throttle:api');
 Route::get('cuisinier/stats', [\App\Http\Controllers\CuisinierController::class, 'stats'])->middleware('throttle:api');
+
+// Exploitation abonnements (admin + cuisinier) — filtres, demain, stats
+Route::get('operational/subscriptions/tomorrow', [OperationalSubscriptionController::class, 'tomorrow'])->middleware('throttle:api');
+Route::get('operational/subscriptions/stats', [OperationalSubscriptionController::class, 'stats'])->middleware('throttle:api');
+Route::get('operational/subscriptions', [OperationalSubscriptionController::class, 'index'])->middleware('throttle:api');
 Route::get('client/stats', [\App\Http\Controllers\ClientController::class, 'stats'])->middleware('throttle:api');
 Route::get('livreur/stats', [\App\Http\Controllers\LivreurController::class, 'stats'])->middleware('throttle:api');
 Route::get('livreurs', [\App\Http\Controllers\LivreurController::class, 'listForAssignment'])->middleware('throttle:api');
@@ -210,6 +216,8 @@ Route::get('entreprise/orders', [\App\Http\Controllers\EntrepriseController::cla
 // B2B Enterprise Management (Company System)
 // Abonnements entreprise — liste admin (activation / création)
 Route::get('admin/company-subscriptions', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'adminIndex'])->middleware('throttle:api');
+/** Activation B2B : route explicite (évite toute collision avec les abonnements particuliers sur /api/subscriptions/{id}). */
+Route::post('admin/company-subscriptions/{companySubscription}/activate', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'adminActivate'])->middleware('throttle:api');
 
 // Companies (admin only)
 Route::get('companies', [\App\Http\Controllers\Api\CompanyController::class, 'index'])->middleware('throttle:api');

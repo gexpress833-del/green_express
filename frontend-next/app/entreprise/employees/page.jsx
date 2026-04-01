@@ -36,7 +36,14 @@ export default function EntrepriseEmployeesPage() {
           }}>
             Gérer les employés
           </h1>
-          <p className="text-white/70 text-lg">Répertoire des agents habilités ; prise en compte des effectifs après validation administrative.</p>
+          <p className="text-white/70 text-lg mb-4">
+            Liste des agents pour livraisons et abonnement — <strong className="text-white/90">effective après validation</strong> Green Express.
+          </p>
+          <ul className="text-white/75 text-sm sm:text-base space-y-2 mb-2 max-w-2xl list-none pl-0">
+            <li className="flex gap-2"><span className="text-cyan-400 shrink-0">•</span><span>Cette liste sert de référence pour les livraisons et le calcul d&apos;abonnement.</span></li>
+            <li className="flex gap-2"><span className="text-cyan-400 shrink-0">•</span><span>Si votre compte est <em>en attente</em>, les effectifs complets s&apos;affichent après validation.</span></li>
+            <li className="flex gap-2"><span className="text-cyan-400 shrink-0">•</span><span>La validation des fiches est effectuée par l&apos;administrateur Green Express.</span></li>
+          </ul>
         </header>
 
         <div className="dashboard-grid">
@@ -54,7 +61,7 @@ export default function EntrepriseEmployeesPage() {
                 <h2 className="text-xl font-semibold mb-4 text-cyan-400">{company.name} — Liste des agents</h2>
 
                 <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200/90 text-sm mb-6">
-                  <strong>Notice :</strong> L&apos;effectif officiel et le calcul des abonnements ne sont pris en compte qu&apos;après validation de l&apos;entreprise par l&apos;administrateur. Les données en attente de validation ne sont pas retenues pour le tableau de bord ni pour la souscription.
+                  <strong>Important :</strong> effectif et abonnement ne sont pris en compte qu&apos;après validation de votre entreprise par l&apos;administrateur.
                 </div>
 
                 {isPending ? (
@@ -66,7 +73,30 @@ export default function EntrepriseEmployeesPage() {
                 ) : (
                   <>
                     <p className="text-white/70 text-sm mb-3">Répertoire des {displayList.length} agent(s) validé(s) — référence pour les livraisons et le calcul de l&apos;abonnement.</p>
-                    <div className="overflow-x-auto">
+                    <div className="md:hidden space-y-3 mb-4">
+                      {displayList.map((emp, idx) => (
+                        <div
+                          key={emp.id || emp.matricule || idx}
+                          className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm"
+                        >
+                          <p className="font-mono text-cyan-300 font-semibold mb-1">{emp.matricule || emp.code || '—'}</p>
+                          <p className="text-white font-medium">{emp.full_name || '—'}</p>
+                          <p className="text-white/70 mt-2">{emp.function ?? '—'}</p>
+                          <p className="text-white/60 mt-1">{emp.phone ?? '—'}</p>
+                          {apiList.length > 0 && (
+                            <>
+                              <p className="text-white/70 mt-2">{emp.email ?? '—'}</p>
+                              <p className="mt-2">
+                                <span className={'text-xs px-2 py-0.5 rounded ' + (emp.account_status === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-white/10 text-white/70')}>
+                                  {emp.account_status === 'active' ? 'Actif' : emp.account_status === 'pending' ? 'En attente' : 'Inactif'}
+                                </span>
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-left text-sm border-collapse">
                         <thead>
                           <tr className="border-b border-white/20">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import GoldButton from '@/components/GoldButton';
@@ -38,22 +38,21 @@ export default function UsersPage() {
   const [updatingRoleId, setUpdatingRoleId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [pagination, setPagination] = useState(null);
+  const searchRef = useRef(search);
+  searchRef.current = search;
 
   useEffect(() => {
-    if (roleFromUrl && roleFilter !== roleFromUrl) setRoleFilter(roleFromUrl);
+    if (roleFromUrl) setRoleFilter(roleFromUrl);
   }, [roleFromUrl]);
 
-  useEffect(() => {
-    loadUsers(1);
-  }, [roleFilter]);
-
-  async function loadUsers(page = 1) {
+  const loadUsers = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setError('');
       const params = new URLSearchParams({ per_page: 20, page: String(page) });
       if (roleFilter) params.set('role', roleFilter);
-      if (search.trim()) params.set('search', search.trim());
+      const q = searchRef.current.trim();
+      if (q) params.set('search', q);
       const res = await apiRequest(`/api/users?${params}`, { method: 'GET' });
       setUsers(res.data || res || []);
       setPagination(res);
@@ -63,7 +62,11 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [roleFilter]);
+
+  useEffect(() => {
+    loadUsers(1);
+  }, [loadUsers]);
 
   async function handleSearch(e) {
     e?.preventDefault?.();
@@ -109,7 +112,7 @@ export default function UsersPage() {
   const lastPage = pagination?.last_page ?? 1;
 
   return (
-    <section className="page-section bg-[#0b1220] text-white min-h-screen">
+    <section className="page-section page-section--admin-tight bg-[#0b1220] text-white min-h-screen">
       <div className="max-w-5xl mx-auto">
         <header className="mb-6">
           <h1 className="text-3xl font-extrabold text-[#d4af37]">Utilisateurs</h1>

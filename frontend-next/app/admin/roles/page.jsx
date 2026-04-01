@@ -17,8 +17,7 @@ export default function AdminRolesPage() {
   }, [])
 
   return (
-    <section className="page-section min-h-screen bg-[#0b1220]">
-      <div className="container">
+    <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220]">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-white">Rôles et permissions</h1>
           <p className="text-white/70 mt-1">Vue des rôles et effectifs. Modifiez les rôles des utilisateurs depuis la section Utilisateurs.</p>
@@ -64,7 +63,6 @@ export default function AdminRolesPage() {
             </div>
           </main>
         </div>
-      </div>
     </section>
   )
 }

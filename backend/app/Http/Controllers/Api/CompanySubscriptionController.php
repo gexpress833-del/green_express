@@ -213,24 +213,47 @@ class CompanySubscriptionController extends Controller
     }
 
     /**
-     * Activer un abonnement après paiement
+     * Activer un abonnement entreprise après paiement (admin).
+     * Route préférée : POST /api/admin/company-subscriptions/{companySubscription}/activate
+     */
+    public function adminActivate(Request $request, CompanySubscription $companySubscription)
+    {
+        $this->requireRole('admin');
+
+        return $this->performCompanySubscriptionActivate($companySubscription);
+    }
+
+    /**
+     * @deprecated Utiliser adminActivate — conservé pour compat. clients qui appellent encore cette URL.
      */
     public function activate(Request $request, CompanySubscription $subscription)
     {
         $this->requireRole('admin');
 
-        return DB::transaction(function () use ($subscription) {
-            $this->pricingService->activateSubscription($subscription);
+        return $this->performCompanySubscriptionActivate($subscription);
+    }
 
-            // Créer les logs de livraison pour chaque plan
-            $subscription->employeeMealPlans()->each(function ($mealPlan) {
+    /**
+     * Verrouille une seule ligne company_subscriptions puis active (évite les courses / modèles résolus hors scope).
+     */
+    private function performCompanySubscriptionActivate(CompanySubscription $subscription): \Illuminate\Http\JsonResponse
+    {
+        return DB::transaction(function () use ($subscription) {
+            $locked = CompanySubscription::query()
+                ->whereKey($subscription->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->pricingService->activateSubscription($locked);
+
+            $locked->employeeMealPlans()->each(function ($mealPlan) {
                 $this->deliveryService->createDeliveryLogs($mealPlan);
             });
 
             return response()->json([
                 'success' => true,
                 'message' => 'Abonnement activé',
-                'data' => $subscription->fresh()->load('pricingTier'),
+                'data' => $locked->fresh()->load('pricingTier'),
             ]);
         });
     }

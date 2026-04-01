@@ -1,112 +1,149 @@
-# Green Express – Fonctionnement global de l’application
+# Green Express — Fonctionnement global de l’application
 
-**Objectif :** S’assurer que l’application fonctionne de bout en bout pour tous les rôles et flux principaux.
-
----
-
-## 1. Authentification (Sanctum, cookies)
-
-### Backend
-- **Login** : `POST /api/login` (email, password) → crée la session, renvoie `{ user }`.
-- **Register** : `POST /api/register` (name, email, password) → crée l’utilisateur (rôle `client`), connecte en session, renvoie `{ user }`.
-- **Register entreprise** : `POST /api/register-company` → crée user + company (statut `pending`), pas de connexion auto.
-- **Utilisateur courant** : `GET /api/user` (ou `/api/me`) avec cookie de session → renvoie l’objet `user` (dont `role`).
-- **Logout** : `POST /api/logout` → invalide la session.
-- **CSRF** : le frontend appelle `GET /sanctum/csrf-cookie` avant tout POST/PUT/DELETE.
-
-### Frontend
-- **AuthContext** : au chargement, appelle `getMe()` pour vérifier la session ; expose `user`, `login`, `logout`, `refreshUser`.
-- **Login** : appelle `getCsrfCookie()` puis `POST /api/login` ; après succès, redirige vers `returnUrl` ou `/${user.role}`.
-- **Requête API** : `apiRequest()` dans `app/lib/api.js` envoie toujours `credentials: 'include'` et le header `X-XSRF-TOKEN` pour les requêtes non-GET.
-
-### À vérifier en local
-1. Démarrer le backend : `cd backend && php artisan serve` (port 8000).
-2. Démarrer le frontend : `cd frontend-next && npm run dev` (port 3000).
-3. `.env` backend : `FRONTEND_URL=http://localhost:3000`, `CORS_ALLOWED_ORIGINS=http://localhost:3000`.
-4. `.env.local` frontend : `NEXT_PUBLIC_API_URL=http://localhost:8000` (sans `/api`).
-5. Ouvrir http://localhost:3000/login → se connecter avec un compte (ex. `client@test.com` / `password`) → vérifier la redirection vers `/client`.
+Ce document décrit **ce qu’est Green Express**, **à qui elle s’adresse**, **comment les différents acteurs collaborent** dans la vraie vie, puis **comment cela se traduit techniquement** (sans entrer dans chaque fichier source).
 
 ---
 
-## 2. Protection des routes (auth + rôle)
+## 1. Qu’est-ce que Green Express ?
 
-### En place
-- **RequireAuth** : redirige vers `/login?returnUrl=...` si l’utilisateur n’est pas connecté. Utilisé dans tous les layouts des zones protégées.
-- **AdminGuard** : pour `/admin/*`, redirige vers `/${user.role}` si le rôle n’est pas `admin`.
-- **RoleGuard** : pour un segment donné (ex. `/livreur`, `/entreprise`, `/verificateur`, `/cuisinier`, `/client`), redirige vers `/${user.role}` si le rôle ne correspond pas.
+**Green Express** est une **plateforme web** de **commande de repas** et de **gestion de livraison**, pensée pour un usage au **contexte RDC** (numéros téléphone, Mobile Money, devises CDF/USD selon les écrans).
 
-### Layouts
-| Segment      | Layout                          | Comportement |
-|-------------|-----------------------------------|--------------|
-| `/admin/*`  | RequireAuth + AdminGuard         | Admin uniquement |
-| `/client/*` | RequireAuth + RoleGuard( client )| Client uniquement |
-| `/cuisinier/*` | RequireAuth + RoleGuard( cuisinier ) | Cuisinier uniquement |
-| `/livreur/*`   | RequireAuth + RoleGuard( livreur )   | Livreur uniquement |
-| `/verificateur/*` | RequireAuth + RoleGuard( verificateur ) | Vérificateur uniquement |
-| `/entreprise/*`  | RequireAuth + RoleGuard( entreprise )  | Entreprise uniquement |
-| `/login`, `/register`, `/` | Pas de RequireAuth | Accessible à tous |
+En pratique, l’application permet de :
 
-### À vérifier
-- Se connecter en tant que **client** → accès à `/client` uniquement ; toute tentative d’accès à `/admin` ou `/livreur` doit rediriger vers `/client`.
-- Idem pour les autres rôles (admin, cuisinier, livreur, verificateur, entreprise).
+| Besoin | Ce que fait l’app |
+|--------|-------------------|
+| **Manger sans se déplacer** | Le **client** parcourt des **menus** (plats), compose une **commande** avec adresse de livraison et **paie en Mobile Money**. |
+| **Sécuriser la livraison** | Après paiement validé, un **code de livraison** est généré ; le **livreur** et le **client** s’en servent pour se retrouver. |
+| **Fidéliser** | **Points**, **promotions** (réductions ou avantages en échange de points), historique de commandes. |
+| **Alimenter les cartes** | Les **cuisiniers** (ou l’équipe cuisine) **proposent des plats** ; l’**admin** valide ou refuse avant mise en ligne. |
+| **Piloter** | L’**admin** supervise commandes, menus, promotions, utilisateurs, abonnements, etc. |
+| **B2B / cantines** | Les comptes **entreprise** gèrent des **abonnements repas** pour des groupes (agents, équipes), avec workflows de validation selon les règles métier. |
+| **Anti-fraude promos** | Un **vérificateur** peut **valider des tickets** liés aux promotions (usage terrain / événements). |
+
+L’interface publique (Next.js) parle à une **API Laravel** ; l’authentification repose sur des **sessions sécurisées** (cookies + Sanctum), pas sur un token stocké dans le navigateur en clair.
 
 ---
 
-## 3. Flux métier principaux
+## 2. Les acteurs et leurs rôles (vue métier)
 
 ### Client
-- **Tableau de bord** : `GET /api/client/stats` → points, commandes, abonnements.
-- **Menus** : `GET /api/menus/public/browse` ou `/api/menus/browse` (connecté) ; création commande : `POST /api/orders` avec `items`, `delivery_address`.
-- **Promotions** : `GET /api/promotions?active_only=1&current=1` (ou `visible_to_client=1`) ; réclamation : `POST /api/promotions/{id}/claim` (déduction des points, ticket généré).
-- **Commandes** : liste `GET /api/orders` ; paiement pawaPay : `POST /api/orders/{id}/initiate-payment` puis suivi du statut.
+- S’inscrit, consulte les **menus**, passe des **commandes**, paie (**Mobile Money**), consulte l’**historique**, les **notifications**, le **profil**, les **promotions**, les **abonnements** (selon offres).
+- Reçoit un **code de livraison** une fois le paiement confirmé (selon flux commande).
 
 ### Cuisinier
-- **Menus** : `GET /api/my-menus` ; création `POST /api/menus` (statut `pending` jusqu’à approbation admin).
-- **Upload image** : `POST /api/upload-image` (multipart) → Cloudinary.
-
-### Admin
-- **Menus** : `GET /api/menus` (tous, filtre status) ; approbation/rejet via `PUT /api/menus/{id}`.
-- **Promotions** : `GET /api/promotions`, `POST /api/promotions`, `PUT/DELETE` sur une promotion.
-- **Commandes, utilisateurs, paiements, abonnements, rapports** : routes dédiées sous `/api/admin/*` ou par contrôleur.
+- Crée et gère **ses plats** (menus) ; les nouvelles fiches peuvent être **en attente de validation** par l’admin.
+- Utilise l’upload d’**images** (ex. Cloudinary) pour illustrer les plats.
 
 ### Livreur
-- **Stats** : `GET /api/livreur/stats` ; **assignations** : `GET /api/livreur/assignments` ; **validation code** : `POST /api/orders/{uuid}/validate-code`.
+- Voit les **livraisons / assignations** qui le concernent.
+- Intervient dans la chaîne entre cuisine validée et **remise au client** (statuts de commande, code de livraison selon les écrans prévus).
 
-### Vérificateur
-- **Stats** : `GET /api/verificateur/stats` ; **historique** : `GET /api/verificateur/history` ; **validation ticket** : `POST /api/verificateur/validate-ticket` (ou endpoint dédié selon le backend).
+### Administrateur
+- **Valide** les menus, gère **utilisateurs**, **commandes**, **promotions**, **plans d’abonnement**, **notifications** (y compris annonces), **paiements** / suivi, etc.
+- C’est le centre de pilotage opérationnel.
 
 ### Entreprise
-- **Stats** : `GET /api/entreprise/stats` ; **entreprises** : `GET /api/companies` ; **employés, abonnements, livraisons** : routes sous `/api/companies/{id}/*` et associées.
+- Représente une structure (cantine, institution, etc.) avec **demandes d’abonnement**, **budget**, **employés** ou agents selon le modèle implémenté (inscription entreprise, validation admin, etc.).
+
+### Vérificateur
+- Rôle dédié à la **validation de tickets** ou codes liés aux **promotions** (contrôle sur le terrain ou lors d’événements).
+
+Chaque rôle accède à un **espace dédié** (`/client`, `/admin`, `/livreur`, etc.) ; le frontend **refuse** l’accès aux tableaux de bord qui ne correspondent pas au `role` de l’utilisateur connecté.
 
 ---
 
-## 4. Corrections récentes (pour le fonctionnement global)
+## 3. Parcours types (comment « ça vit » dans l’app)
 
-1. **Navbar** : suppression de l’appel à `setNotifications(...)` qui utilisait une variable non définie (seul `unreadCount` est utilisé dans la Navbar).
-2. **Layouts manquants** : ajout de `layout.jsx` pour **livreur**, **verificateur**, **entreprise** avec `RequireAuth` + `RoleGuard(role)` pour protéger ces segments et rediriger les mauvais rôles.
-3. **RoleGuard** : nouveau composant réutilisable `RoleGuard({ role, children })` pour restreindre un segment à un rôle.
-4. **Cuisinier et Client** : utilisation de `RoleGuard` dans leurs layouts pour que seuls les rôles `cuisinier` et `client` accèdent à leurs dashboards.
+### A. Commande d’un plat (client)
+1. Le client se **connecte** (e-mail ou numéro RDC + mot de passe).
+2. Il choisit un ou plusieurs plats (**panier** ou **commande rapide** depuis un menu).
+3. Il renseigne l’**adresse de livraison** et le **numéro Mobile Money** utilisé pour payer.
+4. La commande est créée côté API (souvent statut **en attente de paiement**).
+5. Le client **initie le paiement** Mobile Money ; le backend dialogue avec le **prestataire de paiement** (pawaPay / logique documentée dans le dépôt).
+6. Quand le paiement est **confirmé** (callback ou job de relance), la commande passe au statut adapté et un **code de livraison** peut être généré / affiché.
+7. Le **livreur** (ou la cuisine) enchaîne selon les statuts prévus jusqu’à la livraison.
+
+### B. Publication d’un plat (cuisinier → admin)
+1. Le cuisinier **crée** un menu (plat) avec prix, description, image.
+2. Tant que l’admin n’a pas validé, le plat peut rester **non visible** ou **en attente** selon la règle métier.
+3. L’**admin** **approuve** ou **rejette** ; les clients ne voient que ce qui est validé.
+
+### C. Promotion et points
+1. L’**admin** crée une **promotion** (règles, stock, points requis, etc.).
+2. Le **client** consulte les promos et peut **réclamer** une offre si ses **points** et les règles le permettent (souvent avec **ticket** ou code).
+3. Le **vérificateur** peut **contrôler** certains tickets en contexte réel.
+
+### D. Entreprise et abonnements
+1. Une **entreprise** peut **s’inscrire** ou gérer son compte selon les écrans (demande en attente, validation admin).
+2. Les **abonnements** (repas récurrents, formules) passent par des flux dédiés avec **paiement** et suivi d’état (validation équipe, etc.).
 
 ---
 
-## 5. Checklist rapide de vérification
+## 4. Côté technique (résumé fidèle au code)
 
-- [ ] Backend et frontend démarrés ; CORS et `NEXT_PUBLIC_API_URL` corrects.
-- [ ] Connexion depuis `/login` avec un compte client → redirection vers `/client`.
-- [ ] Connexion avec admin → accès à `/admin` ; tentative d’accès à `/client` → redirection vers `/admin`.
-- [ ] Déconnexion → redirection vers `/` ; accès à `/client` sans être connecté → redirection vers `/login?returnUrl=...`.
-- [ ] Page d’accueil `/` : promotions et plans d’abonnement publics chargés sans erreur.
-- [ ] Client : dashboard, menus, création de commande, réclamation de promotion (avec points suffisants).
-- [ ] Cuisinier : création de menu avec upload d’image.
-- [ ] Admin : liste des menus (dont pending), approbation ; liste des promotions.
-- [ ] Livreur / Vérificateur / Entreprise : accès à leur dashboard et stats sans erreur 401/403.
+### 4.1 Authentification (Sanctum + cookies)
+- **Backend** : `POST /api/login` avec identifiant `login` (e-mail **ou** téléphone RDC) + `password` ; session créée ; réponse `{ user }`.
+- **CSRF** : le frontend appelle `GET /sanctum/csrf-cookie` avant les requêtes modifiant l’état.
+- **Utilisateur courant** : `GET /api/user` avec cookies de session.
+- **Déconnexion** : `POST /api/logout`.
+- **Frontend** : `AuthContext` charge l’utilisateur au démarrage ; `apiRequest` envoie `credentials: 'include'` et le jeton CSRF pour les méthodes autres que GET.
+
+### 4.2 Protection des routes (Next.js)
+- Composants du type **RequireAuth** (connecté obligatoire), **AdminGuard**, **RoleGuard** : empêchent un **livreur** d’ouvrir `/admin`, etc.
+- Les pages **login** / **register** / **accueil** restent publiques.
+
+### 4.3 API métier (extraits)
+- **Commandes** : création `POST /api/orders` ; paiement `POST /api/orders/{id}/initiate-payment` (numéro Mobile Money, pays / opérateur selon configuration).
+- **Menus** : consultation publique ou authentifiée ; création / édition côté cuisinier ; modération admin.
+- **Promotions, points, abonnements, notifications** : routes dédiées sous les contrôleurs Laravel (voir `docs/API.md` pour le détail).
+
+### 4.4 Paiements Mobile Money
+- Les flux sont décrits dans `docs/LOGIQUE_PAIEMENT_MOBILE_MONEY.md` et fichiers voisins (callbacks, jobs de relance si un webhook manque).
+- Idée générale : **dépôt** côté agrégateur → **confirmation** → mise à jour **commande** / **abonnement** et **paiement** en base.
+
+### 4.5 Fichiers et médias
+- Images souvent hébergées via **Cloudinary** (upload depuis l’admin ou le cuisinier selon les écrans).
 
 ---
 
-## 6. En cas de problème
+## 5. Déploiement typique (rappel)
 
-- **401 sur les requêtes après login** : vérifier que le cookie de session est bien envoyé (même origine ou CORS avec `credentials: true`), et que `getCsrfCookie()` est appelé avant le premier POST (login).
-- **Redirection en boucle** : vérifier que `GET /api/user` renvoie bien l’objet user avec `role` ; que les layouts n’exigent pas un rôle différent de celui de l’utilisateur.
-- **CORS** : `config/cors.php` doit avoir `supports_credentials => true` et `allowed_origins` contenant `http://localhost:3000`.
+- **Backend** : souvent **Render** (Docker / Laravel), base **PostgreSQL** gérée, variables d’environnement pour l’API, la base, CORS, sessions, clés Cloudinary / paiement.
+- **Frontend** : souvent **Vercel** (Next.js), variable `NEXT_PUBLIC_API_URL` pointant vers l’URL publique du backend.
+- **CORS / Sanctum** : le domaine du front doit être autorisé (`SANCTUM_STATEFUL_DOMAINS`, `CORS_ALLOWED_ORIGINS`, cookies `SameSite` en HTTPS).
 
-Une fois ces points validés, l’application peut être considérée comme fonctionnelle globalement pour tous les rôles et flux décrits ci-dessus.
+---
+
+## 6. Développement local (raccourci)
+
+1. Backend : `cd backend && composer install && php artisan migrate` puis `php artisan serve` (port 8000 par défaut).
+2. Frontend : `cd frontend-next && npm install && npm run dev` (port 3000).
+3. `.env` backend : `APP_URL`, `FRONTEND_URL`, CORS alignés sur `http://localhost:3000`.
+4. Frontend : `NEXT_PUBLIC_API_URL=http://localhost:8000` (sans suffixe `/api` si c’est ainsi que `api.js` est écrit).
+
+Comptes de test **locaux** : voir les seeders (`UsersTableSeeder`, etc.) — en **production**, les e-mails et mots de passe de démo peuvent différer (`*@greenexpress.com`, commande `create:production-users`, etc.).
+
+---
+
+## 7. Checklist « tout va bien »
+
+- [ ] Connexion client → redirection vers `/client` ; un autre rôle ne peut pas ouvrir cet espace.
+- [ ] Connexion admin → `/admin` accessible ; accès à un autre rôle refusé ou redirigé.
+- [ ] Création de commande + tentative de paiement (sandbox ou prod selon config).
+- [ ] Menu créé par un cuisinier puis visible côté admin pour validation.
+- [ ] Promotions et points : pas d’erreur bloquante sur les écrans principaux.
+
+---
+
+## 8. En cas de problème
+
+| Symptôme | Piste |
+|----------|--------|
+| 401 après login | Cookie de session non envoyé (CORS, `credentials`, domaine front/back). |
+| `auth.failed` / identifiants incorrects | Utilisateur inexistant sur **cette** base (local vs prod) ou mauvais mot de passe. |
+| CSRF / 419 | Appeler `sanctum/csrf-cookie` avant le premier POST. |
+| Paiement bloqué | Vérifier clés API, URL de callback, logs Laravel, job de relance. |
+
+---
+
+*Document mis à jour pour décrire le fonctionnement métier et technique de Green Express de façon lisible pour un humain ; le détail des routes reste dans `docs/API.md` et le code source.*

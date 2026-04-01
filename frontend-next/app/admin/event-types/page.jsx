@@ -120,7 +120,7 @@ export default function AdminEventTypes() {
   }
 
   return (
-    <section className="min-h-screen bg-[#0b1220] text-white p-8">
+    <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220] text-white">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">

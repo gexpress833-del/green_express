@@ -9,6 +9,28 @@ import GoldButton from '@/components/GoldButton'
 import ClientOngoingSubscriptionCard from '@/components/ClientOngoingSubscriptionCard'
 import { pushToast } from '@/components/Toaster'
 
+const PROVIDER_OPTIONS = {
+  DRC: [
+    { value: '', label: 'Détection automatique (RDC)' },
+    { value: 'VODACOM_MPESA_COD', label: 'Vodacom M-Pesa' },
+    { value: 'AIRTEL_OAPI_COD', label: 'Airtel Money' },
+    { value: 'ORANGE_OAPI_COD', label: 'Orange Money' },
+  ],
+  KE: [
+    { value: 'SAFARICOM_MPESA_KEN', label: 'Safaricom M-Pesa' },
+    { value: 'AIRTEL_OAPI_KEN', label: 'Airtel Money' },
+  ],
+  UG: [
+    { value: 'MTN_MOMO_UGA', label: 'MTN MoMo' },
+    { value: 'AIRTEL_OAPI_UGA', label: 'Airtel Money' },
+  ],
+}
+
+function getDefaultProvider(country) {
+  const options = PROVIDER_OPTIONS[country] || []
+  return options[0]?.value || ''
+}
+
 export default function ClientSubscriptions() {
   const [subs, setSubs] = useState([])
   const [plans, setPlans] = useState([])
@@ -24,28 +46,6 @@ export default function ClientSubscriptions() {
   const [payPhone, setPayPhone] = useState('')
   const [payCountry, setPayCountry] = useState('DRC')
   const [payProvider, setPayProvider] = useState('')
-
-  const PROVIDER_OPTIONS = {
-    DRC: [
-      { value: '', label: 'Détection automatique (RDC)' },
-      { value: 'VODACOM_MPESA_COD', label: 'Vodacom M-Pesa' },
-      { value: 'AIRTEL_OAPI_COD', label: 'Airtel Money' },
-      { value: 'ORANGE_OAPI_COD', label: 'Orange Money' },
-    ],
-    KE: [
-      { value: 'SAFARICOM_MPESA_KEN', label: 'Safaricom M-Pesa' },
-      { value: 'AIRTEL_OAPI_KEN', label: 'Airtel Money' },
-    ],
-    UG: [
-      { value: 'MTN_MOMO_UGA', label: 'MTN MoMo' },
-      { value: 'AIRTEL_OAPI_UGA', label: 'Airtel Money' },
-    ],
-  }
-
-  function getDefaultProvider(country) {
-    const options = PROVIDER_OPTIONS[country] || []
-    return options[0]?.value || ''
-  }
 
   function isValidPhoneForCountry(phone, country) {
     const digits = String(phone || '').replace(/\D/g, '')
@@ -68,6 +68,18 @@ export default function ClientSubscriptions() {
   }, [loadSubs])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    const scrollRenew = () => {
+      if (window.location.hash === '#renew') {
+        document.getElementById('renew')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
+    scrollRenew()
+    window.addEventListener('hashchange', scrollRenew)
+    return () => window.removeEventListener('hashchange', scrollRenew)
+  }, [loading, subs])
+
+  useEffect(() => {
     apiRequest('/api/subscription-plans', { method: 'GET' })
       .then((r) => setPlans(Array.isArray(r) ? r : []))
       .catch(() => setPlans([]))
@@ -85,8 +97,8 @@ export default function ClientSubscriptions() {
 
   const activeSubs = subs.filter((s) => s.status === 'active')
   const alertRenew = activeSubs.some((s) => s.days_until_expiry != null && s.days_until_expiry <= 2)
-  const hasOngoing = subs.some((s) => s.status === 'pending' || s.status === 'active')
-  const currentSubs = subs.filter((s) => s.status === 'pending' || s.status === 'active')
+  const hasOngoing = subs.some((s) => ['pending', 'scheduled', 'active'].includes(s.status))
+  const currentSubs = subs.filter((s) => ['pending', 'scheduled', 'active'].includes(s.status))
 
   async function handleSubscribe(planId, period) {
     setSubscribeError('')
@@ -157,8 +169,8 @@ export default function ClientSubscriptions() {
       <section className="page-section min-h-screen bg-[#0b1220]">
         <div className="container">
           <ClientSubpageHeader
-            title="Mes abonnements"
-            subtitle="Choisissez une formule hebdomadaire (lundi–vendredi), lancez votre paiement Mobile Money et suivez votre demande."
+            title="Mes abonnements repas"
+            subtitle="Formule hebdomadaire (lundi–vendredi) : souscription, paiement Mobile Money et suivi — même page, étapes guidées ci-dessous."
             icon="💳"
           />
 
@@ -179,30 +191,25 @@ export default function ClientSubscriptions() {
             </div>
           </div>
 
-          <SubscriptionPlanShowcase
-            plans={plans}
-            loading={loadingPlans}
-            disabled={hasOngoing}
-            subscribing={subscribing}
-            onSubscribeWeek={(planId) => handleSubscribe(planId, 'week')}
-          />
-
+          <div id="renew" className="scroll-mt-24 space-y-6">
               {alertRenew && (
-                <div className="mb-4 sm:mb-6 p-4 sm:p-5 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-200 flex items-center gap-4">
+                <div className="mb-0 p-4 sm:p-5 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-200 flex items-center gap-4">
                   <span className="text-3xl">⚠️</span>
                   <div>
                     <strong className="text-base sm:text-lg">Réabonnement recommandé</strong>
                     <p className="text-sm sm:text-base mt-1">Il reste 2 jours ou moins sur l'un de vos abonnements. Pensez à renouveler pour ne pas être interrompu.</p>
+                    <p className="text-sm mt-2 text-amber-100/90"><strong>Et maintenant ?</strong> Ouvrez « Payer » sur votre abonnement ou contactez le support si le paiement est déjà fait.</p>
                   </div>
                 </div>
               )}
 
               {hasOngoing && (
-                <div className="mb-4 sm:mb-6 p-4 sm:p-5 rounded-xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-200 flex items-center gap-4">
+                <div className="mb-0 p-4 sm:p-5 rounded-xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-200 flex items-center gap-4">
                   <span className="text-3xl">ℹ️</span>
                   <div>
                     <strong className="text-base sm:text-lg">Abonnement en cours</strong>
                     <p className="text-sm sm:text-base mt-1">Vous avez déjà un abonnement en attente ou actif. Une nouvelle demande n'est possible qu'une fois l'abonnement actuel expiré ou traité par notre équipe.</p>
+                    <p className="text-sm mt-2 text-cyan-100/90"><strong>Et maintenant ?</strong> Si c’est en attente de paiement, utilisez « Payer avec Mobile Money » sur la carte ci-dessous.</p>
                   </div>
                 </div>
               )}
@@ -234,7 +241,7 @@ export default function ClientSubscriptions() {
                     <div className="card text-center py-10 sm:py-14 px-4 sm:px-6">
                       <div className="text-5xl sm:text-6xl mb-4 sm:mb-5">💳</div>
                       <p className="text-white/90 text-lg sm:text-xl font-semibold mb-2">Aucun abonnement actif</p>
-                      <p className="text-white/60 text-sm sm:text-base mb-6 max-w-md mx-auto">Choisissez un plan ci-dessus et lancez votre paiement Mobile Money. Après validation par notre équipe, votre abonnement apparaîtra ici.</p>
+                      <p className="text-white/60 text-sm sm:text-base mb-6 max-w-md mx-auto">Choisissez un plan ci-dessous (formules), lancez votre paiement Mobile Money. Après validation par notre équipe, votre abonnement apparaîtra ici.</p>
                       <GoldButton onClick={() => !hasOngoing && setShowModal(true)} disabled={hasOngoing}>
                         Demander un abonnement
                       </GoldButton>
@@ -256,6 +263,26 @@ export default function ClientSubscriptions() {
                   )}
                 </div>
               )}
+          </div>
+
+          <h2 className="text-lg sm:text-xl font-bold text-white mt-10 mb-4 break-words" style={{
+            background: 'linear-gradient(135deg, #9d4edd 0%, #00ffff 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}>
+            Formules et souscription
+          </h2>
+          <p className="text-white/65 text-sm mb-4 max-w-2xl">
+            Si vous n&apos;avez pas encore d&apos;abonnement actif, choisissez une formule ici. Si un abonnement est déjà en cours, la souscription est désactivée jusqu&apos;à la fin de la période en cours.
+          </p>
+          <SubscriptionPlanShowcase
+            plans={plans}
+            loading={loadingPlans}
+            disabled={hasOngoing}
+            subscribing={subscribing}
+            onSubscribeWeek={(planId) => handleSubscribe(planId, 'week')}
+          />
         </div>
       </section>
 
@@ -270,10 +297,16 @@ export default function ClientSubscriptions() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-xl font-semibold text-white mb-2">Payer avec Mobile Money</h3>
-            <p className="text-white/70 text-base mb-4">
+            <p className="text-white/70 text-base mb-3">
               {paySubscription.plan} — {formatCurrencyCDF(Number(paySubscription.price))}
               <span className="block text-white/50 text-sm mt-1">Formule hebdomadaire (lun–ven)</span>
             </p>
+            <ol className="text-white/75 text-sm space-y-1.5 mb-4 list-decimal list-inside border border-white/10 rounded-lg p-3 bg-white/5">
+              <li>Vérifiez le montant ci-dessus</li>
+              <li>Indiquez votre numéro Mobile Money</li>
+              <li>Appuyez sur « Lancer le paiement »</li>
+              <li><strong className="text-cyan-300">Validez sur votre téléphone</strong> — en général moins de 2 minutes</li>
+            </ol>
             {payError && (
               <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">{payError}</div>
             )}
@@ -313,15 +346,15 @@ export default function ClientSubscriptions() {
                     </option>
                   ))}
                 </select>
-                <p className="text-white/40 text-xs mt-2">
-                  En RDC, la détection automatique fonctionne si le numéro appartient à Vodacom, Airtel ou Orange.
+                <p className="text-white/60 text-xs mt-2">
+                  En RDC, gardez <strong className="text-white/90">Détection automatique</strong> sauf si le paiement échoue — choisissez alors Vodacom, Airtel ou Orange.
                 </p>
               </div>
-              <div className="flex gap-2 justify-end pt-2">
+              <div className="flex gap-2 justify-end pt-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => !paySubmitting && (setShowPayModal(false), setPaySubscription(null), setPayError(''))}
-                  className="px-4 py-2 rounded-lg border border-white/30 text-white/90 hover:bg-white/10"
+                  className="min-h-[44px] px-4 py-2 rounded-lg border border-white/30 text-white/90 hover:bg-white/10"
                 >
                   Annuler
                 </button>
@@ -329,11 +362,14 @@ export default function ClientSubscriptions() {
                   type="button"
                   onClick={handlePayWithMobileMoney}
                   disabled={paySubmitting}
-                  className="px-4 py-2 rounded-lg bg-[#d4af37] text-[#0b1220] font-semibold hover:bg-[#e5c048] disabled:opacity-50"
+                  className="min-h-[44px] px-4 py-2 rounded-lg bg-[#d4af37] text-[#0b1220] font-semibold hover:bg-[#e5c048] disabled:opacity-50"
                 >
                   {paySubmitting ? 'Envoi…' : 'Lancer le paiement'}
                 </button>
               </div>
+              <p className="text-white/45 text-xs mt-3 text-center">
+                Après l’envoi, une demande peut s’afficher sur votre téléphone — acceptez pour confirmer.
+              </p>
             </div>
           </div>
         </div>

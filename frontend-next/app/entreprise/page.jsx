@@ -1,6 +1,7 @@
 "use client"
 import { useRouter } from 'next/navigation'
 import EntrepriseSidebar from '@/components/EntrepriseSidebar'
+import EntrepriseSubscriptionSection from '@/components/EntrepriseSubscriptionSection'
 import DashboardGreeting from '@/components/DashboardGreeting'
 import GoldButton from '@/components/GoldButton'
 import { useEffect, useState } from 'react'
@@ -56,76 +57,54 @@ export default function EntrepriseDashboard(){
               <div className="card text-center py-12">
                 <p className="text-white/60">Chargement...</p>
               </div>
-            ) : stats?.company_pending ? (
-              <div className="card p-8 text-center max-w-xl mx-auto">
-                <div className="text-5xl mb-4" aria-hidden>⏳</div>
-                <h2 className="text-xl font-semibold text-white mb-3">Compte entreprise en attente d&apos;activation</h2>
-                <p className="text-white/80 mb-6">Votre demande d&apos;accès entreprise est en cours d&apos;examen par l&apos;administrateur. Une fois votre entreprise approuvée, vous pourrez gérer les employés, les abonnements et les commandes.</p>
-                <p className="text-white/80 mb-4">Pour toute question, contactez Green Express :</p>
-                <ul className="text-white/90 mb-6 list-none space-y-1">
-                  <li><a href="mailto:gexpress833@gmail.com" className="hover:opacity-90 underline" style={{ color: '#d4af37' }}>gexpress833@gmail.com</a></li>
-                  <li><a href="tel:+243990292005" className="hover:opacity-90 underline" style={{ color: '#d4af37' }}>+243 990 292 005</a></li>
-                </ul>
-                <GoldButton href="/profile">Mon profil</GoldButton>
-              </div>
             ) : (
               <>
+                <EntrepriseSubscriptionSection />
                 {/* Statistiques */}
                 <div className="stats-row">
                   <div className="stat-card">
                     <h4>👥 Employés</h4>
                     <p className="text-3xl font-bold">{stats?.employees ?? 0}</p>
-                    <p className="text-sm text-white/60 mt-2">Employés enregistrés</p>
+                    <Link href="/entreprise/employees" className="text-sm text-green-400 hover:text-green-300 mt-2 inline-block">
+                      Détail →
+                    </Link>
                   </div>
                   <div className="stat-card">
                     <h4>🛒 Commandes</h4>
                     <p className="text-3xl font-bold">{stats?.orders ?? 0}</p>
                     <Link href="/entreprise/orders" className="text-sm text-green-400 hover:text-green-300 mt-2 inline-block">
-                      Voir les commandes →
+                      Détail →
                     </Link>
                   </div>
                   <div className="stat-card">
                     <h4>💰 Budget</h4>
                     <p className="text-3xl font-bold">{stats?.budget ?? 0} USD</p>
-                    <p className="text-sm text-white/60 mt-2">Budget disponible</p>
+                    <Link href="/entreprise/budget" className="text-sm text-green-400 hover:text-green-300 mt-2 inline-block">
+                      Détail →
+                    </Link>
                   </div>
                 </div>
 
-                {/* Actions principales */}
-                <section className="card mt-6">
-                  <h3 className="text-xl font-semibold mb-4" style={{ 
-                    background: 'linear-gradient(135deg, #39ff14 0%, #00ffff 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text'
-                  }}>
-                    📊 Rapports et analyses
-                  </h3>
-                  <p className="text-white/70 mb-4">
-                    Consultez les rapports détaillés de consommation et gérez vos abonnements.
+                <section className="card mt-6 border border-cyan-500/20 bg-cyan-500/5">
+                  <h2 className="text-lg font-semibold text-white mb-3">Prochaines actions</h2>
+                  <p className="text-white/65 text-sm mb-4">
+                    Budget, commandes et répertoire des agents. L&apos;abonnement équipe est géré dans le bloc « Abonnement entreprise » ci-dessus.
                   </p>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <GoldButton href="/entreprise/reports">Voir les rapports</GoldButton>
-                    <GoldButton href="/entreprise/subscriptions">Gérer les abonnements</GoldButton>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <GoldButton href="/entreprise/budget">Budget</GoldButton>
+                    <GoldButton href="/entreprise/orders">Commandes</GoldButton>
+                    <GoldButton href="/entreprise/employees">Employés</GoldButton>
                   </div>
                 </section>
 
-                {/* Actions rapides */}
                 <section className="card mt-6">
-                  <h3 className="text-xl font-semibold mb-4" style={{ 
-                    background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text'
-                  }}>
-                    ⚡ Actions rapides
+                  <h3 className="text-xl font-semibold mb-2 text-white">
+                    Rapports de consommation
                   </h3>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <GoldButton href="/entreprise/employees">Gérer les employés</GoldButton>
-                    <GoldButton href="/entreprise/orders">Commandes entreprise</GoldButton>
-                    <GoldButton href="/entreprise/budget">Gérer le budget</GoldButton>
-                    <GoldButton href="/entreprise/reports">Rapports de consommation</GoldButton>
-                  </div>
+                  <p className="text-white/70 mb-4 text-sm sm:text-base">
+                    Analysez la consommation et l&apos;historique pour votre structure.
+                  </p>
+                  <GoldButton href="/entreprise/reports">Voir les rapports</GoldButton>
                 </section>
               </>
             )}

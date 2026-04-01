@@ -1,18 +1,23 @@
 "use client"
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useCompany } from '@/lib/useCompany'
 
 export default function EntrepriseSidebar() {
   const pathname = usePathname()
+  const { company, loading } = useCompany()
+  const subscriptionUnlocked = !loading && company?.status === 'active'
+
   const menuItems = [
-    { href: '/entreprise', label: 'Tableau de bord', icon: '📊' },
-    { href: '/entreprise/employees', label: 'Employés', icon: '👥' },
-    { href: '/entreprise/orders', label: 'Commandes', icon: '🛒' },
-    { href: '/entreprise/subscriptions', label: 'Abonnements', icon: '💳' },
-    { href: '/entreprise/budget', label: 'Budget', icon: '💰' },
-    { href: '/entreprise/reports', label: 'Rapports', icon: '📈' },
-    { href: '/profile', label: 'Mon profil', icon: '👤' },
-  ]
+    { href: '/entreprise', label: 'Tableau de bord', icon: '📊', needsActiveCompany: false },
+    { href: '/entreprise/subscriptions', label: 'Abonnements', icon: '💳', needsActiveCompany: true },
+    { href: '/entreprise/budget', label: 'Budget', icon: '💰', needsActiveCompany: false },
+    { href: '/entreprise/orders', label: 'Commandes', icon: '🛒', needsActiveCompany: false },
+    { href: '/entreprise/employees', label: 'Employés', icon: '👥', needsActiveCompany: false },
+    { href: '/entreprise/reports', label: 'Rapports', icon: '📈', needsActiveCompany: false },
+    { href: '/profile', label: 'Mon profil', icon: '👤', needsActiveCompany: false },
+  ].filter((item) => !item.needsActiveCompany || subscriptionUnlocked)
+
   return (
     <aside className="sidebar">
       <nav>

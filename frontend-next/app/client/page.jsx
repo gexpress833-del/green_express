@@ -6,8 +6,44 @@ import DashboardGreeting from '@/components/DashboardGreeting'
 import ReadOnlyGuard from '@/components/ReadOnlyGuard'
 import { useEffect, useState } from 'react'
 import { apiRequest } from '@/lib/api'
+import { formatDate } from '@/lib/helpers'
 import { useCart } from '@/contexts/CartContext'
 import Link from 'next/link'
+
+function subscriptionBannerCopy(ongoing) {
+  if (!ongoing || ongoing.length === 0) return null
+  const s = ongoing[0]
+  const status = s.status
+  const plan = s.plan || 'Abonnement'
+  if (status === 'pending') {
+    return {
+      title: 'Abonnement en attente',
+      line: `${plan} — validez le paiement ou attendez la confirmation de l’équipe.`,
+      href: '/client/subscriptions#renew',
+    }
+  }
+  if (status === 'scheduled' && s.started_at) {
+    return {
+      title: 'Abonnement planifié',
+      line: `${plan} — démarre le ${formatDate(s.started_at)}.`,
+      href: '/client/subscriptions#renew',
+    }
+  }
+  if (status === 'active') {
+    const end = s.expires_at || s.end_date
+    const endStr = end ? formatDate(end) : null
+    return {
+      title: 'Abonnement repas actif',
+      line: endStr ? `${plan} — jusqu’au ${endStr}.` : `${plan} — en cours.`,
+      href: '/client/subscriptions#renew',
+    }
+  }
+  return {
+    title: 'Abonnement',
+    line: plan,
+    href: '/client/subscriptions#renew',
+  }
+}
 
 /* ─── Formatage prix ─────────────────────────────────────────── */
 function fmt(amount, currency) {
@@ -97,6 +133,7 @@ export default function ClientDashboard() {
   const [menus, setMenus]   = useState([])
   const [promo, setPromo]   = useState(null)
   const [search, setSearch] = useState('')
+  const [ongoingSubs, setOngoingSubs] = useState(null)
 
   /* Stats */
   const fetchStats = () => {
@@ -127,6 +164,15 @@ export default function ClientDashboard() {
   }
 
   useEffect(() => { fetchStats(); fetchMenus(); fetchPromo() }, [])
+
+  useEffect(() => {
+    apiRequest('/api/subscriptions', { method: 'GET' })
+      .then((r) => {
+        const list = Array.isArray(r) ? r : []
+        setOngoingSubs(list.filter((s) => s.status === 'pending' || s.status === 'active'))
+      })
+      .catch(() => setOngoingSubs([]))
+  }, [])
   useEffect(() => { const t = setInterval(fetchStats, 30000); return () => clearInterval(t) }, [])
 
   const goSearch = (e) => {
@@ -140,9 +186,11 @@ export default function ClientDashboard() {
     { icon: '🛒', label: 'Panier',        href: '/client/cart' },
     { icon: '📦', label: 'Commandes',     href: '/client/orders' },
     { icon: '🎁', label: 'Promos',        href: '/client/promotions' },
-    { icon: '💳', label: 'Abonnements',   href: '/client/subscriptions' },
+    { icon: '💳', label: 'Abonnements',   href: '/client/subscriptions#renew' },
     { icon: '👤', label: 'Profil',        href: '/profile' },
   ]
+
+  const subBanner = subscriptionBannerCopy(ongoingSubs)
 
   /* ════════════════════════════════════════════════════════════ */
   return (
@@ -150,6 +198,31 @@ export default function ClientDashboard() {
 
       {/* ══════════ LAYOUT MOBILE (< sm) ══════════ */}
       <div className="mobile-only" style={{ background: '#0b1220', minHeight: '100vh', paddingBottom: 32 }}>
+
+        {subBanner && (
+          <div style={{ padding: '14px 16px 0' }}>
+            <Link
+              href={subBanner.href}
+              style={{
+                display: 'block',
+                padding: '12px 14px',
+                borderRadius: 14,
+                background: 'linear-gradient(135deg, rgba(139,92,246,0.25) 0%, rgba(6,182,212,0.2) 100%)',
+                border: '1px solid rgba(139,92,246,0.35)',
+                textDecoration: 'none',
+                color: 'inherit',
+                minHeight: 44,
+                boxSizing: 'border-box',
+              }}
+            >
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{subBanner.title}</p>
+              <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.92)', lineHeight: 1.4 }}>{subBanner.line}</p>
+              <span className="client-stat-cta client-stat-cta--gold" style={{ marginTop: 10, width: '100%', boxSizing: 'border-box' }}>
+                Gérer ou renouveler <span aria-hidden style={{ opacity: 0.9 }}>→</span>
+              </span>
+            </Link>
+          </div>
+        )}
 
         {/* ── Barre de recherche ── */}
         <div style={{ padding: '14px 16px 0' }}>
@@ -184,7 +257,7 @@ export default function ClientDashboard() {
           {[
             { href: '/client/promotions', icon: '⭐', val: `${stats?.points ?? 0} pts`, bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.35)', color: '#fbbf24', label: 'Points fidélité et promos' },
             { href: '/client/orders', icon: '🛒', val: `${stats?.orders ?? 0} cmd`, bg: 'rgba(6,182,212,0.10)', border: 'rgba(6,182,212,0.35)', color: '#22d3ee', label: 'Mes commandes' },
-            { href: '/client/subscriptions', icon: '💳', val: `${stats?.subscriptions ?? 0} abo`, bg: 'rgba(139,92,246,0.10)', border: 'rgba(139,92,246,0.35)', color: '#a78bfa', label: 'Mes abonnements' },
+            { href: '/client/subscriptions#renew', icon: '💳', val: `${stats?.subscriptions ?? 0} abo`, bg: 'rgba(139,92,246,0.10)', border: 'rgba(139,92,246,0.35)', color: '#a78bfa', label: 'Mes abonnements repas' },
           ].map((c) => (
             <Link
               key={c.href}
@@ -300,14 +373,23 @@ export default function ClientDashboard() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
             }}>
-              Tableau de bord Client
+              Accueil repas
             </h1>
-            <p className="text-white/70 text-sm sm:text-base lg:text-lg">Gérez vos commandes, points et abonnements</p>
+            <p className="text-white/70 text-sm sm:text-base lg:text-lg">Vos menus, commandes, points et abonnement repas</p>
           </DashboardGreeting>
 
           <div className="dashboard-grid">
             <ClientSidebar />
             <main className="main-panel">
+              {subBanner && (
+                <div className="card mb-6 p-4 sm:p-5 border border-violet-500/30 bg-violet-500/10">
+                  <h2 className="text-sm font-bold text-violet-300 uppercase tracking-wide mb-1">{subBanner.title}</h2>
+                  <p className="text-white/90 text-sm sm:text-base m-0 mb-3">{subBanner.line}</p>
+                  <Link href={subBanner.href} className="client-stat-cta client-stat-cta--gold">
+                    Gérer ou renouveler <span aria-hidden className="opacity-90">→</span>
+                  </Link>
+                </div>
+              )}
               {loading ? (
                 <div className="card text-center py-12">
                   <p className="text-white/60">Chargement...</p>
@@ -339,15 +421,15 @@ export default function ClientDashboard() {
                     <div className="stat-card">
                       <h4>🛒 Commandes</h4>
                       <p className="text-2xl sm:text-3xl font-bold">{stats?.orders ?? 0}</p>
-                      <Link href="/client/orders" className="text-sm text-cyan-400 hover:text-cyan-300 mt-2 inline-block">
-                        Voir l'historique →
+                      <Link href="/client/orders" className="client-stat-cta">
+                        Voir l&apos;historique <span aria-hidden className="opacity-90">→</span>
                       </Link>
                     </div>
                     <div className="stat-card">
-                      <h4>💳 Abonnements</h4>
+                      <h4>💳 Abonnements repas</h4>
                       <p className="text-2xl sm:text-3xl font-bold">{stats?.subscriptions ?? 0}</p>
-                      <Link href="/client/subscriptions" className="text-sm text-cyan-400 hover:text-cyan-300 mt-2 inline-block">
-                        Gérer mes abonnements →
+                      <Link href="/client/subscriptions#renew" className="client-stat-cta client-stat-cta--gold">
+                        Gérer ou renouveler <span aria-hidden className="opacity-90">→</span>
                       </Link>
                     </div>
                   </div>

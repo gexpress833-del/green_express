@@ -6,436 +6,567 @@ import Link from 'next/link'
 import { getApiErrorMessage } from '@/lib/api'
 import { isValidEmail, isValidPassword } from '@/lib/helpers'
 import { pushToast } from '@/components/Toaster'
+import styles from './register.module.css'
 
-export default function RegisterPage(){
-  const [accountType, setAccountType] = useState('client') // 'client' or 'entreprise'
-  const [name,setName]=useState('')
-  const [email,setEmail]=useState('')
-  const [password,setPassword]=useState('')
-  const [confirmPassword,setConfirmPassword]=useState('')
+export default function RegisterPage() {
+  const [accountType, setAccountType] = useState('client')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [clientPhone, setClientPhone] = useState('')
-  const [error,setError]=useState('')
-  const [loading,setLoading]=useState(false)
-  
-  // Entreprise fields
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
   const [companyName, setCompanyName] = useState('')
   const [institutionType, setInstitutionType] = useState('privee')
   const [companyPhone, setCompanyPhone] = useState('')
   const [companyAddress, setCompanyAddress] = useState('')
   const [employeeCount, setEmployeeCount] = useState('')
-  const [employeeList, setEmployeeList] = useState([]) // [{ full_name, matricule, function, phone }, ...]
-  
+  const [employeeList, setEmployeeList] = useState([])
+
   const router = useRouter()
-  const n = Math.max(0, parseInt(employeeCount, 10) || 0)
+
+  const enterpriseSlots = (() => {
+    if (accountType !== 'entreprise') return 0
+    const raw = parseInt(employeeCount, 10)
+    return Math.max(1, Number.isFinite(raw) && raw > 0 ? raw : 1)
+  })()
+
   useEffect(() => {
-    if (n <= 0) { setEmployeeList([]); return }
-    setEmployeeList(prev => {
+    if (accountType !== 'entreprise') {
+      setEmployeeList([])
+      return
+    }
+    const n = enterpriseSlots
+    setEmployeeList((prev) => {
       const next = [...prev]
       while (next.length < n) next.push({ full_name: '', matricule: '', function: '', phone: '' })
-      return next.slice(0, n).map((e, i) => ({ ...e, full_name: e.full_name || '', matricule: e.matricule || '', function: e.function || '', phone: e.phone || '' }))
+      return next.slice(0, n).map((e, i) => ({
+        ...e,
+        full_name: e.full_name || '',
+        matricule: e.matricule || '',
+        function: e.function || '',
+        phone: e.phone || '',
+      }))
     })
-  }, [n])
+  }, [accountType, enterpriseSlots])
 
-  async function submit(e){
+  async function submit(e) {
     e.preventDefault()
     setError('')
 
-    if(!name.trim()){
+    if (!name.trim()) {
       setError('Le nom est requis.')
       return
     }
 
-    if(!isValidEmail(email)){
+    if (!isValidEmail(email)) {
       setError('Veuillez entrer un email valide.')
       return
     }
 
-    if(!isValidPassword(password)){
+    if (!isValidPassword(password)) {
       setError('Le mot de passe doit avoir au moins 6 caractères.')
       return
     }
 
-    if(password !== confirmPassword){
-      setError('Les mots de passe ne correspondent pas.')
-      return
+    if (accountType === 'client') {
+      if (!clientPhone.trim()) {
+        setError('Le numéro de téléphone mobile est obligatoire.')
+        return
+      }
     }
 
-    if (accountType === 'client' && !clientPhone.trim()) {
-      setError('Le numéro de téléphone mobile est obligatoire.')
-      return
-    }
-
-    // Validation supplémentaire pour entreprise
-    if(accountType === 'entreprise'){
-      if(!companyName.trim()){
-        setError('Le nom de l\'entreprise est requis.')
+    if (accountType === 'entreprise') {
+      if (password !== confirmPassword) {
+        setError('Les mots de passe ne correspondent pas.')
         return
       }
-      if(!companyPhone.trim()){
-        setError('Le téléphone de l\'entreprise est requis.')
+      if (!companyName.trim()) {
+        setError("Le nom de l'entreprise est requis.")
         return
       }
-      if(!companyAddress.trim()){
-        setError('L\'adresse de l\'entreprise est requis.')
+      if (!companyPhone.trim()) {
+        setError("Le téléphone de l'entreprise est requis.")
         return
       }
-      if(!employeeCount || parseInt(employeeCount) < 1){
-        setError('Le nombre d\'employés doit être au moins 1.')
+      if (!companyAddress.trim()) {
+        setError("L'adresse du siège est requise pour la demande B2B.")
         return
       }
-      const list = employeeList.slice(0, n)
-      const namesOk = list.every(e => (e.full_name || '').trim())
-      if (!namesOk || list.length !== n) {
-        setError('Veuillez indiquer le nom complet de chaque employé (' + n + ' nom(s) requis).')
+      const empCount = parseInt(employeeCount, 10) || 1
+      const list = employeeList.slice(0, empCount)
+      const namesOk = list.every((row) => (row.full_name || '').trim())
+      if (!namesOk || list.length !== empCount) {
+        setError('Indiquez le nom complet de chaque personne à enregistrer (' + empCount + ' ligne(s)).')
         return
       }
     }
 
     setLoading(true)
 
-    try{
-      if(accountType === 'client'){
+    try {
+      if (accountType === 'client') {
         await register(email, password, name, clientPhone.trim())
         router.push('/client')
       } else {
-        // Inscription entreprise - demande d'approbation
-        console.log('📤 Envoi demande entreprise...', {
-          name, email, companyName, institutionType, companyPhone, companyAddress, employeeCount
-        })
-        const employees = employeeList.slice(0, n).map(e => ({
-          full_name: (e.full_name || '').trim(),
-          matricule: (e.matricule || '').trim() || undefined,
-          function: (e.function || '').trim() || undefined,
-          phone: (e.phone || '').trim() || undefined,
-        })).filter(e => e.full_name)
-        const result = await registerCompany(name, email, password, {
+        const empCount = parseInt(employeeCount, 10) || 1
+        const employees = employeeList
+          .slice(0, empCount)
+          .map((row) => ({
+            full_name: (row.full_name || '').trim(),
+            matricule: (row.matricule || '').trim() || undefined,
+            function: (row.function || '').trim() || undefined,
+            phone: (row.phone || '').trim() || undefined,
+          }))
+          .filter((row) => row.full_name)
+
+        await registerCompany(name, email, password, {
           companyName,
           institutionType,
           companyPhone,
           companyAddress,
-          employeeCount: parseInt(employeeCount),
+          employeeCount: empCount,
           employees,
         })
-        console.log('✅ Réponse:', result)
-        pushToast({ type: 'success', message: 'Demande d\'accès B2B envoyée! Un administrateur examinera votre demande.' })
+        pushToast({
+          type: 'success',
+          message: "Demande d'accès B2B envoyée ! Un administrateur examinera votre demande.",
+        })
         router.push('/login')
       }
-    }catch(err){
-      console.error('❌ Erreur inscription:', err)
-      setError(getApiErrorMessage(err) || 'Erreur lors de l\'inscription.')
-    }finally{
+    } catch (err) {
+      setError(getApiErrorMessage(err) || "Erreur lors de l'inscription.")
+    } finally {
       setLoading(false)
     }
   }
 
+  const formTheme = accountType === 'client' ? styles.formClient : styles.formEntreprise
+  const clientCardClass =
+    `${styles.accountOption} ${accountType === 'client' ? styles.accountOptionActiveClient : ''}`
+  const entrepriseCardClass =
+    `${styles.accountOption} ${accountType === 'entreprise' ? styles.accountOptionActiveEntreprise : ''}`
+  const submitClass =
+    `${styles.submit} ${accountType === 'client' ? styles.submitClient : styles.submitEntreprise}`
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0b1220] via-[#1a2942] to-[#0b1220] flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
-        <div className="bg-gradient-to-br from-[#0f1629]/95 to-[#1a2a4a]/95 border border-[#d4af37]/30 rounded-3xl p-8 shadow-2xl backdrop-blur-sm">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-[#d4af37] to-[#f5e08a] bg-clip-text text-transparent mb-2">Green Express</h1>
-            <p className="text-[#d4af37]/80 text-lg">Bienvenue</p>
+    <div className={styles.shell}>
+      <div className={styles.ambient} aria-hidden />
+      <div className={styles.gridFloor} aria-hidden />
+      <div className={styles.vignette} aria-hidden />
+
+      <div className={styles.card}>
+        <div className={styles.cardGlow} aria-hidden />
+        <div className={styles.neonTop} aria-hidden />
+
+        <div style={{ textAlign: 'center' }}>
+          <p className={styles.badge}>Inscription</p>
+          <h1 className={styles.titleGradient}>Green Express</h1>
+          <p className={styles.subtitle}>Créez votre accès — client ou demande entreprise.</p>
+        </div>
+
+        <h2 className={styles.introHeading}>Comment souhaitez-vous utiliser Green Express ?</h2>
+        <div className={styles.introHelp}>
+          <ul className={styles.introHelpList}>
+            <li>
+              <span className={styles.introHelpClient}>Client</span>
+              <span>pour commander vos repas et gérer vos abonnements.</span>
+            </li>
+            <li>
+              <span className={styles.introHelpEntreprise}>Entreprise</span>
+              <span>pour gérer une équipe, le budget et les repas en volume.</span>
+            </li>
+          </ul>
+        </div>
+
+        {error && (
+          <div className={styles.alert} role="alert">
+            <div className={styles.alertTitle}>Erreur</div>
+            <div style={{ whiteSpace: 'pre-wrap' }}>{error}</div>
+            {error.includes('Impossible de contacter le serveur') && (
+              <div className={styles.hintBox}>
+                <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>À vérifier :</p>
+                <p style={{ margin: '0 0 0.35rem' }}>
+                  1. Démarrer l&apos;API : <code>cd backend</code> puis <code>php artisan serve</code>
+                </p>
+                <p style={{ margin: 0 }}>
+                  2. Dans <code>frontend-next/.env.local</code>, <code>NEXT_PUBLIC_API_URL</code> doit pointer vers
+                  l&apos;API (ex. http://127.0.0.1:8000).
+                </p>
+                <button type="button" className={styles.retryBtn} onClick={() => setError('')}>
+                  Fermer ce message
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <form onSubmit={submit} className={`${styles.form} ${formTheme}`} noValidate>
+          <div>
+            <span className={styles.sectionLabel}>Choisir un parcours</span>
+            <div className={styles.accountGrid}>
+              <button
+                type="button"
+                className={clientCardClass}
+                onClick={() => setAccountType('client')}
+                aria-pressed={accountType === 'client'}
+              >
+                <span className={styles.accountRadio} aria-hidden>
+                  <span className={styles.accountRadioDot} />
+                </span>
+                <span className={styles.accountBody}>
+                  <span className={styles.accountTitle}>👤 Utiliser pour mes repas</span>
+                  <span className={styles.accountDesc}>
+                    Commander des repas, s&apos;abonner et payer facilement.
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={entrepriseCardClass}
+                onClick={() => setAccountType('entreprise')}
+                aria-pressed={accountType === 'entreprise'}
+              >
+                <span className={styles.accountRadio} aria-hidden>
+                  <span className={styles.accountRadioDot} />
+                </span>
+                <span className={styles.accountBody}>
+                  <span className={styles.accountTitle}>🏢 Gérer une équipe / entreprise</span>
+                  <span className={styles.accountDesc}>
+                    Ajouter des employés, gérer le budget et suivre les repas.
+                  </span>
+                </span>
+              </button>
+            </div>
           </div>
 
-          {error && (
-            <div className="mb-6">
-              <div className="bg-red-900/50 border border-red-700 text-red-200 p-4 rounded-lg whitespace-pre-wrap">
-                <div className="font-bold mb-2">❌ Erreur:</div>
-                <div className="text-sm">{error}</div>
-              </div>
-              {error.includes('Impossible de contacter le serveur') && (
-                <div className="mt-3 p-3 bg-amber-900/30 border border-amber-600/50 rounded-lg text-amber-200 text-sm">
-                  <p className="font-semibold mb-1">À vérifier :</p>
-                  <p>1. Démarrer le backend dans un terminal : <code className="bg-black/30 px-1 rounded">cd backend && php artisan serve</code></p>
-                  <p>2. Vérifier que <code className="bg-black/30 px-1 rounded">NEXT_PUBLIC_API_URL</code> dans <code className="bg-black/30 px-1 rounded">frontend-next\.env.local</code> pointe vers l’API (ex. http://localhost:8000).</p>
-                  <button type="button" onClick={() => { setError(''); }} className="mt-2 text-cyan-400 hover:text-cyan-300 underline">Réessayer après avoir démarré l’API</button>
-                </div>
-              )}
-            </div>
-          )}
+          <hr className={styles.divider} />
 
-          <form onSubmit={submit} className="space-y-6">
-            {/* Account Type Selection - Card Layout */}
-            <div>
-              <label className="block text-white text-lg font-bold mb-4">Quel type de compte voulez-vous?</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Client Card */}
-                <label className={`flex flex-col p-5 rounded-xl border-2 cursor-pointer transition-all ${
-                  accountType === 'client' 
-                    ? 'border-[#d4af37] bg-[#d4af37]/10' 
-                    : 'border-white/20 bg-white/5 hover:border-white/40'
-                }`}>
-                  <input
-                    type="radio"
-                    name="accountType"
-                    value="client"
-                    checked={accountType === 'client'}
-                    onChange={(e) => setAccountType(e.target.value)}
-                    className="sr-only"
-                  />
-                  <span className="text-white font-bold text-base mb-3">👤 Client individuel</span>
-                  <span className="text-white/70 text-sm leading-relaxed">Commander des repas, accumuler des points et réclamer des promotions</span>
-                </label>
-
-                {/* Entreprise Card */}
-                <label className={`flex flex-col p-5 rounded-xl border-2 cursor-pointer transition-all ${
-                  accountType === 'entreprise' 
-                    ? 'border-[#d4af37] bg-[#d4af37]/10' 
-                    : 'border-white/20 bg-white/5 hover:border-white/40'
-                }`}>
-                  <input
-                    type="radio"
-                    name="accountType"
-                    value="entreprise"
-                    checked={accountType === 'entreprise'}
-                    onChange={(e) => setAccountType(e.target.value)}
-                    className="sr-only"
-                  />
-                  <span className="text-white font-bold text-base mb-3">🏢 Entreprise (B2B)</span>
-                  <span className="text-white/70 text-sm leading-relaxed">Enregistrer votre structure pour commander en volume et créer des agents</span>
-                </label>
-              </div>
-            </div>
-
-            <hr className="border-white/10" />
-
-            {/* Personal Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {accountType === 'client' && (
+            <>
+              <p className={styles.formSectionTitle}>Vos informations</p>
               <div>
-                <label className="block text-white text-sm font-semibold mb-2">Nom complet</label>
+                <label htmlFor="reg-name" className={styles.label}>
+                  Nom complet
+                </label>
                 <input
+                  id="reg-name"
                   type="text"
-                  placeholder="Votre nom"
+                  autoComplete="name"
+                  placeholder="Nom complet"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#d4af37] transition"
+                  className={styles.fieldInput}
                 />
               </div>
-
               <div>
-                <label className="block text-white text-sm font-semibold mb-2">Email</label>
+                <label htmlFor="reg-email" className={styles.label}>
+                  E-mail
+                </label>
                 <input
+                  id="reg-email"
                   type="email"
-                  placeholder="votre@email.com"
+                  autoComplete="email"
+                  placeholder="vous@exemple.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#d4af37] transition"
+                  className={styles.fieldInput}
                 />
               </div>
-            </div>
-
-            {accountType === 'client' && (
               <div>
-                <label className="block text-white text-sm font-semibold mb-2">
-                  Téléphone mobile <span className="text-rose-300/90">*</span>
+                <label htmlFor="reg-phone" className={styles.label}>
+                  Téléphone mobile <span style={{ color: 'rgba(251, 113, 133, 0.95)' }}>*</span>
                 </label>
                 <input
+                  id="reg-phone"
                   type="tel"
                   autoComplete="tel"
-                  placeholder="08X XXX XXXX ou +243…"
+                  placeholder="08… / 09… / +243…"
                   value={clientPhone}
                   onChange={(e) => setClientPhone(e.target.value)}
                   required
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#d4af37] transition"
+                  className={styles.fieldInput}
                 />
-                <p className="mt-1.5 text-xs text-white/45">
-                  Obligatoire — format RDC (08…, 09… ou +243…). Sert aussi à vous connecter.
+                <p className={styles.hint}>
+                  Format RDC : 08… ou +243… (sert aussi pour la connexion).
                 </p>
               </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="block text-white text-sm font-semibold mb-2">Mot de passe</label>
+                <label htmlFor="reg-password" className={styles.label}>
+                  Mot de passe
+                </label>
                 <input
+                  id="reg-password"
                   type="password"
-                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  placeholder="Au moins 6 caractères"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#d4af37] transition"
+                  className={styles.fieldInput}
                 />
               </div>
+            </>
+          )}
 
-              <div>
-                <label className="block text-white text-sm font-semibold mb-2">Confirmer le mot de passe</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-[#d4af37] transition"
-                />
+          {accountType === 'entreprise' && (
+            <div className={styles.enterprisePanel}>
+              <h3 className={styles.enterpriseTitle}>
+                <span aria-hidden>🏢</span> Entreprise & contact
+              </h3>
+
+              <div className={styles.row2}>
+                <div>
+                  <label htmlFor="reg-co-name" className={styles.label}>
+                    Nom de l&apos;entreprise
+                  </label>
+                  <input
+                    id="reg-co-name"
+                    type="text"
+                    autoComplete="organization"
+                    placeholder="Raison sociale"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    required
+                    className={styles.fieldInput}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="reg-name" className={styles.label}>
+                    Nom du responsable
+                  </label>
+                  <input
+                    id="reg-name"
+                    type="text"
+                    autoComplete="name"
+                    placeholder="Nom complet"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    className={styles.fieldInput}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.row2}>
+                <div>
+                  <label htmlFor="reg-email" className={styles.label}>
+                    E-mail professionnel
+                  </label>
+                  <input
+                    id="reg-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="contact@entreprise.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className={styles.fieldInput}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="reg-co-phone" className={styles.label}>
+                    Téléphone entreprise
+                  </label>
+                  <input
+                    id="reg-co-phone"
+                    type="tel"
+                    autoComplete="tel"
+                    placeholder="+243 …"
+                    value={companyPhone}
+                    onChange={(e) => setCompanyPhone(e.target.value)}
+                    required
+                    className={styles.fieldInput}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.row2}>
+                <div>
+                  <label htmlFor="reg-password" className={styles.label}>
+                    Mot de passe
+                  </label>
+                  <input
+                    id="reg-password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Au moins 6 caractères"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className={styles.fieldInput}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="reg-password2" className={styles.label}>
+                    Confirmer le mot de passe
+                  </label>
+                  <input
+                    id="reg-password2"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    className={styles.fieldInput}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.detailsBlock}>
+                <p className={styles.detailsBlockTitle}>Détails pour la demande B2B</p>
+                <p className={styles.detailsBlockLead}>
+                  Ces informations sont nécessaires pour valider votre structure auprès de nos équipes (même parcours
+                  qu&apos;avant côté serveur).
+                </p>
+
+                <div className={styles.row2}>
+                  <div>
+                    <label htmlFor="reg-co-type" className={styles.label}>
+                      Type d&apos;institution
+                    </label>
+                    <select
+                      id="reg-co-type"
+                      value={institutionType}
+                      onChange={(e) => setInstitutionType(e.target.value)}
+                      className={styles.fieldSelect}
+                    >
+                      <option value="privee">Entreprise privée</option>
+                      <option value="etat">État / Gouvernement</option>
+                      <option value="hopital">Hôpital</option>
+                      <option value="ecole">École</option>
+                      <option value="universite">Université</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="reg-co-n" className={styles.label}>
+                      Nombre d&apos;employés (optionnel)
+                    </label>
+                    <input
+                      id="reg-co-n"
+                      type="number"
+                      min="1"
+                      placeholder="1 par défaut"
+                      value={employeeCount}
+                      onChange={(e) => setEmployeeCount(e.target.value)}
+                      className={styles.fieldInput}
+                    />
+                    <p className={styles.hint}>Si vide, nous enregistrons 1 ligne (modifiable ensuite avec l&apos;admin).</p>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '0.75rem' }}>
+                  <label htmlFor="reg-co-addr" className={styles.label}>
+                    Adresse du siège
+                  </label>
+                  <input
+                    id="reg-co-addr"
+                    type="text"
+                    autoComplete="street-address"
+                    placeholder="Avenue, quartier, ville…"
+                    value={companyAddress}
+                    onChange={(e) => setCompanyAddress(e.target.value)}
+                    required
+                    className={styles.fieldInput}
+                  />
+                </div>
+
+                {enterpriseSlots > 0 && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <span className={styles.label} style={{ display: 'block', marginBottom: '0.65rem' }}>
+                      Personnes à enregistrer ({enterpriseSlots}) — nom complet requis
+                    </span>
+                    <div className={styles.employeeScroll}>
+                      {employeeList.map((emp, i) => (
+                        <div key={i} className={styles.employeeCard}>
+                          <span className={styles.employeeLabel}>Personne {i + 1}</span>
+                          <div className={styles.grid2}>
+                            <input
+                              type="text"
+                              placeholder="Nom complet *"
+                              value={emp.full_name}
+                              onChange={(e) => {
+                                const next = [...employeeList]
+                                next[i] = { ...next[i], full_name: e.target.value }
+                                setEmployeeList(next)
+                              }}
+                              className={styles.inputSm}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Matricule (optionnel)"
+                              value={emp.matricule}
+                              onChange={(e) => {
+                                const next = [...employeeList]
+                                next[i] = { ...next[i], matricule: e.target.value }
+                                setEmployeeList(next)
+                              }}
+                              className={styles.inputSm}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Fonction (optionnel)"
+                              value={emp.function}
+                              onChange={(e) => {
+                                const next = [...employeeList]
+                                next[i] = { ...next[i], function: e.target.value }
+                                setEmployeeList(next)
+                              }}
+                              className={styles.inputSm}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Téléphone (optionnel)"
+                              value={emp.phone}
+                              onChange={(e) => {
+                                const next = [...employeeList]
+                                next[i] = { ...next[i], phone: e.target.value }
+                                setEmployeeList(next)
+                              }}
+                              className={styles.inputSm}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <p className={styles.infoNote}>
+                  Délai indicatif de traitement : 24 à 48 h. Vous serez contacté à l&apos;e-mail indiqué.
+                </p>
               </div>
             </div>
+          )}
 
-            {/* Entreprise Fields */}
-            {accountType === 'entreprise' && (
-              <div className="bg-gradient-to-br from-blue-900/30 to-blue-900/10 border border-blue-500/30 rounded-xl p-6">
-                <h3 className="text-white font-bold text-lg mb-5 flex items-center gap-3">
-                  🏢 Informations de l'entreprise
-                </h3>
-                
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-white text-sm font-semibold mb-2">Nom de l'entreprise</label>
-                      <input
-                        type="text"
-                        placeholder="ex: Microsoft Kinshasa"
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        required
-                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-white text-sm font-semibold mb-2">Type d'institution</label>
-                      <select
-                        value={institutionType}
-                        onChange={(e) => setInstitutionType(e.target.value)}
-                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-500 transition"
-                      >
-                        <option value="privee">Entreprise Privée</option>
-                        <option value="etat">État / Gouvernement</option>
-                        <option value="hopital">Hôpital</option>
-                        <option value="ecole">École</option>
-                        <option value="universite">Université</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-white text-sm font-semibold mb-2">Téléphone</label>
-                      <input
-                        type="tel"
-                        placeholder="+243 970 123 456"
-                        value={companyPhone}
-                        onChange={(e) => setCompanyPhone(e.target.value)}
-                        required
-                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-white text-sm font-semibold mb-2">Nombre d'employés</label>
-                      <input
-                        type="number"
-                        placeholder="ex: 25"
-                        value={employeeCount}
-                        onChange={(e) => setEmployeeCount(e.target.value)}
-                        min="1"
-                        required
-                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition"
-                      />
-                    </div>
-                  </div>
-
-                  {n > 0 && (
-                    <div>
-                      <label className="block text-white text-sm font-semibold mb-2">Liste des agents ({n} agent{n > 1 ? 's' : ''}) — nom, matricule, fonction, téléphone</label>
-                      <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
-                        {employeeList.map((emp, i) => (
-                          <div key={i} className="p-3 rounded-lg border border-white/20 bg-white/5 space-y-2">
-                            <span className="text-white/70 text-xs font-medium">Agent {i + 1}</span>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <input
-                                type="text"
-                                placeholder="Nom complet *"
-                                value={emp.full_name}
-                                onChange={(e) => {
-                                  const next = [...employeeList]
-                                  next[i] = { ...next[i], full_name: e.target.value }
-                                  setEmployeeList(next)
-                                }}
-                                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition text-sm"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Matricule"
-                                value={emp.matricule}
-                                onChange={(e) => {
-                                  const next = [...employeeList]
-                                  next[i] = { ...next[i], matricule: e.target.value }
-                                  setEmployeeList(next)
-                                }}
-                                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition text-sm"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Fonction"
-                                value={emp.function}
-                                onChange={(e) => {
-                                  const next = [...employeeList]
-                                  next[i] = { ...next[i], function: e.target.value }
-                                  setEmployeeList(next)
-                                }}
-                                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition text-sm"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Téléphone"
-                                value={emp.phone}
-                                onChange={(e) => {
-                                  const next = [...employeeList]
-                                  next[i] = { ...next[i], phone: e.target.value }
-                                  setEmployeeList(next)
-                                }}
-                                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition text-sm"
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-white text-sm font-semibold mb-2">Adresse complète</label>
-                    <input
-                      type="text"
-                      placeholder="ex: Avenue de la Paix, Kinshasa"
-                      value={companyAddress}
-                      onChange={(e) => setCompanyAddress(e.target.value)}
-                      required
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-5 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-                  <p className="text-cyan-200 text-sm leading-relaxed">
-                    ℹ️ Votre demande sera examinée par nos administrateurs dans 24-48 heures. Vous serez contacté à l'email fourni.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-[#d4af37] to-[#f5e08a] text-[#0b1220] font-bold py-3 rounded-lg hover:scale-105 transition disabled:opacity-50 disabled:cursor-not-allowed mt-6"
-            >
-              {loading ? 'Création en cours...' : `Créer un compte ${accountType === 'entreprise' ? 'entreprise' : accountType === 'agent' ? 'agent' : 'client'}`}
-            </button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t border-white/10 text-center">
-            <p className="text-white/70 text-sm">
-              Déjà inscrit?{' '}
-              <Link href="/login" className="text-[#d4af37] hover:text-[#f5e08a] font-semibold">
-                Se connecter
-              </Link>
+          <p className={styles.trustLine}>⚡ Inscription rapide — moins d&apos;une minute pour un compte repas.</p>
+          {accountType === 'entreprise' && (
+            <p className={`${styles.trustLine} ${styles.trustLineEntreprise}`}>
+              ✔ Idéal pour les entreprises avec plusieurs employés et la commande en volume.
             </p>
-          </div>
+          )}
+
+          <button type="submit" disabled={loading} className={submitClass}>
+            {loading
+              ? 'En cours…'
+              : accountType === 'entreprise'
+                ? 'Envoyer la demande B2B'
+                : 'Créer mon compte'}
+          </button>
+        </form>
+
+        <div className={styles.footer}>
+          Déjà inscrit ?{' '}
+          <Link href="/login" className={styles.link}>
+            Se connecter
+          </Link>
         </div>
       </div>
     </div>
   )
 }
-

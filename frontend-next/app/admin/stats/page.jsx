@@ -46,8 +46,7 @@ export default function AdminStatsPage() {
   }
 
   return (
-    <section className="page-section min-h-screen bg-[#0b1220]">
-      <div className="container">
+    <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220]">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-white">Statistiques admin</h1>
           <p className="text-white/70 mt-1">Vue d'ensemble des indicateurs (commandes, revenus, entreprises, abonnements, livraisons).</p>
@@ -83,7 +82,6 @@ export default function AdminStatsPage() {
             ) : null}
           </main>
         </div>
-      </div>
     </section>
   )
 }

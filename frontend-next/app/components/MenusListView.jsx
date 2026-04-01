@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { apiRequest } from '@/lib/api'
 import MenuCard from './MenuCard'
 import Link from 'next/link'
@@ -9,11 +9,7 @@ export default function MenusListView({ variant = 'cuisinier' }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    loadMenus()
-  }, [])
-
-  const loadMenus = async () => {
+  const loadMenus = useCallback(async () => {
     try {
       setLoading(true)
       const endpoint = variant === 'cuisinier' ? '/api/my-menus' : '/api/menus'
@@ -26,7 +22,11 @@ export default function MenusListView({ variant = 'cuisinier' }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [variant])
+
+  useEffect(() => {
+    loadMenus()
+  }, [loadMenus])
 
   const handleMenuSelect = (menu) => {
     // À personnaliser selon le besoin (afficher détails, commander, etc.)

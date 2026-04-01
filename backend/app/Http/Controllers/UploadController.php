@@ -16,6 +16,10 @@ class UploadController extends Controller
      */
     public function checkConfig(): JsonResponse
     {
+        if (! request()->user()) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
         try {
             $status = CloudinaryService::checkConfiguration();
             
@@ -40,6 +44,10 @@ class UploadController extends Controller
      */
     public function uploadImage(Request $request): JsonResponse
     {
+        if (! $request->user()) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
         try {
             $maxKb = (int) config('cloudinary.max_file_size', 5120);
             $allowedFolders = array_keys(config('cloudinary.folders', []));
@@ -51,6 +59,19 @@ class UploadController extends Controller
 
             $file = $request->file('image');
             $folder = $request->input('folder', 'uploads');
+
+            // Tests automatisés : pas d’appel réseau Cloudinary
+            if (app()->environment('testing') && config('cloudinary.mock_uploads')) {
+                $folderResolved = CloudinaryService::resolveFolder($folder);
+                $publicId = $folderResolved.'/test_'.uniqid('', true);
+
+                return response()->json([
+                    'success' => true,
+                    'url' => 'https://res.cloudinary.com/'.(CloudinaryService::cloudName() ?? 'demo').'/image/upload/v1/'.$publicId.'.jpg',
+                    'public_id' => $publicId,
+                    'message' => 'Image uploadée avec succès',
+                ], 200);
+            }
 
             // Toutes les images sont stockées sur Cloudinary — pas de fallback local
             $cloudinaryStatus = CloudinaryService::checkConfiguration();
@@ -118,6 +139,10 @@ class UploadController extends Controller
      */
     public function deleteImage(Request $request): JsonResponse
     {
+        if (! $request->user()) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
         try {
             $request->validate([
                 'public_id' => 'required_without:url|string',
@@ -131,6 +156,13 @@ class UploadController extends Controller
                     'success' => false,
                     'message' => 'public_id ou url obligatoire',
                 ], 400);
+            }
+
+            if (app()->environment('testing') && config('cloudinary.mock_uploads')) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Image supprimée avec succès',
+                ], 200);
             }
 
             $deleted = CloudinaryService::deleteImage($publicId);
@@ -174,6 +206,10 @@ class UploadController extends Controller
      */
     public function getTransformed(Request $request): JsonResponse
     {
+        if (! $request->user()) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
         try {
             $request->validate([
                 'public_id' => 'required|string',

@@ -120,8 +120,7 @@ export default function AdminCompanyDetailPage() {
   }
 
   return (
-    <section className="page-section min-h-screen bg-[#0b1220]">
-      <div className="container">
+    <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220]">
         <header className="mb-8">
           <Link href="/admin/companies" className="text-cyan-400 hover:underline text-sm mb-2 inline-block">← Liste des entreprises</Link>
           <h1 className="text-3xl font-bold text-white mb-2">Détail entreprise</h1>
@@ -236,7 +235,6 @@ export default function AdminCompanyDetailPage() {
             )}
           </main>
         </div>
-      </div>
       {deleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={() => !deleteSubmitting && setDeleteModal(false)}>
           <div className="bg-[#0b1220] border border-red-500/30 rounded-xl max-w-md w-full p-6 shadow-xl" onClick={e => e.stopPropagation()}>

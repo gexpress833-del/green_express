@@ -133,8 +133,7 @@ export default function AdminOrderTrackingPage() {
   const list = filtered.slice(0, 50)
 
   return (
-    <section className="page-section min-h-screen bg-[#0b1220]">
-      <div className="container px-3 sm:px-4">
+    <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220]">
         <header className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Suivi des commandes</h1>
           <p className="text-white/70 mt-1 text-sm sm:text-base">État et suivi des commandes clients et entreprises.</p>
@@ -260,7 +259,6 @@ export default function AdminOrderTrackingPage() {
             </div>
           </main>
         </div>
-      </div>
 
       {detailOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => setDetailOrder(null)} role="dialog" aria-modal="true" aria-labelledby="detail-title">

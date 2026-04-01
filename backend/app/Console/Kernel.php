@@ -22,6 +22,8 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->job(\App\Jobs\CheckPendingPaymentsJob::class)->everyMinute();
+        $schedule->job(\App\Jobs\ProcessSubscriptionLifecycleJob::class)->everyMinute();
+        $schedule->job(\App\Jobs\SubscriptionDailyRemindersJob::class)->dailyAt('07:00');
     }
 
     /**

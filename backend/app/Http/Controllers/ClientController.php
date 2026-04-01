@@ -32,7 +32,9 @@ class ClientController extends Controller
             $userId = $user->role === 'admin' ? $request->input('user_id', $user->id) : $user->id;
 
             $ordersCount = Order::where('user_id', $userId)->count();
-            $subscriptionsCount = Subscription::where('user_id', $userId)->where('status', 'active')->count();
+            $subscriptionsCount = Subscription::where('user_id', $userId)
+                ->whereIn('status', [Subscription::STATUS_ACTIVE, Subscription::STATUS_SCHEDULED])
+                ->count();
             $pointsBalance = Point::where('user_id', $userId)->value('balance') ?? 0;
 
             return response()->json([

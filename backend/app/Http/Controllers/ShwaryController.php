@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\Subscription;
+use App\Services\AppNotificationService;
 use App\Services\OrderNotificationService;
 use App\Services\ShwaryService;
 use Illuminate\Http\Request;
@@ -14,7 +16,8 @@ class ShwaryController extends Controller
 {
     public function __construct(
         protected ShwaryService $shwaryService,
-        protected OrderNotificationService $orderNotifications
+        protected OrderNotificationService $orderNotifications,
+        protected AppNotificationService $appNotifications
     ) {
     }
 
@@ -79,6 +82,14 @@ class ShwaryController extends Controller
                         'delivery_code' => $deliveryCode,
                     ]);
                     $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
+                }
+
+                if ($payment->subscription_id) {
+                    $sub = Subscription::find($payment->subscription_id);
+                    if ($sub && $sub->isPending()) {
+                        Subscription::applyPaymentConfirmedScheduling($sub, now());
+                        $this->appNotifications->notifyClientAndAdminsAfterSubscriptionPayment($sub->fresh());
+                    }
                 }
             } elseif ($status === 'failed') {
                 $payment->update([

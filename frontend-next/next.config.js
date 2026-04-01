@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /** Masque le badge « N » / overlay en bas à gauche (uniquement en `next dev`). */
+  devIndicators: false,
   reactStrictMode: true,
   /** Les navigateurs demandent souvent /favicon.ico alors que le projet n’a que public/favicon.svg */
   async rewrites() {

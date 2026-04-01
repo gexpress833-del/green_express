@@ -32,7 +32,7 @@ export default function AdminCompanySubscriptionsPage() {
     if (!sub?.id) return
     setActioning(sub.id)
     try {
-      await apiRequest(`/api/subscriptions/${sub.id}/activate`, { method: 'POST' })
+      await apiRequest(`/api/admin/company-subscriptions/${sub.id}/activate`, { method: 'POST' })
       pushToast({ type: 'success', message: 'Abonnement activé.' })
       load()
     } catch (err) {
@@ -48,8 +48,7 @@ export default function AdminCompanySubscriptionsPage() {
   const contactEmail = (sub) => (sub.company?.contact_user?.email || sub.company?.email || '—')
 
   return (
-    <section className="page-section min-h-screen bg-[#0b1220]">
-      <div className="container">
+    <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220]">
         <header className="mb-6 md:mb-8">
           <h1 className="text-2xl md:text-3xl font-bold text-white">Abonnements entreprise (B2B)</h1>
           <p className="text-white/70 mt-1 text-sm md:text-base">
@@ -205,7 +204,6 @@ export default function AdminCompanySubscriptionsPage() {
             </div>
           </main>
         </div>
-      </div>
     </section>
   )
 }

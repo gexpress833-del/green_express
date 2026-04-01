@@ -1,0 +1,2 @@
+/* Utilitaires Tailwind uniquement (preflight désactivé dans tailwind.config.js) — fichier séparé pour éviter les soucis PostCSS sur le très gros globals.css en dev. */
+@tailwind utilities;

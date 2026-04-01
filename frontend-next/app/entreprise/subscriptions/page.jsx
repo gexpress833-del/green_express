@@ -272,6 +272,32 @@ export default function EntrepriseSubscriptionsPage() {
 
   const deliveryDaysNote = 'Les livraisons sont assurées sur 20 jours ouvrés par mois (lundi à vendredi), hors week-ends. La période affichée correspond à la durée calendaire de l’abonnement.'
 
+  if (!companyLoading && company && company.status !== 'active') {
+    const rejected = company.status === 'rejected'
+    return (
+      <section className="page-section min-h-screen bg-[#0b1220] text-white flex items-center justify-center p-4">
+        <div className="container max-w-lg">
+          <div
+            className={`card p-8 text-center rounded-2xl border ${
+              rejected ? 'border-red-500/40 bg-red-500/10' : 'border-orange-500/40 bg-orange-500/10'
+            }`}
+          >
+            <h1 className="text-xl font-bold text-white mb-3">Abonnement entreprise</h1>
+            <p className="text-white/85 mb-2">
+              {rejected
+                ? '🔴 Votre demande d’accès entreprise n’a pas été retenue. La souscription à un abonnement n’est pas disponible.'
+                : '🟠 Votre compte doit être activé avant de souscrire à un abonnement.'}
+            </p>
+            <p className="text-white/70 text-sm mb-8">
+              Une fois votre entreprise validée par Green Express, le menu « Abonnements » et le bouton de souscription depuis le tableau de bord seront disponibles.
+            </p>
+            <GoldButton href="/entreprise">Retour au tableau de bord</GoldButton>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="page-section min-h-screen bg-[#0b1220] text-white overflow-hidden">
       <div className="container relative">
@@ -349,11 +375,6 @@ export default function EntrepriseSubscriptionsPage() {
                   <p className="text-white/80 mb-4">{companyError || "Aucune structure associée à ce compte. Votre demande est en cours d'examen."}</p>
                   <GoldButton href="/entreprise">Revenir au tableau de bord</GoldButton>
                 </>
-              ) : company?.status !== 'active' ? (
-                <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200/90 mb-4">
-                  <strong className="text-amber-200">Compte en attente de validation</strong>
-                  <p className="mt-1 text-sm">Votre compte entreprise doit être validé par l&apos;administrateur avant toute souscription.</p>
-                </div>
               ) : !hasAgentList ? (
                 <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200/90 mb-4">
                   <strong className="text-amber-200">Souscription impossible</strong>

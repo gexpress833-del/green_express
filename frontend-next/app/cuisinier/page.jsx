@@ -11,6 +11,7 @@ import Link from 'next/link'
 export default function ChefDashboard(){
   const router = useRouter()
   const [stats, setStats] = useState(null)
+  const [opStats, setOpStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const { isAuthenticated, initialised } = useAuth()
 
@@ -23,13 +24,18 @@ export default function ChefDashboard(){
   },[initialised, isAuthenticated, router])
 
   useEffect(()=>{
-    apiRequest('/api/cuisinier/stats', { method: 'GET' })
-      .then(r=>{
+    Promise.all([
+      apiRequest('/api/cuisinier/stats', { method: 'GET' }),
+      apiRequest('/api/operational/subscriptions/stats', { method: 'GET' }).catch(() => null),
+    ])
+      .then(([r, o]) => {
         setStats(r)
+        setOpStats(o)
         setLoading(false)
       })
       .catch(()=> {
         setStats({ menus: 12, submitted: 3, validated: 9 })
+        setOpStats(null)
         setLoading(false)
       })
   },[])
@@ -59,6 +65,28 @@ export default function ChefDashboard(){
             ) : (
               <>
                 {/* Statistiques */}
+                {opStats && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <div className="stat-card border border-emerald-500/30 bg-emerald-500/5">
+                      <h4 className="text-emerald-200/90">Demain</h4>
+                      <p className="text-3xl font-bold tabular-nums">{opStats.tomorrow?.is_weekend ? '—' : (opStats.tomorrow?.meal_count ?? 0)}</p>
+                      <p className="text-sm text-white/60 mt-2">repas à préparer</p>
+                      <p className="text-xs text-white/50 mt-2 line-clamp-2">{opStats.tomorrow?.is_weekend ? 'Jour non ouvré' : (opStats.tomorrow?.menu_summary || '')}</p>
+                      <p className="text-xs text-white/40 mt-1">{opStats.tomorrow?.client_count ?? 0} client(s)</p>
+                    </div>
+                    <div className="stat-card">
+                      <h4>Abonnements</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm mt-2">
+                        <span><span className="text-emerald-400 font-bold">{opStats.subscriptions?.active ?? '—'}</span> <span className="text-white/60">actifs</span></span>
+                        <span><span className="text-sky-400 font-bold">{opStats.subscriptions?.scheduled ?? '—'}</span> <span className="text-white/60">planifiés</span></span>
+                        <span><span className="text-amber-400 font-bold">{opStats.subscriptions?.pending ?? '—'}</span> <span className="text-white/60">en attente</span></span>
+                        <span><span className="text-red-400 font-bold">{opStats.subscriptions?.expired ?? '—'}</span> <span className="text-white/60">expirés</span></span>
+                      </div>
+                      <Link href="/cuisinier/subscriptions" className="text-sm text-purple-400 hover:text-purple-300 mt-3 inline-block">Abonnements & repas →</Link>
+                    </div>
+                  </div>
+                )}
+
                 <div className="stats-row">
                   <div className="stat-card">
                     <h4>🍽️ Menus</h4>
@@ -108,6 +136,7 @@ export default function ChefDashboard(){
                   <div className="grid sm:grid-cols-2 gap-4">
                     <GoldButton href="/cuisinier/menus">Voir tous mes menus</GoldButton>
                     <GoldButton href="/cuisinier/orders">Commandes — Attribuer un livreur</GoldButton>
+                    <GoldButton href="/cuisinier/subscriptions">Abonnements & repas demain</GoldButton>
                   </div>
                 </section>
               </>

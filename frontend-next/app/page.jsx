@@ -205,6 +205,40 @@ export default function Home(){
         </div>
       </section>
 
+      {/* Entreprises — orientation B2B (mêmes routes login / register) */}
+      <section className="py-16 px-6" style={{ background: 'linear-gradient(180deg, rgba(57, 255, 20, 0.06) 0%, transparent 100%)' }}>
+        <div className="container max-w-3xl mx-auto">
+          <div className="card p-8 sm:p-10 text-center border border-white/10" style={{ background: 'rgba(15, 28, 46, 0.85)' }}>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3" style={{
+              background: 'linear-gradient(135deg, #39ff14 0%, #00ffff 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>
+              Vous représentez une entreprise ?
+            </h2>
+            <p className="text-white/80 text-base sm:text-lg mb-6 max-w-xl mx-auto leading-relaxed">
+              Gérez le budget repas, les agents et l&apos;abonnement équipe. Accédez à votre espace dédié avec le même compte que vous utilisez pour vous connecter.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border transition"
+                style={{ color: '#0b1220', background: 'linear-gradient(135deg, #39ff14, #22d3ee)', borderColor: 'rgba(57, 255, 20, 0.5)' }}
+              >
+                Connexion entreprise
+              </Link>
+              <Link
+                href="/register"
+                className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border border-white/25 text-white/95 hover:bg-white/10 transition"
+              >
+                Créer un compte
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Nos Services */}
       <section className="py-20 px-6 container">
         <div className="text-center mb-16">

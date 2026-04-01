@@ -64,8 +64,7 @@ export default function AdminOrdersPage() {
   }, [])
 
   return (
-    <section className="page-section min-h-screen bg-[#0b1220] text-white">
-      <div className="container">
+    <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220] text-white">
         <header className="mb-10 max-w-3xl">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-400/70">
             Espace administrateur
@@ -385,7 +384,6 @@ export default function AdminOrdersPage() {
             )}
           </main>
         </div>
-      </div>
     </section>
   )
 }

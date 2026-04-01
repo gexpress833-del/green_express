@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import { apiRequest, getApiErrorMessage } from '@/lib/api'
@@ -18,11 +18,7 @@ export default function AdminCompaniesPage() {
   const [deleteModal, setDeleteModal] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    loadCompanies()
-  }, [statusFilter])
-
-  async function loadCompanies() {
+  const loadCompanies = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
@@ -37,7 +33,11 @@ export default function AdminCompaniesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [statusFilter])
+
+  useEffect(() => {
+    loadCompanies()
+  }, [loadCompanies])
 
   async function handleApprove(company) {
     setSubmitting(true)
@@ -92,9 +92,8 @@ export default function AdminCompaniesPage() {
   }
 
   return (
-    <section className="page-section min-h-screen bg-[#0b1220]">
-      <div className="container">
-        <header className="admin-companies-header mb-6">
+    <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220]">
+        <header className="admin-companies-header">
           <h1 className="admin-companies-title">Entreprises (B2B)</h1>
           <p className="admin-companies-desc">Approuver ou rejeter les demandes d&apos;accès entreprise. Une fois approuvée, l&apos;entreprise accède à son tableau de bord.</p>
         </header>
@@ -260,7 +259,6 @@ export default function AdminCompaniesPage() {
             )}
           </main>
         </div>
-      </div>
 
       {rejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={() => !submitting && setRejectModal(null)}>

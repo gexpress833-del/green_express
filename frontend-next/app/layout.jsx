@@ -1,4 +1,5 @@
 import './styles/globals.css'
+import './styles/tailwind.css'
 import './styles/theme.css'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
@@ -12,12 +13,12 @@ export const metadata = {
 
 export default function RootLayout({ children }){
   return (
-    <html lang="fr">
+    <html lang="fr" suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         <link rel="icon" href="/favicon.svg" />
       </head>
-      <body className="app-bg">
+      <body className="app-bg" suppressHydrationWarning>
         <div className="grid-overlay"></div>
         <Providers>
           <Navbar />

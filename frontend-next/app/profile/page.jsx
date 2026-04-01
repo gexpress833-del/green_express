@@ -115,7 +115,7 @@ export default function ProfilePage() {
     if (!user) return
     setEmailDraft(user.email || '')
     setPhoneDraft(user.phone ? String(user.phone) : '')
-  }, [user?.id, user?.email, user?.phone])
+  }, [user])
   useEffect(() => {
     if (!loading && !user) router.replace(`/login?returnUrl=${encodeURIComponent('/profile')}`)
   }, [loading, user, router])
