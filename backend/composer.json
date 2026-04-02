@@ -13,7 +13,6 @@
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^2.10.1",
-        "shwary/php-sdk": "^1.0",
         "spatie/laravel-medialibrary": "*",
         "spatie/laravel-permission": "^6.0"
     },

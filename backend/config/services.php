@@ -35,11 +35,4 @@ return [
         ],
     ],
 
-    'shwary' => [
-        'merchant_id' => env('SHWARY_MERCHANT_ID'),
-        'merchant_key' => env('SHWARY_MERCHANT_KEY'),
-        'base_url' => env('SHWARY_BASE_URL', 'https://api.shwary.com/api/v1'),
-        'sandbox' => env('SHWARY_SANDBOX', false),
-        'wallet_address' => env('SHWARY_WALLET_ADDRESS'),
-    ],
 ];

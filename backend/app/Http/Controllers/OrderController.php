@@ -9,8 +9,8 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Point;
 use App\Models\PointLedger;
+use App\Services\FlexPayService;
 use App\Services\OrderNotificationService;
-use App\Services\ShwaryService;
 use App\Services\PhoneRDCService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -34,7 +34,11 @@ class OrderController extends Controller
     {
         $user = $request->user();
 
-        if ($user->role === 'admin' || $user->role === 'cuisinier') {
+        if ($user->role === 'admin') {
+            return Order::with(['items.menu', 'user.points', 'deliveryDriver'])->orderByDesc('created_at')->get();
+        }
+
+        if ($user->role === 'cuisinier') {
             return Order::with(['items.menu', 'user', 'deliveryDriver'])->orderByDesc('created_at')->get();
         }
 
@@ -50,7 +54,10 @@ class OrderController extends Controller
             return response()->json(['message' => 'Accès refusé'], 403);
         }
 
-        $order = Order::with(['items.menu', 'user', 'deliveryDriver'])->findOrFail($id);
+        $viewer = $request->user();
+        $userRelation = $viewer->role === 'admin' ? 'user.points' : 'user';
+        $order = Order::with(['items.menu', $userRelation, 'deliveryDriver'])->findOrFail($id);
+
         return response()->json($order);
     }
 
@@ -185,7 +192,7 @@ class OrderController extends Controller
     }
 
     /**
-     * Initier un paiement Shwary pour une commande.
+     * Initier un paiement FlexPay (Mobile Money RDC) pour une commande.
      */
     public function initiatePayment(Request $request, $id)
     {
@@ -202,78 +209,67 @@ class OrderController extends Controller
 
         $data = $request->validate([
             'client_phone_number' => 'required|string',
-            'country_code' => 'required|string|in:DRC,KE,UG',
+            'country_code' => 'required|string|in:DRC',
         ]);
 
         try {
-            $shwaryService = app(ShwaryService::class);
+            $flexPay = app(FlexPayService::class);
 
-            if (! $shwaryService->isConfigured()) {
-                return response()->json(['message' => 'Service de paiement non configuré'], 500);
+            if (! $flexPay->isConfigured()) {
+                return response()->json([
+                    'message' => 'Paiement Mobile Money indisponible : FlexPay n’est pas configuré sur le serveur (variables FLEXPAY_MERCHANT et FLEXPAY_TOKEN sur l’hébergement).',
+                    'error' => 'payment_not_configured',
+                ], 503);
             }
+
+            $formatted = PhoneRDCService::formatPhoneRDC($data['client_phone_number']);
+            if (! PhoneRDCService::isValidPhoneRDC($formatted)) {
+                return response()->json([
+                    'message' => 'Numéro invalide. Utilisez un numéro à 9 chiffres (ex. 0812345678 ou 812345678).',
+                    'error' => 'Numéro invalide',
+                ], 400);
+            }
+            $operator = PhoneRDCService::detectOperatorRDC($formatted);
+            if ($operator === null) {
+                return response()->json([
+                    'message' => 'Opérateur non reconnu. Utilisez un numéro Vodacom (81-83), Airtel (97-99) ou Orange (84, 85, 89).',
+                    'error' => 'Opérateur non reconnu',
+                ], 400);
+            }
+            $phoneNormalized = PhoneRDCService::toE164($formatted);
+            $phone12 = $formatted;
 
             $order->load('items.menu');
-            $orderCurrency = $order->items->first()?->menu?->currency ?? config('shwary.default_order_currency', 'USD');
-            $amountLocal = $shwaryService->convertToLocalAmount(
-                (float) $order->total_amount,
-                $orderCurrency,
-                $data['country_code']
-            );
+            $orderCurrency = $order->items->first()?->menu?->currency ?? 'USD';
+            $resolved = $flexPay->resolveAmountAndCurrency((float) $order->total_amount, (string) $orderCurrency);
 
-            $phoneNormalized = null;
-            $operator = null;
-            if (strtoupper($data['country_code']) === 'DRC') {
-                $formatted = PhoneRDCService::formatPhoneRDC($data['client_phone_number']);
-                if (! PhoneRDCService::isValidPhoneRDC($formatted)) {
-                    return response()->json([
-                        'message' => 'Numéro invalide. Utilisez un numéro à 9 chiffres (ex. 0812345678 ou 812345678).',
-                        'error' => 'Numéro invalide',
-                    ], 400);
-                }
-                $operator = PhoneRDCService::detectOperatorRDC($formatted);
-                if ($operator === null) {
-                    return response()->json([
-                        'message' => 'Opérateur non reconnu. Utilisez un numéro Vodacom (81-83), Airtel (97-99) ou Orange (84, 85, 89).',
-                        'error' => 'Opérateur non reconnu',
-                    ], 400);
-                }
-                $phoneNormalized = PhoneRDCService::toE164($formatted);
-            } else {
-                $phoneNormalized = $shwaryService->normalizePhoneNumber(
-                    $data['client_phone_number'],
-                    $data['country_code']
-                );
-            }
+            $reference = 'ORD-' . $order->id . '-' . Str::lower(Str::random(12));
 
-            $callbackUrl = config('shwary.callback_url')
-                ?: (rtrim(config('app.url'), '/') . '/api/shwary/callback');
-            $metadata = [
-                'order_id' => $order->id,
-                'order_uuid' => $order->uuid,
-                'user_id' => $order->user_id,
-            ];
+            $callbackUrl = config('flexpay.callback_url')
+                ?: (rtrim(config('app.url'), '/') . '/api/flexpay/callback');
 
-            $shwaryResponse = $shwaryService->initiatePayment(
-                $amountLocal,
-                $phoneNormalized,
-                $data['country_code'],
-                $callbackUrl,
-                $metadata
+            $flexResponse = $flexPay->initiateMobilePayment(
+                $resolved['amount'],
+                $resolved['currency'],
+                $phone12,
+                $reference,
+                'Commande #' . $order->id,
+                $callbackUrl
             );
 
             $payment = Payment::create([
                 'order_id' => $order->id,
-                'provider' => 'shwary',
-                'provider_payment_id' => $shwaryResponse['id'],
-                'reference_id' => $shwaryResponse['referenceId'] ?? null,
-                'amount' => $shwaryResponse['amount'] ?? $order->total_amount,
-                'currency' => $shwaryResponse['currency'] ?? 'CDF',
+                'provider' => 'flexpay',
+                'provider_payment_id' => $flexResponse['id'],
+                'reference_id' => $flexResponse['referenceId'] ?? $reference,
+                'amount' => $flexResponse['amount'] ?? $resolved['amount'],
+                'currency' => $flexResponse['currency'] ?? $resolved['currency'],
                 'phone' => $phoneNormalized,
                 'status' => 'pending',
-                'raw_response' => $shwaryResponse,
+                'raw_response' => $flexResponse,
             ]);
 
-            $paymentStatus = $shwaryResponse['status'] ?? 'pending';
+            $paymentStatus = $flexResponse['status'] ?? 'pending';
             if (strtolower((string) $paymentStatus) === 'completed') {
                 $payment->update(['status' => 'completed']);
                 if ($order->status === 'pending_payment') {
@@ -291,27 +287,24 @@ class OrderController extends Controller
             }
 
             $deliveryCodeReturned = $order->fresh()->delivery_code;
-            $payload = [
+
+            return response()->json([
                 'order' => $order->load('items.menu'),
                 'payment' => $payment->fresh(),
-                'shwary_transaction' => $shwaryResponse,
-                'amount_to_debit' => $amountLocal,
-                'currency_to_debit' => $shwaryResponse['currency'] ?? 'CDF',
+                'flexpay_transaction' => $flexResponse,
+                'amount_to_debit' => $resolved['amount'],
+                'currency_to_debit' => $resolved['currency'],
                 'message' => $payment->status === 'completed'
                     ? 'Paiement complété. Code de livraison généré.'
                     : 'Paiement initié. En attente de confirmation sur votre mobile.',
                 'delivery_code' => $deliveryCodeReturned,
                 'payment_completed' => (bool) $deliveryCodeReturned,
-            ];
-            if (strtoupper($data['country_code'] ?? '') === 'DRC' && isset($operator)) {
-                $payload['operator'] = $operator;
-                $payload['operator_label'] = PhoneRDCService::operatorLabel($operator);
-                $payload['phone_formatted'] = $phoneNormalized;
-            }
-
-            return response()->json($payload);
+                'operator' => $operator,
+                'operator_label' => PhoneRDCService::operatorLabel($operator),
+                'phone_formatted' => $phoneNormalized,
+            ]);
         } catch (\Exception $e) {
-            Log::warning('Shwary initiate payment failed', [
+            Log::warning('FlexPay initiate payment failed', [
                 'order_id' => $id,
                 'error' => $e->getMessage(),
             ]);
@@ -319,8 +312,8 @@ class OrderController extends Controller
             $message = $e->getMessage();
             if (stripos($message, 'destination number') !== false || stripos($message, 'number you have entered is invalid') !== false) {
                 $message = 'Votre opérateur Mobile Money refuse le numéro. Utilisez 9 chiffres après +243 (ex: +243812345678 ou 0812345678).';
-            } elseif (stripos($message, '2900') !== false && stripos($message, 'CDF') !== false) {
-                $message = 'Le montant minimum pour un paiement Mobile Money en RDC est de 2900 FC. Votre commande est en dessous de ce seuil.';
+            } elseif (stripos($message, 'minimum') !== false && stripos($message, 'CDF') !== false) {
+                $message = 'Le montant minimum pour un paiement Mobile Money en CDF n’est pas atteint pour cette commande.';
             }
 
             return response()->json([

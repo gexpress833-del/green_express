@@ -6,7 +6,7 @@ use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Services\AppNotificationService;
-use App\Services\ShwaryService;
+use App\Services\FlexPayService;
 use App\Services\PhoneRDCService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -94,7 +94,7 @@ class SubscriptionController extends Controller
     }
 
     /**
-     * Client : initier un paiement Shwary pour un abonnement en attente.
+     * Client : initier un paiement FlexPay (Mobile Money RDC) pour un abonnement en attente.
      */
     public function initiatePayment(Request $request, int $id)
     {
@@ -110,88 +110,73 @@ class SubscriptionController extends Controller
 
         $data = $request->validate([
             'client_phone_number' => 'required|string',
-            'country_code' => 'required|string|in:DRC,KE,UG',
+            'country_code' => 'required|string|in:DRC',
         ]);
 
         try {
-            $shwaryService = app(ShwaryService::class);
-            if (! $shwaryService->isConfigured()) {
-                return response()->json(['message' => 'Service de paiement non configuré.'], 500);
+            $flexPay = app(FlexPayService::class);
+            if (! $flexPay->isConfigured()) {
+                return response()->json([
+                    'message' => 'Paiement Mobile Money indisponible : FlexPay n’est pas configuré sur le serveur (variables FLEXPAY_MERCHANT et FLEXPAY_TOKEN sur l’hébergement).',
+                    'error' => 'payment_not_configured',
+                ], 503);
             }
+
+            $formatted = PhoneRDCService::formatPhoneRDC($data['client_phone_number']);
+            if (! PhoneRDCService::isValidPhoneRDC($formatted)) {
+                return response()->json([
+                    'message' => 'Numéro invalide pour la RDC.',
+                    'error' => 'Numéro invalide',
+                ], 400);
+            }
+            $phoneNormalized = PhoneRDCService::toE164($formatted);
+            $phone12 = $formatted;
 
             $subCurrency = $subscription->currency ?? 'CDF';
-            $amountLocal = $shwaryService->convertToLocalAmount(
-                (float) $subscription->price,
-                $subCurrency,
-                $data['country_code']
-            );
+            $resolved = $flexPay->resolveAmountAndCurrency((float) $subscription->price, (string) $subCurrency);
 
-            $phoneNormalized = $shwaryService->normalizePhoneNumber(
-                $data['client_phone_number'],
-                $data['country_code']
-            );
-            $callbackUrl = config('shwary.callback_url')
-                ?: (rtrim(config('app.url'), '/') . '/api/shwary/callback');
-            $metadata = [
-                'subscription_id' => $subscription->id,
-                'subscription_uuid' => $subscription->uuid,
-                'user_id' => $subscription->user_id,
-            ];
+            $reference = 'SUB-' . $subscription->id . '-' . Str::lower(Str::random(12));
 
-            $shwaryResponse = $shwaryService->initiatePayment(
-                $amountLocal,
-                $phoneNormalized,
-                $data['country_code'],
-                $callbackUrl,
-                $metadata
-            );
+            $callbackUrl = config('flexpay.callback_url')
+                ?: (rtrim(config('app.url'), '/') . '/api/flexpay/callback');
 
-            $paymentStatus = $shwaryResponse['status'] ?? 'pending';
-            if ($paymentStatus !== 'completed' && $paymentStatus !== 'failed') {
-                $paymentStatus = 'pending';
-            }
-            $isSandbox = config('shwary.sandbox', true);
-            $isLocal = app()->environment('local');
-            if ($isSandbox || $isLocal) {
-                $paymentStatus = 'completed';
-            }
+            $flexResponse = $flexPay->initiateMobilePayment(
+                $resolved['amount'],
+                $resolved['currency'],
+                $phone12,
+                $reference,
+                'Abonnement #' . $subscription->id,
+                $callbackUrl
+            );
 
             $payment = Payment::create([
                 'subscription_id' => $subscription->id,
                 'order_id' => null,
-                'provider' => 'shwary',
-                'provider_payment_id' => $shwaryResponse['id'],
-                'reference_id' => $shwaryResponse['referenceId'] ?? null,
-                'amount' => $shwaryResponse['amount'] ?? $subscription->price,
-                'currency' => $shwaryResponse['currency'] ?? $subCurrency,
-                'phone' => $phoneNormalized ?? null,
-                'status' => $paymentStatus,
-                'raw_response' => $shwaryResponse,
+                'provider' => 'flexpay',
+                'provider_payment_id' => $flexResponse['id'],
+                'reference_id' => $flexResponse['referenceId'] ?? $reference,
+                'amount' => $flexResponse['amount'] ?? $subscription->price,
+                'currency' => $flexResponse['currency'] ?? $resolved['currency'],
+                'phone' => $phoneNormalized,
+                'status' => 'pending',
+                'raw_response' => $flexResponse,
             ]);
 
-            if ($payment->status === 'completed') {
-                Subscription::applyPaymentConfirmedScheduling($subscription->fresh(), now());
-                $this->appNotifications->notifyClientAndAdminsAfterSubscriptionPayment($subscription->fresh());
-            }
-
-            $countries = ShwaryService::getSupportedCountries();
-            $currencyDebit = $shwaryResponse['currency'] ?? $countries[$data['country_code']]['currency'] ?? 'CDF';
             return response()->json([
                 'subscription' => $subscription->fresh()->load('subscriptionPlan'),
                 'payment' => $payment,
-                'shwary_transaction' => $shwaryResponse,
-                'amount_to_debit' => $amountLocal,
-                'currency_to_debit' => $currencyDebit,
-                'message' => $payment->status === 'completed'
-                    ? $this->subscriptionPaidMessage($subscription->fresh())
-                    : 'Paiement initié. En attente de confirmation sur votre mobile.',
-                'payment_completed' => $payment->status === 'completed',
+                'flexpay_transaction' => $flexResponse,
+                'amount_to_debit' => $resolved['amount'],
+                'currency_to_debit' => $resolved['currency'],
+                'message' => 'Paiement initié. En attente de confirmation sur votre mobile.',
+                'payment_completed' => false,
             ]);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::warning('Shwary subscription payment failed', [
+            \Illuminate\Support\Facades\Log::warning('FlexPay subscription payment failed', [
                 'subscription_id' => $id,
                 'error' => $e->getMessage(),
             ]);
+
             return response()->json([
                 'message' => 'Erreur lors de l\'initiation du paiement.',
                 'error' => $e->getMessage(),

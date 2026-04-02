@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
 import { useEffect, useState, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 import { apiRequest } from '@/lib/api'
 import { formatDate, formatOrderMoney } from '@/lib/helpers'
 import { getBlobImageUrl, resolveMediaUrl } from '@/lib/imageLoader'
@@ -35,6 +36,7 @@ function getStatusBadge(status) {
 }
 
 export default function AdminOrdersPage() {
+  const { user: authUser } = useAuth()
   const [orders, setOrders] = useState([])
   const [livreurs, setLivreurs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -208,6 +210,20 @@ export default function AdminOrdersPage() {
                               {order.user.email && order.user.name && (
                                 <p className="truncate text-sm text-white/45">{order.user.email}</p>
                               )}
+                              {authUser?.role === 'admin' && (
+                                <p className="mt-2 text-[13px] leading-relaxed text-white/55">
+                                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-300/80">
+                                    Solde fidélité actuel (client)
+                                  </span>
+                                  <span className="ml-2 font-semibold tabular-nums text-amber-100">
+                                    {order.user.points?.balance != null
+                                      ? Number(order.user.points.balance)
+                                      : 0}{' '}
+                                    points
+                                  </span>
+                                  <span className="text-white/35"> — compte au moment de la consultation</span>
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -311,10 +327,21 @@ export default function AdminOrdersPage() {
                             </dl>
                             {order.points_earned != null && (
                               <p className="mt-3 text-[13px] leading-relaxed text-white/45">
-                                Fidélité :{' '}
-                                <span className="font-medium text-amber-200/90">{order.points_earned} points</span>
-                                {' '}
-                                crédités après livraison validée.
+                                {authUser?.role === 'admin' ? (
+                                  <>
+                                    À gagner sur cette commande :{' '}
+                                    <span className="font-medium text-amber-200/90">{order.points_earned} points</span>
+                                    {' '}
+                                    après validation du code par le livreur.
+                                  </>
+                                ) : (
+                                  <>
+                                    Fidélité :{' '}
+                                    <span className="font-medium text-amber-200/90">{order.points_earned} points</span>
+                                    {' '}
+                                    crédités après livraison validée.
+                                  </>
+                                )}
                               </p>
                             )}
                           </div>

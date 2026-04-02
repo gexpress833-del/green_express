@@ -55,8 +55,8 @@ Route::get('login', function () {
 // Webhook paiement (public, sécurisé par signature provider)
 Route::post('payments/webhook', [PaymentController::class, 'webhook']);
 
-// Webhook Shwary (public, protégé par signature si nécessaire)
-Route::post('shwary/callback', [\App\Http\Controllers\ShwaryController::class, 'callback']);
+// Webhook FlexPay (public, protégé par signature si configurée)
+Route::post('flexpay/callback', [\App\Http\Controllers\FlexPayController::class, 'callback']);
 
 // Promotions (public - visibles par tous)
 Route::get('promotions', [PromotionController::class, 'index']);

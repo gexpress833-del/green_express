@@ -7,8 +7,8 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\AppNotificationService;
+use App\Services\FlexPayService;
 use App\Services\OrderNotificationService;
-use App\Services\ShwaryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Config;
@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
-class ShwaryPaymentTest extends TestCase
+class FlexPayPaymentTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -25,7 +25,7 @@ class ShwaryPaymentTest extends TestCase
         parent::setUp();
 
         Log::spy();
-        Config::set('shwary.webhook_secret', null);
+        Config::set('flexpay.webhook_secret', null);
     }
 
     public function test_webhook_completed_met_a_jour_le_paiement_et_la_commande_en_paid(): void
@@ -40,9 +40,9 @@ class ShwaryPaymentTest extends TestCase
             'delivery_address' => 'Test address',
         ]);
 
-        $payment = Payment::create([
+        Payment::create([
             'order_id' => $order->id,
-            'provider' => 'shwary',
+            'provider' => 'flexpay',
             'provider_payment_id' => 'tx-123',
             'reference_id' => 'ref-123',
             'amount' => 10000,
@@ -50,15 +50,15 @@ class ShwaryPaymentTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $response = $this->postJson('/api/shwary/callback', [
-            'id' => 'tx-123',
-            'referenceId' => 'ref-123',
-            'status' => 'completed',
+        $response = $this->postJson('/api/flexpay/callback', [
+            'code' => 0,
+            'orderNumber' => 'tx-123',
+            'reference' => 'ref-123',
         ]);
 
         $response->assertStatus(200)->assertJson(['message' => 'OK']);
 
-        $payment->refresh();
+        $payment = Payment::where('provider_payment_id', 'tx-123')->first();
         $order->refresh();
 
         $this->assertSame('completed', $payment->status);
@@ -78,9 +78,9 @@ class ShwaryPaymentTest extends TestCase
             'delivery_address' => 'Test address',
         ]);
 
-        $payment = Payment::create([
+        Payment::create([
             'order_id' => $order->id,
-            'provider' => 'shwary',
+            'provider' => 'flexpay',
             'provider_payment_id' => 'tx-456',
             'reference_id' => 'ref-456',
             'amount' => 10000,
@@ -88,16 +88,16 @@ class ShwaryPaymentTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $response = $this->postJson('/api/shwary/callback', [
-            'id' => 'tx-456',
-            'referenceId' => 'ref-456',
-            'status' => 'failed',
-            'failureReason' => 'insufficient_funds',
+        $response = $this->postJson('/api/flexpay/callback', [
+            'code' => 1,
+            'orderNumber' => 'tx-456',
+            'reference' => 'ref-456',
+            'message' => 'insufficient_funds',
         ]);
 
         $response->assertStatus(200)->assertJson(['message' => 'OK']);
 
-        $payment->refresh();
+        $payment = Payment::where('provider_payment_id', 'tx-456')->first();
         $order->refresh();
 
         $this->assertSame('failed', $payment->status);
@@ -119,7 +119,7 @@ class ShwaryPaymentTest extends TestCase
 
         $payment = Payment::create([
             'order_id' => $order->id,
-            'provider' => 'shwary',
+            'provider' => 'flexpay',
             'provider_payment_id' => 'tx-pending',
             'reference_id' => 'ref-pending',
             'amount' => 10000,
@@ -128,18 +128,19 @@ class ShwaryPaymentTest extends TestCase
             'created_at' => now()->subMinutes(2),
         ]);
 
-        $fakeShwary = $this->createMock(ShwaryService::class);
-        $fakeShwary->method('getTransactionStatus')
+        $fakeFlex = $this->createMock(FlexPayService::class);
+        $fakeFlex->method('checkTransaction')
             ->with('tx-pending')
             ->willReturn([
-                'status' => 'completed',
-                'failureReason' => null,
+                'paid' => true,
+                'failed' => false,
+                'raw' => ['transaction' => ['status' => 0]],
             ]);
-        App::instance(ShwaryService::class, $fakeShwary);
+        App::instance(FlexPayService::class, $fakeFlex);
 
-        $job = new CheckPendingPaymentsJob();
+        $job = new CheckPendingPaymentsJob;
         $job->handle(
-            $fakeShwary,
+            $fakeFlex,
             App::make(OrderNotificationService::class),
             App::make(AppNotificationService::class),
         );

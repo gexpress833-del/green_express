@@ -77,18 +77,18 @@ class PaymentController extends Controller
         Log::info('Admin triggered payment reconciliation', ['user_id' => $user->id]);
 
         return response()->json([
-            'message' => 'Réconciliation déclenchée. Les paiements affichés proviennent de la base locale. Pour synchroniser avec un provider (ex. Shwary), configurez le webhook et les jobs.',
+            'message' => 'Réconciliation déclenchée. Les paiements affichés proviennent de la base locale. Pour synchroniser avec FlexPay, configurez le webhook et les jobs.',
         ]);
     }
 
     /**
-     * Webhook générique (optionnel). Pour Shwary, utiliser POST /api/shwary/callback.
+     * Webhook générique (optionnel). Pour FlexPay, utiliser POST /api/flexpay/callback.
      */
     public function webhook(Request $request)
     {
         $payload = $request->all();
         $signature = $request->header('X-Webhook-Signature') ?? $request->header('X-Signature');
-        $secret = config('shwary.webhook_secret') ?: env('PAYMENT_WEBHOOK_SECRET');
+        $secret = config('flexpay.webhook_secret') ?: env('PAYMENT_WEBHOOK_SECRET');
 
         if (! empty($secret) && ! empty($signature)) {
             $rawBody = $request->getContent();

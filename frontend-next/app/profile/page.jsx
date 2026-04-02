@@ -127,7 +127,7 @@ export default function ProfilePage() {
     return () => { if (footer) footer.style.display = '' }
   }, [])
 
-  async function handleLogout() { await logout(); router.push('/') }
+  async function handleLogout() { await logout() }
 
   async function handleAvatarChange(e) {
     const file = e.target?.files?.[0]

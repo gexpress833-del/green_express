@@ -1,9 +1,12 @@
 'use client'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import PromoCard from '@/components/PromoCard'
+import { useAuth } from '@/contexts/AuthContext'
 import { apiRequest } from '@/lib/api'
 import { formatCurrencyCDF } from '@/lib/helpers'
+import { getDashboardPathForRole } from '@/lib/permissions'
 import {
   DEMO_LANDING_VIDEO_MP4,
   PRIMARY_LOGO,
@@ -12,6 +15,8 @@ import {
 } from '@/lib/landingMedia'
 
 export default function Home(){
+  const router = useRouter()
+  const { user, loading: authLoading, initialised } = useAuth()
   const heroVideoRef = useRef(null)
   const [logoSrc, setLogoSrc] = useState(PRIMARY_LOGO)
   const [currentPromo, setCurrentPromo] = useState(null)
@@ -49,6 +54,13 @@ export default function Home(){
   }, [])
 
   useEffect(() => {
+    if (!initialised || authLoading) return
+    if (user) {
+      router.replace(getDashboardPathForRole(user.role))
+    }
+  }, [user, authLoading, initialised, router])
+
+  useEffect(() => {
     const el = heroVideoRef.current
     if (!el) return
     const enforceMutedAndPlay = () => {
@@ -66,6 +78,22 @@ export default function Home(){
     }
   }, [])
 
+  if (!initialised || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center app-bg">
+        <p className="text-white/70 text-sm">Chargement…</p>
+      </div>
+    )
+  }
+
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center app-bg">
+        <p className="text-white/70 text-sm">Redirection vers votre tableau de bord…</p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -79,11 +107,9 @@ export default function Home(){
                   key={logoSrc}
                   src={logoSrc}
                   alt="Green Express"
-                  width={160}
-                  height={160}
                   decoding="async"
                   fetchPriority="high"
-                  className="mx-auto h-auto w-[min(160px,42vw)] max-h-40 object-contain"
+                  className="mx-auto block h-auto w-auto max-h-[min(260px,42vh)] max-w-[min(280px,88vw)] object-contain"
                   style={{
                     borderRadius: 20,
                     boxShadow: '0 0 30px rgba(0, 255, 255, 0.3)',

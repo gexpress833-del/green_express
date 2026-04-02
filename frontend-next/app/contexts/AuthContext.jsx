@@ -87,6 +87,10 @@ export function AuthProvider({ children }) {
     setUser(null);
     setInitialised(true);
     setLoading(false);
+    // Landing publique : inscription / connexion depuis la page d’accueil
+    if (typeof window !== 'undefined') {
+      window.location.assign('/');
+    }
   }, []);
 
   const value = {

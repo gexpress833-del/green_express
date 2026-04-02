@@ -10,6 +10,7 @@ import ConfirmModal from '@/components/ConfirmModal'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiRequest, getApiErrorMessage } from '@/lib/api'
 import { formatCurrencyCDF, formatDate } from '@/lib/helpers'
+import { analyzeRdcMobileMoneyPhone } from '@/lib/phoneRdc'
 
 const PROVIDER_OPTIONS = {
   DRC: [
@@ -17,14 +18,6 @@ const PROVIDER_OPTIONS = {
     { value: 'VODACOM_MPESA_COD', label: 'Vodacom M-Pesa' },
     { value: 'AIRTEL_OAPI_COD', label: 'Airtel Money' },
     { value: 'ORANGE_OAPI_COD', label: 'Orange Money' },
-  ],
-  KE: [
-    { value: 'SAFARICOM_MPESA_KEN', label: 'Safaricom M-Pesa' },
-    { value: 'AIRTEL_OAPI_KEN', label: 'Airtel Money' },
-  ],
-  UG: [
-    { value: 'MTN_MOMO_UGA', label: 'MTN MoMo' },
-    { value: 'AIRTEL_OAPI_UGA', label: 'Airtel Money' },
   ],
 }
 
@@ -55,8 +48,6 @@ function getDefaultProvider(country) {
 function isValidPhoneForCountry(phone, country) {
   const digits = String(phone || '').replace(/\D/g, '')
   if (country === 'DRC') return /^243(8|9)\d{8}$/.test(digits)
-  if (country === 'KE') return /^254\d{9}$/.test(digits)
-  if (country === 'UG') return /^256\d{9}$/.test(digits)
   return digits.length >= 9
 }
 
@@ -165,6 +156,35 @@ export default function ClientOrderPaymentPage() {
 
   const selectedProviders = useMemo(() => PROVIDER_OPTIONS[country] || [], [country])
 
+  const phoneAnalysis = useMemo(() => analyzeRdcMobileMoneyPhone(phone), [phone])
+
+  const operatorHint = useMemo(() => {
+    if (country !== 'DRC') return null
+    const manualLabel = provider
+      ? (selectedProviders.find((o) => o.value === provider)?.label ?? null)
+      : null
+    if (provider && manualLabel) {
+      return { type: 'manual', text: `Opérateur choisi : ${manualLabel}` }
+    }
+    if (!phoneAnalysis.complete) {
+      if (!String(phone || '').trim()) return null
+      return {
+        type: 'typing',
+        text: 'Saisissez un numéro RDC valide (9 chiffres après +243, ex. 82…, 97…).',
+      }
+    }
+    if (phoneAnalysis.detected) {
+      return {
+        type: 'ok',
+        text: `Réseau détecté à partir du numéro : ${phoneAnalysis.detected.label}`,
+      }
+    }
+    return {
+      type: 'warn',
+      text: 'Préfixe non reconnu. Utilisez un numéro Vodacom (81–83), Airtel (97–99) ou Orange (84, 85, 89).',
+    }
+  }, [country, provider, selectedProviders, phone, phoneAnalysis])
+
   const startPollingOrderStatus = useCallback(() => {
     if (!orderId) return
     setPolling(true)
@@ -200,8 +220,6 @@ export default function ClientOrderPaymentPage() {
     const cleaned = String(value).replace(/[\s\-()]/g, '').replace(/^0+/, '')
     if (cleaned.startsWith('+')) return cleaned
     if (country === 'DRC') return '+243' + cleaned.replace(/^243/, '')
-    if (country === 'KE') return '+254' + cleaned.replace(/^254/, '')
-    if (country === 'UG') return '+256' + cleaned.replace(/^256/, '')
     return cleaned
   }
 
@@ -424,21 +442,16 @@ export default function ClientOrderPaymentPage() {
                         </div>
                       )}
 
+                      <p className="text-white/60 text-sm mb-4">
+                        Paiement via <strong className="text-cyan-300">FlexPay</strong> (Mobile Money RDC uniquement).
+                      </p>
+
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
                           <label className="block text-white/80 text-sm mb-2">Pays</label>
-                          <select
-                            value={country}
-                            onChange={(e) => {
-                              setCountry(e.target.value)
-                              setProvider('')
-                            }}
-                            className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
-                          >
-                            <option value="DRC">RDC (+243)</option>
-                            <option value="KE">Kenya (+254)</option>
-                            <option value="UG">Ouganda (+256)</option>
-                          </select>
+                          <div className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/15 text-white/90 text-sm">
+                            RDC (+243)
+                          </div>
                         </div>
 
                         <div>
@@ -464,8 +477,23 @@ export default function ClientOrderPaymentPage() {
                           placeholder="+243812345678"
                           className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40"
                         />
+                        {operatorHint && (
+                          <p
+                            className={`text-xs mt-2 ${
+                              operatorHint.type === 'ok'
+                                ? 'text-cyan-300/90'
+                                : operatorHint.type === 'warn'
+                                  ? 'text-amber-200/90'
+                                  : operatorHint.type === 'manual'
+                                    ? 'text-white/65'
+                                    : 'text-white/45'
+                            }`}
+                          >
+                            {operatorHint.text}
+                          </p>
+                        )}
                         <p className="text-white/40 text-xs mt-2">
-                          En RDC, la détection automatique du provider fonctionne aussi si tu laisses l&apos;option automatique.
+                          L&apos;opérateur est identifié par les chiffres du numéro (comme sur le serveur FlexPay). Le menu « Opérateur » sert uniquement de rappel visuel — choisis « Détection automatique » ou précise l&apos;opérateur si tu préfères.
                         </p>
                       </div>
 

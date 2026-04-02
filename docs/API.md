@@ -48,16 +48,16 @@ Une spécification OpenAPI minimale est disponible dans [openapi.yaml](openapi.y
 
 **Paiement commande (POST /orders/{id}/initiate-payment)** :
 - `client_phone_number`
-- `country_code` : `DRC`, `KE`, `UG`
-- `provider` optionnel selon le pays
+- `country_code` : `DRC` uniquement (FlexPay)
+- `provider` optionnel (informationnel côté front)
 
-Le backend crée un dépôt pawaPay, stocke un `Payment` avec `provider = pawapay`, puis attend le callback ou le fallback job.
+Le backend appelle l’API FlexPay, stocke un `Payment` avec `provider = flexpay`, puis attend le callback ou le job de secours (`CheckPendingPaymentsJob`).
 
-### Webhook dépôt pawaPay
+### Webhook FlexPay
 
 | Méthode | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/pawapay/callback` | Webhook dépôt pawaPay |
+| POST | `/flexpay/callback` | Notification FlexPay (transaction confirmée ou échouée) |
 
 ---
 

@@ -46,7 +46,7 @@ class LivreurControllerTest extends TestCase
             'amount' => 25,
             'currency' => 'CDF',
             'status' => 'completed',
-            'provider' => 'shwary',
+            'provider' => 'flexpay',
             'provider_payment_id' => 'tx-123',
         ]);
 
@@ -97,7 +97,7 @@ class LivreurControllerTest extends TestCase
             'amount' => 25,
             'currency' => 'CDF',
             'status' => 'completed',
-            'provider' => 'shwary',
+            'provider' => 'flexpay',
             'provider_payment_id' => 'tx-456',
         ]);
 

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f86cde4d88c00de3948e66f2c32b9461",
+    "content-hash": "3cb3207477da5a4dafc6285ca341e00d",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -5804,55 +5804,6 @@
                 }
             ],
             "time": "2022-12-17T21:53:22+00:00"
-        },
-        {
-            "name": "shwary/php-sdk",
-            "version": "v1.0.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Tresor-Kasenda/shwary-php-sdk.git",
-                "reference": "aeb724d6c53ffffad1adceaf11232451cf0c8930"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Tresor-Kasenda/shwary-php-sdk/zipball/aeb724d6c53ffffad1adceaf11232451cf0c8930",
-                "reference": "aeb724d6c53ffffad1adceaf11232451cf0c8930",
-                "shasum": ""
-            },
-            "require": {
-                "guzzlehttp/guzzle": "^7.0",
-                "php": "^8.2",
-                "psr/log": "^3.0"
-            },
-            "require-dev": {
-                "mockery/mockery": "^1.6",
-                "pestphp/pest": "^2.36",
-                "phpstan/phpstan": "^2.1",
-                "phpunit/phpunit": "^10.0"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Shwary\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Tresor Kasenda",
-                    "email": "tresorkasendat@gmail.com"
-                }
-            ],
-            "description": "SDK PHP officiel pour l'API marchande Shwary - Paiements Mobile Money (RDC, Kenya, Ouganda)",
-            "homepage": "https://github.com/Tresor-Kasenda/shwary-php-sdk",
-            "support": {
-                "issues": "https://github.com/Tresor-Kasenda/shwary-php-sdk/issues",
-                "source": "https://github.com/Tresor-Kasenda/shwary-php-sdk"
-            },
-            "time": "2026-02-05T09:47:41+00:00"
         },
         {
             "name": "spatie/image",

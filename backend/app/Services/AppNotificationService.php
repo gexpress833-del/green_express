@@ -83,7 +83,7 @@ class AppNotificationService
         );
     }
 
-    /** Après confirmation du paiement (Shwary / sandbox / webhook). */
+    /** Après confirmation du paiement (FlexPay / webhook). */
     public function notifyClientAndAdminsAfterSubscriptionPayment(Subscription $subscription): void
     {
         $fresh = $subscription->fresh();

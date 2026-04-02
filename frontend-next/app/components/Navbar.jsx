@@ -1,7 +1,7 @@
 "use client"
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCart } from '@/contexts/CartContext'
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/notifications'
@@ -28,7 +28,6 @@ export default function Navbar(){
   const [menuOpen, setMenuOpen] = useState(false)
   const [brandLogoSrc, setBrandLogoSrc] = useState(PRIMARY_LOGO)
   const [unreadCount, setUnreadCount] = useState(0)
-  const router = useRouter()
   const pathname = usePathname()
   const isClient = user?.role === 'client'
   /** Sur les sous-pages client, le libellé « Tableau de bord » fait doublon avec le lien retour de page : on affiche « Accueil ». */
@@ -74,8 +73,6 @@ export default function Navbar(){
   async function handleLogout(e){
     e.preventDefault()
     await logout()
-    router.push('/')
-    router.refresh()
   }
 
   // Ne pas afficher la navbar sur les pages de login/register

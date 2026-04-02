@@ -181,6 +181,19 @@ export function getRoleLabel(role) {
   return config ? config.label : role
 }
 
+/**
+ * Chemin du tableau de bord selon le rôle (aligné sur la page login : /{role}).
+ * @param {string|null|undefined} role
+ * @returns {string}
+ */
+export function getDashboardPathForRole(role) {
+  const r = String(role || 'client').toLowerCase()
+  if (Object.prototype.hasOwnProperty.call(ROLES_CONFIG, r)) {
+    return `/${r}`
+  }
+  return '/client'
+}
+
 const permissions = {
   hasRole,
   canAccess,
@@ -190,6 +203,7 @@ const permissions = {
   getAllRoles,
   isOwnerOrAdmin,
   getRoleLabel,
+  getDashboardPathForRole,
 }
 
 export default permissions

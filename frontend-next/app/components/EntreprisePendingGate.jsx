@@ -2,7 +2,6 @@
 import { useId } from 'react'
 import { useCompany } from '@/lib/useCompany'
 import { useAuth } from '@/contexts/AuthContext'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import styles from './EntreprisePendingGate.module.css'
 
@@ -14,10 +13,8 @@ export default function EntreprisePendingGate({ children }) {
   const iconGradientId = useId().replace(/:/g, '')
   const { company, loading, error } = useCompany()
   const { logout } = useAuth()
-  const router = useRouter()
   const handleLogout = async () => {
     await logout()
-    router.push('/')
   }
 
   if (loading) {

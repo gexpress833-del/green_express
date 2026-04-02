@@ -40,23 +40,21 @@ Sur ta machine uniquement, tu peux conserver une copie **`backend/.env.productio
 - Soit les trois variables : `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
 - Vérification : `GET /api/upload/config` (utilisateur connecté)
 
-### pawaPay
-- `PAYMENT_WEBHOOK_SECRET`
-- `PAWAPAY_API_TOKEN`
-- `PAWAPAY_BASE_URL`
-- `PAWAPAY_CALLBACK_URL`
-- `PAWAPAY_TIMEOUT`
-- `PAWAPAY_PROVIDER_COD_VODACOM`
-- `PAWAPAY_PROVIDER_COD_AIRTEL`
-- `PAWAPAY_PROVIDER_COD_ORANGE`
-- `PAWAPAY_PROVIDER_KEN_DEFAULT`
-- `PAWAPAY_PROVIDER_KEN_AIRTEL`
-- `PAWAPAY_PROVIDER_UGA_DEFAULT`
-- `PAWAPAY_PROVIDER_UGA_AIRTEL`
+### FlexPay / FlexPaie (Mobile Money — RDC, Infoset)
+- `FLEXPAY_MERCHANT` — code marchand
+- `FLEXPAY_TOKEN` — JWT Bearer (secret ; ne pas versionner)
+- `FLEXPAY_ENV` — `dev` (beta-backend) ou `prod` (backend + **apicheck** pour la vérification)
+- `FLEXPAY_CALLBACK_URL` — URL publique HTTPS : `POST /api/flexpay/callback`
+- `FLEXPAY_MOCK` — `true` en local pour simuler sans appeler l’API
+- `FLEXPAY_PAYMENT_BASE_URL` — optionnel ; défaut prod : `https://backend.flexpay.cd/api/rest/v1` (`…/paymentService`)
+- `FLEXPAY_CHECK_BASE_URL` — optionnel ; défaut prod : `https://apicheck.flexpaie.com/api/rest/v1` (`…/check/{orderNumber}`)
+- `FLEXPAY_CARD_PAYMENT_URL` — référence carte : `https://cardpayment.flexpay.cd/v1.1/pay` (hors flux Laravel actuel)
+- `FLEXPAY_WEBHOOK_SECRET` ou `PAYMENT_WEBHOOK_SECRET` — optionnel
+- `FLEXPAY_RATE_USD_TO_CDF`, `FLEXPAY_MIN_AMOUNT_CDF`
 
 ## Bonnes pratiques
 
-- Ne jamais committer de vraie clé `APP_KEY`, token pawaPay, mot de passe DB ou secret Cloudinary
+- Ne jamais committer de vraie clé `APP_KEY`, token FlexPay, mot de passe DB ou secret Cloudinary
 - Après exposition accidentelle d’une clé, faire une **rotation**
 - Pour créer un `.env` local :
 

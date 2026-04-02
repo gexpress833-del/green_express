@@ -2,12 +2,13 @@
 import ClientSubpageHeader from '@/components/ClientSubpageHeader'
 import SubscriptionPlanShowcase from '@/components/SubscriptionPlanShowcase'
 import ReadOnlyGuard from '@/components/ReadOnlyGuard'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { apiRequest } from '@/lib/api'
 import { formatCurrencyCDF } from '@/lib/helpers'
 import GoldButton from '@/components/GoldButton'
 import ClientOngoingSubscriptionCard from '@/components/ClientOngoingSubscriptionCard'
 import { pushToast } from '@/components/Toaster'
+import { analyzeRdcMobileMoneyPhone } from '@/lib/phoneRdc'
 
 const PROVIDER_OPTIONS = {
   DRC: [
@@ -15,14 +16,6 @@ const PROVIDER_OPTIONS = {
     { value: 'VODACOM_MPESA_COD', label: 'Vodacom M-Pesa' },
     { value: 'AIRTEL_OAPI_COD', label: 'Airtel Money' },
     { value: 'ORANGE_OAPI_COD', label: 'Orange Money' },
-  ],
-  KE: [
-    { value: 'SAFARICOM_MPESA_KEN', label: 'Safaricom M-Pesa' },
-    { value: 'AIRTEL_OAPI_KEN', label: 'Airtel Money' },
-  ],
-  UG: [
-    { value: 'MTN_MOMO_UGA', label: 'MTN MoMo' },
-    { value: 'AIRTEL_OAPI_UGA', label: 'Airtel Money' },
   ],
 }
 
@@ -50,8 +43,6 @@ export default function ClientSubscriptions() {
   function isValidPhoneForCountry(phone, country) {
     const digits = String(phone || '').replace(/\D/g, '')
     if (country === 'DRC') return /^243(8|9)\d{8}$/.test(digits)
-    if (country === 'KE') return /^254\d{9}$/.test(digits)
-    if (country === 'UG') return /^256\d{9}$/.test(digits)
     return digits.length >= 9
   }
 
@@ -100,6 +91,29 @@ export default function ClientSubscriptions() {
   const hasOngoing = subs.some((s) => ['pending', 'scheduled', 'active'].includes(s.status))
   const currentSubs = subs.filter((s) => ['pending', 'scheduled', 'active'].includes(s.status))
 
+  const payPhoneAnalysis = useMemo(() => analyzeRdcMobileMoneyPhone(payPhone), [payPhone])
+  const payOperatorOptions = useMemo(() => PROVIDER_OPTIONS[payCountry] || [], [payCountry])
+  const payOperatorHint = useMemo(() => {
+    if (payCountry !== 'DRC') return null
+    const manualLabel = payProvider
+      ? (payOperatorOptions.find((o) => o.value === payProvider)?.label ?? null)
+      : null
+    if (payProvider && manualLabel) {
+      return { type: 'manual', text: `Opérateur choisi : ${manualLabel}` }
+    }
+    if (!payPhoneAnalysis.complete) {
+      if (!String(payPhone || '').trim()) return null
+      return { type: 'typing', text: 'Saisissez un numéro RDC valide (9 chiffres après +243).' }
+    }
+    if (payPhoneAnalysis.detected) {
+      return { type: 'ok', text: `Réseau détecté : ${payPhoneAnalysis.detected.label}` }
+    }
+    return {
+      type: 'warn',
+      text: 'Préfixe non reconnu. Utilisez un numéro Vodacom (81–83), Airtel (97–99) ou Orange (84, 85, 89).',
+    }
+  }, [payCountry, payProvider, payOperatorOptions, payPhone, payPhoneAnalysis])
+
   async function handleSubscribe(planId, period) {
     setSubscribeError('')
     setSubscribing(true)
@@ -128,8 +142,6 @@ export default function ClientSubscriptions() {
     const cleaned = String(value).replace(/[\s\-()]/g, '').replace(/^0+/, '')
     if (cleaned.startsWith('+')) return cleaned
     if (payCountry === 'DRC' && (cleaned.startsWith('243') || !cleaned.startsWith('+'))) return '+243' + cleaned.replace(/^243/, '')
-    if (payCountry === 'KE') return '+254' + cleaned.replace(/^254/, '')
-    if (payCountry === 'UG') return '+256' + cleaned.replace(/^256/, '')
     return cleaned
   }
 
@@ -311,17 +323,14 @@ export default function ClientSubscriptions() {
               <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">{payError}</div>
             )}
             <div className="space-y-6">
+              <p className="text-white/60 text-sm mb-2">
+                Paiement via <strong className="text-cyan-300">FlexPay</strong> (Mobile Money RDC).
+              </p>
               <div>
                 <label className="block text-white/80 text-base mb-2">Pays</label>
-                <select
-                  value={payCountry}
-                  onChange={(e) => setPayCountry(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
-                >
-                  <option value="DRC">RDC (+243)</option>
-                  <option value="KE">Kenya (+254)</option>
-                  <option value="UG">Ouganda (+256)</option>
-                </select>
+                <div className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/15 text-white/90 text-sm">
+                  RDC (+243)
+                </div>
               </div>
               <div>
                 <label className="block text-white/80 text-base mb-2">Numéro Mobile Money</label>
@@ -332,6 +341,21 @@ export default function ClientSubscriptions() {
                   placeholder="+243812345678"
                   className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40"
                 />
+                {payOperatorHint && (
+                  <p
+                    className={`text-xs mt-2 ${
+                      payOperatorHint.type === 'ok'
+                        ? 'text-cyan-300/90'
+                        : payOperatorHint.type === 'warn'
+                          ? 'text-amber-200/90'
+                          : payOperatorHint.type === 'manual'
+                            ? 'text-white/65'
+                            : 'text-white/45'
+                    }`}
+                  >
+                    {payOperatorHint.text}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-white/80 text-base mb-2">Opérateur</label>
@@ -347,7 +371,7 @@ export default function ClientSubscriptions() {
                   ))}
                 </select>
                 <p className="text-white/60 text-xs mt-2">
-                  En RDC, gardez <strong className="text-white/90">Détection automatique</strong> sauf si le paiement échoue — choisissez alors Vodacom, Airtel ou Orange.
+                  L&apos;opérateur est déduit du numéro (serveur FlexPay). Le menu sert de rappel ; en cas d&apos;échec, choisissez explicitement Vodacom, Airtel ou Orange.
                 </p>
               </div>
               <div className="flex gap-2 justify-end pt-2 flex-wrap">

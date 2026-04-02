@@ -6,68 +6,80 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Services\AppNotificationService;
+use App\Services\FlexPayService;
 use App\Services\OrderNotificationService;
-use App\Services\ShwaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
-class ShwaryController extends Controller
+class FlexPayController extends Controller
 {
     public function __construct(
-        protected ShwaryService $shwaryService,
+        protected FlexPayService $flexPayService,
         protected OrderNotificationService $orderNotifications,
         protected AppNotificationService $appNotifications
-    ) {
-    }
+    ) {}
 
     public function callback(Request $request)
     {
         try {
             $rawBody = $request->getContent();
-            $secret = config('shwary.webhook_secret');
+            $secret = config('flexpay.webhook_secret');
             if (! empty($secret)) {
-                $signature = $request->header('X-Shwary-Signature')
+                $signature = $request->header('X-FlexPay-Signature')
                     ?? $request->header('X-Webhook-Signature')
                     ?? $request->header('X-Signature');
-                if (! $signature || ! $this->verifyWebhookSignature($rawBody, $signature, $secret)) {
-                    Log::warning('Shwary Callback: Invalid or missing signature');
+                if (! $signature || ! $this->verifyWebhookSignature($rawBody, (string) $signature, $secret)) {
+                    Log::warning('FlexPay Callback: signature invalide ou absente');
 
                     return response()->json(['message' => 'Invalid signature'], 403);
                 }
             }
 
-            Log::info('SHWARY CALLBACK', $request->all());
-
-            $data = $this->shwaryService->parseWebhookPayload($rawBody);
-            if (! $data) {
-                $data = $request->all();
+            $payload = json_decode($rawBody, true);
+            if (! is_array($payload)) {
+                $payload = $request->all();
             }
 
-            $transactionId = $data['id'] ?? $data['transactionId'] ?? null;
-            $referenceId = $data['referenceId'] ?? $transactionId;
-            $status = strtolower((string) ($data['status'] ?? ''));
+            Log::info('FLEXPAY CALLBACK', $payload);
 
-            if (! $transactionId || $status === '') {
-                Log::warning('Shwary Callback: Invalid data', ['data' => $data]);
+            $parsed = $this->flexPayService->parseWebhookPayload($payload);
+            if ($parsed === null) {
+                Log::warning('FlexPay Callback: payload non reconnu', ['payload' => $payload]);
 
                 return response()->json(['message' => 'Invalid data'], 400);
             }
 
-            $payment = Payment::where('provider_payment_id', $transactionId)
-                ->orWhere('reference_id', $referenceId)
-                ->first();
+            $orderNumber = $parsed['orderNumber'];
+            $reference = $parsed['reference'];
+
+            if (! $orderNumber && ! $reference) {
+                Log::warning('FlexPay Callback: pas de référence', ['payload' => $payload]);
+
+                return response()->json(['message' => 'Invalid data'], 400);
+            }
+
+            $q = Payment::query()->where('provider', 'flexpay');
+            if ($orderNumber && $reference) {
+                $payment = $q->where(function ($sub) use ($orderNumber, $reference) {
+                    $sub->where('provider_payment_id', $orderNumber)->orWhere('reference_id', $reference);
+                })->first();
+            } elseif ($orderNumber) {
+                $payment = $q->where('provider_payment_id', $orderNumber)->first();
+            } else {
+                $payment = $q->where('reference_id', $reference)->first();
+            }
 
             if (! $payment) {
-                Log::warning('Payment introuvable', $data);
+                Log::warning('FlexPay Callback: paiement introuvable', ['orderNumber' => $orderNumber, 'reference' => $reference]);
 
                 return response()->json(['message' => 'OK'], 200);
             }
 
-            if ($status === 'completed') {
+            if ($parsed['success']) {
                 $payment->update([
                     'status' => 'completed',
-                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_callback' => $data]),
+                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_callback' => $payload]),
                 ]);
 
                 if ($payment->order && $payment->order->status === 'pending_payment') {
@@ -91,23 +103,26 @@ class ShwaryController extends Controller
                         $this->appNotifications->notifyClientAndAdminsAfterSubscriptionPayment($sub->fresh());
                     }
                 }
-            } elseif ($status === 'failed') {
+            } elseif ($parsed['failure']) {
                 $payment->update([
                     'status' => 'failed',
-                    'failure_reason' => $data['failureReason'] ?? null,
-                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_callback' => $data]),
+                    'failure_reason' => $parsed['message'] ?: 'Échec FlexPay',
+                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_callback' => $payload]),
                 ]);
 
                 if ($payment->order) {
                     $payment->order->update(['status' => 'cancelled']);
                 }
             } else {
-                $payment->update(['status' => 'pending']);
+                $payment->update([
+                    'status' => 'pending',
+                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_callback' => $payload]),
+                ]);
             }
 
             return response()->json(['message' => 'OK'], 200);
         } catch (\Exception $e) {
-            Log::error('Webhook error', [
+            Log::error('FlexPay webhook error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);

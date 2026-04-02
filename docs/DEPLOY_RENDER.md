@@ -4,7 +4,7 @@ Ce guide décrit la configuration actuelle de l’application avec :
 
 - **Backend Laravel** sur [Render](https://render.com)
 - **Frontend Next.js** sur [Vercel](https://vercel.com)
-- **Paiements Mobile Money** via **pawaPay**
+- **Paiements Mobile Money** via **FlexPay / FlexPaie**
 
 ---
 
@@ -48,22 +48,15 @@ Le backend est prévu pour être déployé via **Docker** avec le `Dockerfile` s
 - `CLOUDINARY_API_KEY`
 - `CLOUDINARY_API_SECRET`
 
-#### pawaPay
-- `PAWAPAY_API_TOKEN`
-- `PAWAPAY_BASE_URL=https://api.sandbox.pawapay.io`
-- en production : `PAWAPAY_BASE_URL=https://api.pawapay.io`
-- `PAWAPAY_CALLBACK_URL=https://TON-BACKEND.onrender.com/api/pawapay/callback`
-- `PAWAPAY_TIMEOUT=30`
-- optionnel : `PAWAPAY_WEBHOOK_SECRET`
-
-#### Providers Mobile Money
-- `PAWAPAY_PROVIDER_COD_VODACOM=VODACOM_MPESA_COD`
-- `PAWAPAY_PROVIDER_COD_AIRTEL=AIRTEL_OAPI_COD`
-- `PAWAPAY_PROVIDER_COD_ORANGE=ORANGE_OAPI_COD`
-- `PAWAPAY_PROVIDER_KEN_DEFAULT=SAFARICOM_MPESA_KEN`
-- `PAWAPAY_PROVIDER_KEN_AIRTEL=AIRTEL_OAPI_KEN`
-- `PAWAPAY_PROVIDER_UGA_DEFAULT=MTN_MOMO_UGA`
-- `PAWAPAY_PROVIDER_UGA_AIRTEL=AIRTEL_OAPI_UGA`
+#### FlexPay / FlexPaie (production)
+- `FLEXPAY_MERCHANT` — code marchand (FlexPaie)
+- `FLEXPAY_TOKEN` — jeton JWT (secret ; coller dans Render **Environment**)
+- `FLEXPAY_ENV=prod` — API prod + vérification sur `apicheck.flexpaie.com`
+- `FLEXPAY_MOCK=false`
+- `FLEXPAY_CALLBACK_URL=https://TON-BACKEND.onrender.com/api/flexpay/callback` (HTTPS Render)
+- `FLEXPAY_TIMEOUT=30`
+- optionnel : `FLEXPAY_WEBHOOK_SECRET` ou `PAYMENT_WEBHOOK_SECRET`
+- détails et URLs : `backend/docs/FLEXPAY.md`
 
 ### Après déploiement backend
 
@@ -73,11 +66,13 @@ Lancer une fois :
 php artisan migrate --force
 ```
 
-Configurer ensuite dans le dashboard pawaPay :
+Configurer côté **FlexPaie / marchand** l’URL de callback IPN (si le tableau de bord le demande) :
 
 ```text
-Deposits callback URL = https://TON-BACKEND.onrender.com/api/pawapay/callback
+https://TON-BACKEND.onrender.com/api/flexpay/callback
 ```
+
+Même valeur que `FLEXPAY_CALLBACK_URL` (HTTPS Render).
 
 ---
 
@@ -101,7 +96,7 @@ Le frontend utilise ensuite les endpoints `/api/...` du backend avec `credential
 
 ## 3. Scheduler / relance paiements
 
-Le job `CheckPendingPaymentsJob` sert de **fallback** si le webhook pawaPay n’arrive pas.
+Le job `CheckPendingPaymentsJob` sert de **fallback** si le webhook FlexPay n’arrive pas.
 
 - Il est planifié dans `backend/app/Console/Kernel.php`
 - Il est exécuté **chaque minute**
@@ -115,10 +110,10 @@ Voir le guide dédié : `docs/CRON_EXTERNE.md`
 
 1. Ouvrir le frontend et passer une commande
 2. Lancer `POST /api/orders/{id}/initiate-payment`
-3. Vérifier que pawaPay appelle :
-   - `POST /api/pawapay/callback`
+3. Vérifier que FlexPay appelle :
+   - `POST /api/flexpay/callback`
 4. Vérifier en base :
-   - `payments.provider = pawapay`
+   - `payments.provider = flexpay`
    - `payments.status = completed` après callback ou fallback
    - `orders.status = paid`
    - `orders.delivery_code` rempli
@@ -138,12 +133,11 @@ Ne jamais versionner :
 
 - `backend/.env`
 - `frontend-next/.env.local`
-- toute clé pawaPay, Cloudinary, `APP_KEY`, secrets de session ou base
+- toute clé FlexPay, Cloudinary, `APP_KEY`, secrets de session ou base
 
 ---
 
 ## 6. Notes
 
-- Render et Vercel fournissent le HTTPS nécessaire pour les cookies cross-domain et les callbacks pawaPay
-- Si tu as déjà utilisé un ancien provider de paiement, considère les anciennes notes de migration comme **obsolètes**
-- Après exposition accidentelle d’un token pawaPay, il faut **le régénérer** dans le dashboard
+- Render et Vercel fournissent le HTTPS nécessaire pour les cookies cross-domain et les callbacks FlexPay
+- Après exposition accidentelle d’un token FlexPay, demander une **rotation** à FlexPaie / Infoset
