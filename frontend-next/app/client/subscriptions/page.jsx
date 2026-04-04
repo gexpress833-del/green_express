@@ -8,16 +8,9 @@ import { formatCurrencyCDF } from '@/lib/helpers'
 import GoldButton from '@/components/GoldButton'
 import ClientOngoingSubscriptionCard from '@/components/ClientOngoingSubscriptionCard'
 import { pushToast } from '@/components/Toaster'
-import { analyzeRdcMobileMoneyPhone } from '@/lib/phoneRdc'
-
-const PROVIDER_OPTIONS = {
-  DRC: [
-    { value: '', label: 'Détection automatique (RDC)' },
-    { value: 'VODACOM_MPESA_COD', label: 'Vodacom M-Pesa' },
-    { value: 'AIRTEL_OAPI_COD', label: 'Airtel Money' },
-    { value: 'ORANGE_OAPI_COD', label: 'Orange Money' },
-  ],
-}
+import PaymentMethodsBanner from '@/components/PaymentMethodsBanner'
+import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders'
+import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc'
 
 function getDefaultProvider(country) {
   const options = PROVIDER_OPTIONS[country] || []
@@ -93,26 +86,17 @@ export default function ClientSubscriptions() {
 
   const payPhoneAnalysis = useMemo(() => analyzeRdcMobileMoneyPhone(payPhone), [payPhone])
   const payOperatorOptions = useMemo(() => PROVIDER_OPTIONS[payCountry] || [], [payCountry])
-  const payOperatorHint = useMemo(() => {
-    if (payCountry !== 'DRC') return null
-    const manualLabel = payProvider
-      ? (payOperatorOptions.find((o) => o.value === payProvider)?.label ?? null)
-      : null
-    if (payProvider && manualLabel) {
-      return { type: 'manual', text: `Opérateur choisi : ${manualLabel}` }
-    }
-    if (!payPhoneAnalysis.complete) {
-      if (!String(payPhone || '').trim()) return null
-      return { type: 'typing', text: 'Saisissez un numéro RDC valide (9 chiffres après +243).' }
-    }
-    if (payPhoneAnalysis.detected) {
-      return { type: 'ok', text: `Réseau détecté : ${payPhoneAnalysis.detected.label}` }
-    }
-    return {
-      type: 'warn',
-      text: 'Préfixe non reconnu. Utilisez un numéro Vodacom (81–83), Airtel (97–99) ou Orange (84, 85, 89).',
-    }
-  }, [payCountry, payProvider, payOperatorOptions, payPhone, payPhoneAnalysis])
+  const payOperatorHint = useMemo(
+    () =>
+      buildRdcOperatorHint({
+        country: payCountry,
+        rawPhone: payPhone,
+        phoneAnalysis: payPhoneAnalysis,
+        provider: payProvider,
+        providerOptions: payOperatorOptions,
+      }),
+    [payCountry, payPhone, payPhoneAnalysis, payProvider, payOperatorOptions],
+  )
 
   async function handleSubscribe(planId, period) {
     setSubscribeError('')
@@ -288,6 +272,7 @@ export default function ClientSubscriptions() {
           <p className="text-white/65 text-sm mb-4 max-w-2xl">
             Si vous n&apos;avez pas encore d&apos;abonnement actif, choisissez une formule ici. Si un abonnement est déjà en cours, la souscription est désactivée jusqu&apos;à la fin de la période en cours.
           </p>
+          <PaymentMethodsBanner className="mb-6 max-w-2xl" showHeading />
           <SubscriptionPlanShowcase
             plans={plans}
             loading={loadingPlans}
@@ -301,18 +286,20 @@ export default function ClientSubscriptions() {
       {/* Modal Payer avec Mobile Money (abonnement en attente) */}
       {showPayModal && paySubscription && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+          className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-black/70"
           onClick={() => !paySubmitting && (setShowPayModal(false), setPaySubscription(null), setPayError(''))}
         >
-          <div
-            className="bg-[#0b1220] border border-white/20 rounded-2xl max-w-md w-full p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex min-h-full items-center justify-center p-4 py-8 sm:py-10">
+            <div
+              className="bg-[#0b1220] border border-white/20 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-xl max-h-[min(90vh,100%)] overflow-y-auto overscroll-contain flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
             <h3 className="text-xl font-semibold text-white mb-2">Payer avec Mobile Money</h3>
             <p className="text-white/70 text-base mb-3">
               {paySubscription.plan} — {formatCurrencyCDF(Number(paySubscription.price))}
               <span className="block text-white/50 text-sm mt-1">Formule hebdomadaire (lun–ven)</span>
             </p>
+            <PaymentMethodsBanner compact className="mb-4" />
             <ol className="text-white/75 text-sm space-y-1.5 mb-4 list-decimal list-inside border border-white/10 rounded-lg p-3 bg-white/5">
               <li>Vérifiez le montant ci-dessus</li>
               <li>Indiquez votre numéro Mobile Money</li>
@@ -322,9 +309,9 @@ export default function ClientSubscriptions() {
             {payError && (
               <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">{payError}</div>
             )}
-            <div className="space-y-6">
-              <p className="text-white/60 text-sm mb-2">
-                Paiement via <strong className="text-cyan-300">FlexPay</strong> (Mobile Money RDC).
+            <div className="space-y-4 sm:space-y-5">
+              <p className="text-white/60 text-sm">
+                Paiement sécurisé par <strong className="text-cyan-200/90">Mobile Money</strong> (RDC).
               </p>
               <div>
                 <label className="block text-white/80 text-base mb-2">Pays</label>
@@ -371,7 +358,7 @@ export default function ClientSubscriptions() {
                   ))}
                 </select>
                 <p className="text-white/60 text-xs mt-2">
-                  L&apos;opérateur est déduit du numéro (serveur FlexPay). Le menu sert de rappel ; en cas d&apos;échec, choisissez explicitement Vodacom, Airtel ou Orange.
+                  L&apos;opérateur est déduit automatiquement des premiers chiffres de votre numéro. Le menu sert de rappel ; en cas d&apos;échec, choisissez explicitement Vodacom, Airtel, Orange ou Afrimoney.
                 </p>
               </div>
               <div className="flex gap-2 justify-end pt-2 flex-wrap">
@@ -391,9 +378,10 @@ export default function ClientSubscriptions() {
                   {paySubmitting ? 'Envoi…' : 'Lancer le paiement'}
                 </button>
               </div>
-              <p className="text-white/45 text-xs mt-3 text-center">
+              <p className="text-white/45 text-xs mt-2 text-center shrink-0">
                 Après l’envoi, une demande peut s’afficher sur votre téléphone — acceptez pour confirmer.
               </p>
+            </div>
             </div>
           </div>
         </div>

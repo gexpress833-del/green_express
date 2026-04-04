@@ -16,6 +16,7 @@ class PhoneRDCService
         'vodacom' => ['81', '82', '83'],
         'airtel' => ['97', '98', '99'],
         'orange' => ['84', '85', '89'],
+        'africell' => ['90', '91'],
     ];
 
     /**
@@ -53,7 +54,7 @@ class PhoneRDCService
     }
 
     /**
-     * @return 'vodacom'|'airtel'|'orange'|null
+     * @return 'vodacom'|'airtel'|'orange'|'africell'|null
      */
     public static function detectOperatorRDC(string $phone): ?string
     {
@@ -92,6 +93,7 @@ class PhoneRDCService
             'vodacom' => 'Vodacom',
             'airtel' => 'Airtel',
             'orange' => 'Orange',
+            'africell' => 'Africell',
             default => 'Inconnu',
         };
     }

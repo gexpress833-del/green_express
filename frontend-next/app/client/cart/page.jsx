@@ -7,7 +7,10 @@ import GoldButton from '@/components/GoldButton';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiRequest } from '@/lib/api';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import PaymentMethodsBanner from '@/components/PaymentMethodsBanner';
+import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders';
+import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -41,6 +44,22 @@ export default function CartPage() {
   const [client_phone_number, setClient_phone_number] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const phoneAnalysis = useMemo(
+    () => analyzeRdcMobileMoneyPhone(client_phone_number),
+    [client_phone_number],
+  );
+  const cartOperatorHint = useMemo(
+    () =>
+      buildRdcOperatorHint({
+        country: 'DRC',
+        rawPhone: client_phone_number,
+        phoneAnalysis,
+        provider: '',
+        providerOptions: PROVIDER_OPTIONS.DRC || [],
+      }),
+    [client_phone_number, phoneAnalysis],
+  );
 
   useEffect(() => {
     if (!user?.phone) return;
@@ -179,6 +198,7 @@ export default function CartPage() {
                     <h3 className="text-xl font-semibold mb-4 text-white">
                       Adresse et validation
                     </h3>
+                    <PaymentMethodsBanner compact className="mb-5" />
                     {error && (
                       <div className="mb-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm">
                         {error}
@@ -211,6 +231,21 @@ export default function CartPage() {
                         required
                       />
                       <p className="text-white/45 text-xs mt-2">Utilisé pour le débit Mobile Money sur l’écran suivant.</p>
+                      {cartOperatorHint && (
+                        <p
+                          className={`text-xs mt-2 ${
+                            cartOperatorHint.type === 'ok'
+                              ? 'text-cyan-300/90'
+                              : cartOperatorHint.type === 'warn'
+                                ? 'text-amber-200/90'
+                                : cartOperatorHint.type === 'manual'
+                                  ? 'text-white/65'
+                                  : 'text-white/45'
+                          }`}
+                        >
+                          {cartOperatorHint.text}
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-4">
                       <button

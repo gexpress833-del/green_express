@@ -254,7 +254,7 @@ class OrderController extends Controller
 
             if (! $flexPay->isConfigured()) {
                 return response()->json([
-                    'message' => 'Paiement Mobile Money indisponible : FlexPay n’est pas configuré sur le serveur (variables FLEXPAY_MERCHANT et FLEXPAY_TOKEN sur l’hébergement).',
+                    'message' => 'Paiement Mobile Money temporairement indisponible. Réessayez plus tard ou contactez le support.',
                     'error' => 'payment_not_configured',
                 ], 503);
             }
@@ -269,7 +269,7 @@ class OrderController extends Controller
             $operator = PhoneRDCService::detectOperatorRDC($formatted);
             if ($operator === null) {
                 return response()->json([
-                    'message' => 'Opérateur non reconnu. Utilisez un numéro Vodacom (81-83), Airtel (97-99) ou Orange (84, 85, 89).',
+                    'message' => 'Opérateur non reconnu. Utilisez un numéro Vodacom (81–83), Airtel (97–99), Orange (84, 85, 89) ou Afrimoney / Africell (90–91).',
                     'error' => 'Opérateur non reconnu',
                 ], 400);
             }
@@ -347,6 +347,8 @@ class OrderController extends Controller
             ]);
 
             $message = $e->getMessage();
+            // Ne pas exposer le nom du prestataire technique dans les messages affichés au client
+            $message = preg_replace('/\bFlexPay\b|\bFlexPaie\b/ui', 'le service de paiement', $message);
             if (stripos($message, 'destination number') !== false || stripos($message, 'number you have entered is invalid') !== false) {
                 $message = 'Votre opérateur Mobile Money refuse le numéro. Utilisez 9 chiffres après +243 (ex: +243812345678 ou 0812345678).';
             } elseif (stripos($message, 'minimum') !== false && stripos($message, 'CDF') !== false) {

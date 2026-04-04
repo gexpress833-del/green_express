@@ -120,7 +120,7 @@ class SubscriptionController extends Controller
             $flexPay = app(FlexPayService::class);
             if (! $flexPay->isConfigured()) {
                 return response()->json([
-                    'message' => 'Paiement Mobile Money indisponible : FlexPay n’est pas configuré sur le serveur (variables FLEXPAY_MERCHANT et FLEXPAY_TOKEN sur l’hébergement).',
+                    'message' => 'Paiement Mobile Money temporairement indisponible. Réessayez plus tard ou contactez le support.',
                     'error' => 'payment_not_configured',
                 ], 503);
             }
@@ -181,8 +181,8 @@ class SubscriptionController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Erreur lors de l\'initiation du paiement.',
-                'error' => $e->getMessage(),
+                'message' => 'Impossible d’initier le paiement Mobile Money pour le moment. Réessayez dans quelques instants.',
+                'error' => 'payment_init_failed',
             ], 400);
         }
     }

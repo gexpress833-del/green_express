@@ -78,7 +78,7 @@ class PaymentController extends Controller
         Log::info('Admin triggered payment reconciliation', ['user_id' => $user->id]);
 
         return response()->json([
-            'message' => 'Réconciliation déclenchée. Les paiements affichés proviennent de la base locale. Pour synchroniser avec FlexPay, configurez le webhook et les jobs.',
+            'message' => 'Réconciliation déclenchée. Les paiements affichés proviennent de la base locale. Pour synchroniser avec le prestataire Mobile Money, configurez le webhook et les jobs.',
         ]);
     }
 

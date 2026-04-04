@@ -101,7 +101,7 @@ export default function AdminPaymentsPage() {
           }}>
             Paiements
           </h1>
-          <p className="text-white/70 text-lg">Vue admin des paiements FlexPay et de leur réconciliation.</p>
+          <p className="text-white/70 text-lg">Vue admin des paiements et de leur réconciliation.</p>
         </header>
 
         <div className="dashboard-grid">

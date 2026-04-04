@@ -10,16 +10,9 @@ import ConfirmModal from '@/components/ConfirmModal'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiRequest, getApiErrorMessage } from '@/lib/api'
 import { formatCurrencyCDF, formatDate } from '@/lib/helpers'
-import { analyzeRdcMobileMoneyPhone } from '@/lib/phoneRdc'
-
-const PROVIDER_OPTIONS = {
-  DRC: [
-    { value: '', label: 'Détection automatique (RDC)' },
-    { value: 'VODACOM_MPESA_COD', label: 'Vodacom M-Pesa' },
-    { value: 'AIRTEL_OAPI_COD', label: 'Airtel Money' },
-    { value: 'ORANGE_OAPI_COD', label: 'Orange Money' },
-  ],
-}
+import PaymentMethodsBanner from '@/components/PaymentMethodsBanner'
+import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders'
+import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc'
 
 function getStatusLabel(status) {
   const s = String(status || '').toLowerCase()
@@ -158,32 +151,17 @@ export default function ClientOrderPaymentPage() {
 
   const phoneAnalysis = useMemo(() => analyzeRdcMobileMoneyPhone(phone), [phone])
 
-  const operatorHint = useMemo(() => {
-    if (country !== 'DRC') return null
-    const manualLabel = provider
-      ? (selectedProviders.find((o) => o.value === provider)?.label ?? null)
-      : null
-    if (provider && manualLabel) {
-      return { type: 'manual', text: `Opérateur choisi : ${manualLabel}` }
-    }
-    if (!phoneAnalysis.complete) {
-      if (!String(phone || '').trim()) return null
-      return {
-        type: 'typing',
-        text: 'Saisissez un numéro RDC valide (9 chiffres après +243, ex. 82…, 97…).',
-      }
-    }
-    if (phoneAnalysis.detected) {
-      return {
-        type: 'ok',
-        text: `Réseau détecté à partir du numéro : ${phoneAnalysis.detected.label}`,
-      }
-    }
-    return {
-      type: 'warn',
-      text: 'Préfixe non reconnu. Utilisez un numéro Vodacom (81–83), Airtel (97–99) ou Orange (84, 85, 89).',
-    }
-  }, [country, provider, selectedProviders, phone, phoneAnalysis])
+  const operatorHint = useMemo(
+    () =>
+      buildRdcOperatorHint({
+        country,
+        rawPhone: phone,
+        phoneAnalysis,
+        provider,
+        providerOptions: selectedProviders,
+      }),
+    [country, phone, phoneAnalysis, provider, selectedProviders],
+  )
 
   const startPollingOrderStatus = useCallback(() => {
     if (!orderId) return
@@ -350,6 +328,7 @@ export default function ClientOrderPaymentPage() {
 
                   <div className="card">
                     <h3 className="text-xl font-semibold mb-4">Créer la commande</h3>
+                    <PaymentMethodsBanner compact className="mb-5" />
                     {error && (
                       <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">
                         {error}
@@ -431,6 +410,7 @@ export default function ClientOrderPaymentPage() {
                   ) : (
                     <div className="card">
                       <h3 className="text-xl font-semibold mb-4">Payer avec Mobile Money</h3>
+                      <PaymentMethodsBanner compact className="mb-5" />
                       {error && (
                         <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">
                           {error}
@@ -443,7 +423,7 @@ export default function ClientOrderPaymentPage() {
                       )}
 
                       <p className="text-white/60 text-sm mb-4">
-                        Paiement via <strong className="text-cyan-300">FlexPay</strong> (Mobile Money RDC uniquement).
+                        Paiement sécurisé par <strong className="text-cyan-200/90">Mobile Money</strong> (RDC uniquement).
                       </p>
 
                       <div className="grid gap-4 md:grid-cols-2">
@@ -493,7 +473,7 @@ export default function ClientOrderPaymentPage() {
                           </p>
                         )}
                         <p className="text-white/40 text-xs mt-2">
-                          L&apos;opérateur est identifié par les chiffres du numéro (comme sur le serveur FlexPay). Le menu « Opérateur » sert uniquement de rappel visuel — choisis « Détection automatique » ou précise l&apos;opérateur si tu préfères.
+                          L&apos;opérateur est identifié automatiquement à partir des chiffres de ton numéro. Le menu « Opérateur » sert uniquement de rappel visuel — choisis « Détection automatique » ou précise l&apos;opérateur si tu préfères.
                         </p>
                       </div>
 

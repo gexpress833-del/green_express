@@ -80,11 +80,11 @@ class FlexPayService
     ): array {
         $currency = strtoupper($currency);
         if (! in_array($currency, ['USD', 'CDF'], true)) {
-            throw new Exception('Devise non supportée par FlexPay (USD ou CDF uniquement).');
+            throw new Exception('Devise non supportée pour ce paiement (USD ou CDF uniquement).');
         }
 
         if (strlen($phone12Digits) !== 12 || ! preg_match('/^243\d{9}$/', $phone12Digits)) {
-            throw new Exception('Numéro FlexPay invalide : 12 chiffres attendus (ex. 243812345678).');
+            throw new Exception('Numéro invalide : 12 chiffres attendus (ex. 243812345678).');
         }
 
         if (config('flexpay.mock')) {
@@ -129,12 +129,12 @@ class FlexPayService
             if (! $response->successful()) {
                 Log::warning('FlexPay initiate HTTP error', ['status' => $response->status(), 'body' => $data]);
 
-                throw new Exception($data['message'] ?? 'Erreur FlexPay (HTTP ' . $response->status() . ').');
+                throw new Exception($data['message'] ?? 'Erreur du service de paiement (HTTP ' . $response->status() . ').');
             }
 
             $code = isset($data['code']) ? (int) $data['code'] : 1;
             if ($code !== 0) {
-                throw new Exception($data['message'] ?? 'Paiement refusé par FlexPay.');
+                throw new Exception($data['message'] ?? 'Paiement refusé par l’opérateur Mobile Money.');
             }
 
             $orderNumber = $data['orderNumber'] ?? $reference;
@@ -153,7 +153,7 @@ class FlexPayService
             }
             Log::error('FlexPay initiate exception', ['message' => $e->getMessage()]);
 
-            throw new Exception('Paiement indisponible : ' . $e->getMessage(), 0, $e);
+            throw new Exception('Paiement Mobile Money temporairement indisponible.', 0, $e);
         }
     }
 
