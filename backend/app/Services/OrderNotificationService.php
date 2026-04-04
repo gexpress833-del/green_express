@@ -24,11 +24,11 @@ class OrderNotificationService
 
         User::where('role', 'admin')->each(fn ($u) => $u->notify($notification));
 
-        // Client : code de livraison (paid + GX-…) ou confirmation de livraison terminée (delivered)
+        // Client : code de livraison (paid + GX-…), suivis intermédiaires, livraison terminée
         if ($order->user) {
             if ($to === 'paid' && $order->delivery_code) {
                 $order->user->notify($notification);
-            } elseif ($to === 'delivered') {
+            } elseif (in_array($to, ['pending', 'out_for_delivery', 'delivered'], true)) {
                 $order->user->notify($notification);
             }
         }

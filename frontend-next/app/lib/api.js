@@ -45,7 +45,7 @@ export async function getCsrfCookie() {
       (base.includes('localhost') || base.includes('127.0.0.1'));
     const hint = isLocal
       ? `Démarrez l’API dans un terminal : cd backend puis php artisan serve (port 8000). Vérifiez aussi MySQL et le fichier backend/.env.`
-      : `Vérifiez NEXT_PUBLIC_API_URL (ex. https://green-express-rdc.onrender.com) sur l’hébergeur du front puis redéployez.`;
+      : `Vérifiez NEXT_PUBLIC_API_URL (URL HTTPS de l’API Render, sans /api à la fin) sur Vercel puis redéployez le front.`;
     throw new Error(`Impossible de contacter le serveur. URL utilisée : ${base}. ${hint}`);
   }
   if (!res.ok) {
@@ -104,9 +104,10 @@ export function getApiErrorMessage(err) {
  * @param {object} options - fetch options (method, body, headers)
  */
 export async function apiRequest(path, options = {}) {
+  const { skipSessionExpiredOn401: _skipFlag, ...fetchOptions } = options;
   const fullURL = path.startsWith('http') ? path : `${API_BASE}${path}`;
-  const method = options.method || 'GET';
-  const headers = { ...defaultHeaders, ...options.headers };
+  const method = fetchOptions.method || 'GET';
+  const headers = { ...defaultHeaders, ...fetchOptions.headers };
   
   // Ajouter le token XSRF pour les requêtes non-GET
   if (method !== 'GET') {
@@ -117,12 +118,12 @@ export async function apiRequest(path, options = {}) {
   }
 
   // Pas de Content-Type pour FormData (upload)
-  if (options.body instanceof FormData) {
+  if (fetchOptions.body instanceof FormData) {
     delete headers['Content-Type'];
   }
 
   const res = await fetch(fullURL, {
-    ...options,
+    ...fetchOptions,
     credentials: 'include',
     headers,
   });
@@ -130,8 +131,15 @@ export async function apiRequest(path, options = {}) {
   if (res.status === 401) {
     const errorData = await res.json().catch(() => null);
     const isLoginOrRegister =
-      (path && (path.includes('/api/login') || path.includes('/api/register')));
-    if (!isLoginOrRegister && typeof window !== 'undefined') {
+      path && (path.includes('/api/login') || path.includes('/api/register'));
+    /** Polling / CRUD notifications : ne pas forcer reload (évite boucle si 401 ici alors que GET /api/user est OK). */
+    const isNotificationsNonBroadcast =
+      path &&
+      path.includes('/api/notifications') &&
+      !path.includes('/api/notifications/broadcast');
+    const skipSessionExpired =
+      Boolean(_skipFlag) || isNotificationsNonBroadcast;
+    if (!isLoginOrRegister && typeof window !== 'undefined' && !skipSessionExpired) {
       const returnUrl = encodeURIComponent(window.location.pathname || '/');
       window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { returnUrl } }));
     }

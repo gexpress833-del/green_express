@@ -16,6 +16,8 @@ const ROLE_LABELS = {
   livreur: 'Livreur',
   entreprise: 'Entreprise',
   verificateur: 'Vérificateur',
+  secretaire: 'Secrétariat',
+  agent: 'Agent',
 }
 
 /* Icônes SVG inline avec taille fixe — PAS de composants séparés */
@@ -244,7 +246,8 @@ export default function ProfilePage() {
 
   const initial = (user.name || user.email || 'U').charAt(0).toUpperCase()
   const avatarUrl = user.avatar_url || null
-  const roleLabel = ROLE_LABELS[user.role] || user.role || 'Utilisateur'
+  const roleLabel =
+    ROLE_LABELS[user.role] || (user.role ? String(user.role) : '—')
   const phoneDisplay = formatPhoneForProfile(user.phone)
   const dashboardHref = user.role ? `/${user.role}` : '/client'
   const subscriptionHref = user.role === 'entreprise' ? '/entreprise/subscriptions' : user.role === 'client' ? '/client/subscriptions' : null

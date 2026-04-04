@@ -91,7 +91,9 @@ class DeliveryController extends Controller
      */
     public function markDelivered(DeliveryLog $delivery, Request $request)
     {
-        $this->requireRole('admin', 'livreur');
+        if ($r = $this->requireAnyPermission($request, ['admin.deliveries', 'orders.update-delivery-status'])) {
+            return $r;
+        }
 
         if (!$this->canAccessCompany($delivery->company)) {
             return response()->json([
@@ -122,7 +124,9 @@ class DeliveryController extends Controller
      */
     public function markFailed(DeliveryLog $delivery, Request $request)
     {
-        $this->requireRole('admin', 'livreur');
+        if ($r = $this->requireAnyPermission($request, ['admin.deliveries', 'orders.update-delivery-status'])) {
+            return $r;
+        }
 
         if (!$this->canAccessCompany($delivery->company)) {
             return response()->json([
@@ -254,13 +258,15 @@ class DeliveryController extends Controller
     {
         $user = auth()->user();
 
-        // Admin et livreur peuvent voir tous
-        if ($this->hasRole('admin', 'livreur')) {
+        if ($user->hasPermissionTo('admin.companies') || $user->hasPermissionTo('admin.deliveries')) {
             return true;
         }
 
-        // Propriétaire de l'entreprise UNIQUEMENT
-        if ($company->contact_user_id === $user->id) {
+        if ($user->hasPermissionTo('orders.update-delivery-status')) {
+            return true;
+        }
+
+        if ($user->hasPermissionTo('entreprise.b2b.access') && $company->contact_user_id === $user->id) {
             return true;
         }
 

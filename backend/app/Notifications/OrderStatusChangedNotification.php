@@ -47,6 +47,12 @@ class OrderStatusChangedNotification extends Notification
                 $title = 'Commande payée — code livraison généré';
                 $message = "Commande #{$order->id} : code client {$code}.";
             }
+        } elseif ($this->to === 'pending' && $isClient) {
+            $title = 'Commande en préparation';
+            $message = "Votre commande n°{$order->id} est en cours de préparation en cuisine.";
+        } elseif ($this->to === 'out_for_delivery' && $isClient) {
+            $title = 'Commande en livraison';
+            $message = "Votre commande n°{$order->id} est en route. Présentez votre code au livreur à la réception.";
         } elseif ($this->to === 'delivered' && $isClient) {
             $title = 'Commande livrée';
             $message = "Votre commande n°{$order->id} a bien été livrée. Merci d’avoir choisi Green Express !";

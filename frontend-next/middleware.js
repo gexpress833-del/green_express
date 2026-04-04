@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 const PROTECTED_PREFIXES = [
   '/client',
   '/admin',
+  '/agent',
   '/profile',
   '/notifications',
   '/evenements',
@@ -11,6 +12,7 @@ const PROTECTED_PREFIXES = [
   '/livreur',
   '/cuisinier',
   '/verificateur',
+  '/secretaire',
 ]
 
 /** Cookie de session Laravel (Sanctum SPA). Présent après connexion. */
@@ -51,14 +53,28 @@ export function middleware(request) {
 
 export const config = {
   matcher: [
+    /* Inclure la racine exacte (ex. /client) : /client/:path* seul peut être ambigu selon la version du matcher. */
+    '/client',
     '/client/:path*',
+    '/admin',
     '/admin/:path*',
+    '/profile',
     '/profile/:path*',
+    '/notifications',
     '/notifications/:path*',
+    '/evenements',
     '/evenements/:path*',
+    '/entreprise',
     '/entreprise/:path*',
+    '/livreur',
     '/livreur/:path*',
+    '/cuisinier',
     '/cuisinier/:path*',
+    '/verificateur',
     '/verificateur/:path*',
+    '/agent',
+    '/agent/:path*',
+    '/secretaire',
+    '/secretaire/:path*',
   ],
 }

@@ -10,6 +10,7 @@ use App\Services\AppNotificationService;
 use App\Services\CloudinaryService;
 use App\Http\Requests\StorePromotionRequest;
 use App\Http\Requests\UpdatePromotionRequest;
+use App\Http\Traits\AdminRequiresPermission;
 use App\Http\Traits\RoleAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,7 @@ use Illuminate\Support\Str;
 
 class PromotionController extends Controller
 {
+    use AdminRequiresPermission;
     use RoleAccess;
 
     public function __construct(private AppNotificationService $appNotifications)
@@ -168,9 +170,8 @@ class PromotionController extends Controller
      */
     public function destroy(Request $request, $id)
     {
-        $user = $request->user();
-        if (!$user || $user->role !== 'admin') {
-            return response()->json(['message' => 'Accès refusé'], 403);
+        if ($r = $this->adminRequires($request, 'promotions.manage')) {
+            return $r;
         }
         $promo = Promotion::find($id);
         if (!$promo) {

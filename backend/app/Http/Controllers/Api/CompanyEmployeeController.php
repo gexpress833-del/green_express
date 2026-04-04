@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Traits\AdminRequiresPermission;
 use App\Http\Traits\RequireAuth;
 use App\Http\Traits\RoleAccess;
 use App\Models\Company;
@@ -17,6 +18,7 @@ use Illuminate\Validation\Rule;
  */
 class CompanyEmployeeController extends Controller
 {
+    use AdminRequiresPermission;
     use RoleAccess;
 
     private CompanyEmployeeService $employeeService;
@@ -90,7 +92,9 @@ class CompanyEmployeeController extends Controller
      */
     public function importFromCSV(Request $request, Company $company)
     {
-        $this->requireRole('admin', 'entreprise');
+        if ($r = $this->requireAnyPermission($request, ['admin.companies', 'company.employees.manage'])) {
+            return $r;
+        }
 
         if (!$this->canAccessCompany($company)) {
             return response()->json([
@@ -133,7 +137,9 @@ class CompanyEmployeeController extends Controller
      */
     public function store(Request $request, Company $company)
     {
-        $this->requireRole('admin', 'entreprise');
+        if ($r = $this->requireAnyPermission($request, ['admin.companies', 'company.employees.manage'])) {
+            return $r;
+        }
 
         if (!$this->canAccessCompany($company)) {
             return response()->json([
@@ -193,7 +199,9 @@ class CompanyEmployeeController extends Controller
      */
     public function update(Request $request, CompanyEmployee $employee)
     {
-        $this->requireRole('admin', 'entreprise');
+        if ($r = $this->requireAnyPermission($request, ['admin.companies', 'company.employees.manage'])) {
+            return $r;
+        }
 
         if (!$this->canAccessCompany($employee->company)) {
             return response()->json([
@@ -223,7 +231,9 @@ class CompanyEmployeeController extends Controller
      */
     public function activate(CompanyEmployee $employee)
     {
-        $this->requireRole('admin', 'entreprise');
+        if ($r = $this->requireAnyPermission($request, ['admin.companies', 'company.employees.manage'])) {
+            return $r;
+        }
 
         if (!$this->canAccessCompany($employee->company)) {
             return response()->json([
@@ -246,7 +256,9 @@ class CompanyEmployeeController extends Controller
      */
     public function deactivate(CompanyEmployee $employee)
     {
-        $this->requireRole('admin', 'entreprise');
+        if ($r = $this->requireAnyPermission($request, ['admin.companies', 'company.employees.manage'])) {
+            return $r;
+        }
 
         if (!$this->canAccessCompany($employee->company)) {
             return response()->json([
@@ -269,7 +281,9 @@ class CompanyEmployeeController extends Controller
      */
     public function resetPassword(CompanyEmployee $employee)
     {
-        $this->requireRole('admin', 'entreprise');
+        if ($r = $this->requireAnyPermission($request, ['admin.companies', 'company.employees.manage'])) {
+            return $r;
+        }
 
         if (!$this->canAccessCompany($employee->company)) {
             return response()->json([
@@ -290,9 +304,11 @@ class CompanyEmployeeController extends Controller
     /**
      * Supprimer un employé
      */
-    public function destroy(CompanyEmployee $employee)
+    public function destroy(Request $request, CompanyEmployee $employee)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.companies')) {
+            return $r;
+        }
 
         if (!$this->canAccessCompany($employee->company)) {
             return response()->json([
@@ -348,13 +364,11 @@ class CompanyEmployeeController extends Controller
     {
         $user = auth()->user();
 
-        // Admin peut voir tous
-        if ($this->hasRole('admin')) {
+        if ($user->canAsAdmin('admin.companies')) {
             return true;
         }
 
-        // Propriétaire de l'entreprise UNIQUEMENT
-        if ($company->contact_user_id === $user->id) {
+        if ($company->contact_user_id === $user->id && $user->hasPermissionTo('entreprise.b2b.access')) {
             return true;
         }
 

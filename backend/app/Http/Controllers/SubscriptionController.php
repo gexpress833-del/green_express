@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\AdminRequiresPermission;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
@@ -13,6 +14,8 @@ use Illuminate\Support\Str;
 
 class SubscriptionController extends Controller
 {
+    use AdminRequiresPermission;
+
     public function __construct(private AppNotificationService $appNotifications)
     {
     }
@@ -28,13 +31,13 @@ class SubscriptionController extends Controller
             'subscriptionPlan' => fn ($q) => $q->with(['items' => fn ($iq) => $iq->orderBy('sort_order')->limit(8)]),
         ])->orderByDesc('created_at');
 
-        if ($user->role !== 'admin') {
+        if (! $user->canAsAdmin('admin.subscriptions')) {
             $query->where('user_id', $user->id);
         }
 
         $list = $query->get();
 
-        if ($user->role === 'admin') {
+        if ($user->canAsAdmin('admin.subscriptions')) {
             $list->each(function (Subscription $sub) {
                 $sub->has_payment_received = Payment::where('subscription_id', $sub->id)
                     ->whereIn('status', ['completed', 'paid'])->exists();
@@ -101,7 +104,7 @@ class SubscriptionController extends Controller
         $subscription = Subscription::findOrFail($id);
         $user = $request->user();
 
-        if ($subscription->user_id !== $user->id && $user->role !== 'admin') {
+        if ($subscription->user_id !== $user->id && ! $user->canAsAdmin('admin.subscriptions')) {
             return response()->json(['message' => 'Non autorisé.'], 403);
         }
         if (! $subscription->isPending()) {
@@ -189,8 +192,8 @@ class SubscriptionController extends Controller
      */
     public function validateSubscription(Request $request, int $id)
     {
-        if ($request->user()->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.subscriptions')) {
+            return $r;
         }
 
         $subscription = Subscription::findOrFail($id);
@@ -209,8 +212,8 @@ class SubscriptionController extends Controller
      */
     public function rejectSubscription(Request $request, int $id)
     {
-        if ($request->user()->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.subscriptions')) {
+            return $r;
         }
 
         $subscription = Subscription::findOrFail($id);
@@ -238,8 +241,8 @@ class SubscriptionController extends Controller
      */
     public function storeForUser(Request $request)
     {
-        if ($request->user()->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.subscriptions')) {
+            return $r;
         }
 
         $data = $request->validate([
@@ -276,8 +279,8 @@ class SubscriptionController extends Controller
      */
     public function pauseSubscription(Request $request, int $id)
     {
-        if ($request->user()->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.subscriptions')) {
+            return $r;
         }
         $subscription = Subscription::findOrFail($id);
         if (!$subscription->isActive()) {
@@ -293,8 +296,8 @@ class SubscriptionController extends Controller
      */
     public function resumeSubscription(Request $request, int $id)
     {
-        if ($request->user()->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.subscriptions')) {
+            return $r;
         }
         $subscription = Subscription::findOrFail($id);
         if (!$subscription->isPaused()) {
@@ -310,8 +313,8 @@ class SubscriptionController extends Controller
      */
     public function cancelSubscription(Request $request, int $id)
     {
-        if ($request->user()->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.subscriptions')) {
+            return $r;
         }
         $subscription = Subscription::findOrFail($id);
         if (in_array($subscription->status, [Subscription::STATUS_CANCELLED, Subscription::STATUS_REJECTED], true)) {

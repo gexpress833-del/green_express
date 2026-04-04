@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\AdminRequiresPermission;
 use App\Jobs\GenerateReportJob;
 use App\Models\Report;
 use Illuminate\Http\Request;
@@ -9,22 +10,30 @@ use Illuminate\Support\Facades\Storage;
 
 class ReportController extends Controller
 {
+    use AdminRequiresPermission;
+
     /**
      * Liste des rapports (admin) : historique pour la page Rapports.
      */
     public function index(Request $request)
     {
+        if ($r = $this->adminRequires($request, 'admin.reports')) {
+            return $r;
+        }
+
         $query = Report::with('generatedByUser')->orderBy('created_at', 'desc');
         $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
+
         return $query->paginate($perPage);
     }
 
     public function generate(Request $request)
     {
-        $user = $request->user();
-        if (!$user) {
-            return response()->json(['message' => 'Non authentifié'], 401);
+        if ($r = $this->adminRequires($request, 'admin.reports')) {
+            return $r;
         }
+
+        $user = $request->user();
 
         $data = $request->validate([
             'type' => 'required|string|in:orders,users,subscriptions,payments,event_requests,activity_summary',
@@ -40,9 +49,6 @@ class ReportController extends Controller
             'status' => 'queued',
         ]);
 
-        // Génération synchronisée :
-        // sur certaines plateformes (ou sans worker de queue), le job en asynchrone ne se termine pas rapidement,
-        // ce qui empêche l'affichage du bouton "Télécharger".
         $job = new GenerateReportJob($report);
         $job->handle();
 
@@ -54,29 +60,30 @@ class ReportController extends Controller
      */
     public function download(Request $request, int $id)
     {
+        if ($r = $this->adminRequires($request, 'admin.reports')) {
+            return $r;
+        }
+
         $report = Report::find($id);
-        if (!$report) {
+        if (! $report) {
             return response()->json(['message' => 'Rapport introuvable'], 404);
         }
 
-        if (!$report->file_path) {
+        if (! $report->file_path) {
             return response()->json(['message' => 'Rapport pas encore généré (file_path manquant)'], 404);
         }
 
         $disk = Storage::disk('local');
-        if (!$disk->exists($report->file_path)) {
-            // Le statut peut être "completed" mais le fichier peut avoir disparu (ex: container restart / stockage non persistant).
-            // On tente une régénération synchronisée avant d’échouer.
+        if (! $disk->exists($report->file_path)) {
             try {
                 $report->update(['status' => 'processing']);
                 $job = new GenerateReportJob($report);
                 $job->handle();
                 $report->refresh();
             } catch (\Throwable $e) {
-                // On retente seulement une fois ; le message ci-dessous sera renvoyé.
             }
 
-            if (!$report->file_path || !$disk->exists($report->file_path)) {
+            if (! $report->file_path || ! $disk->exists($report->file_path)) {
                 return response()->json([
                     'message' => 'Fichier introuvable après régénération. Réessayez plus tard.',
                 ], 404);
@@ -85,6 +92,7 @@ class ReportController extends Controller
 
         $typeLabel = $report->params['type'] ?? 'rapport';
         $filename = 'rapport-' . $typeLabel . '-' . $report->id . '.pdf';
+
         return Storage::disk('local')->download($report->file_path, $filename, ['Content-Type' => 'application/pdf']);
     }
 
@@ -93,14 +101,19 @@ class ReportController extends Controller
      */
     public function destroy(Request $request, int $id)
     {
+        if ($r = $this->adminRequires($request, 'admin.reports')) {
+            return $r;
+        }
+
         $report = Report::find($id);
-        if (!$report) {
+        if (! $report) {
             return response()->json(['message' => 'Rapport introuvable'], 404);
         }
         if ($report->file_path && Storage::disk('local')->exists($report->file_path)) {
             Storage::disk('local')->delete($report->file_path);
         }
         $report->delete();
+
         return response()->json(['message' => 'Rapport supprimé'], 200);
     }
 }

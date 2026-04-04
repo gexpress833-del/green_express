@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\AdminRequiresPermission;
 use App\Models\AgentApproval;
 use App\Models\User;
 use App\Models\Company;
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\Auth;
 
 class AgentApprovalController extends Controller
 {
+    use AdminRequiresPermission;
+
     /**
      * Entreprise crée une demande d'approbation d'agent
      */
@@ -80,15 +83,11 @@ class AgentApprovalController extends Controller
      */
     public function approveAgent(Request $request, AgentApproval $agentApproval)
     {
-        $admin = $request->user();
-
-        // Vérifier que c'est un admin
-        if ($admin->role !== 'admin') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Accès refusé. Seuls les administrateurs peuvent approuver les agents.',
-            ], 403);
+        if ($r = $this->adminRequires($request, 'admin.agents')) {
+            return $r;
         }
+
+        $admin = $request->user();
 
         if ($agentApproval->status !== 'pending') {
             return response()->json([
@@ -137,15 +136,11 @@ class AgentApprovalController extends Controller
      */
     public function rejectAgent(Request $request, AgentApproval $agentApproval)
     {
-        $admin = $request->user();
-
-        // Vérifier que c'est un admin
-        if ($admin->role !== 'admin') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Accès refusé. Seuls les administrateurs peuvent rejeter les demandes.',
-            ], 403);
+        if ($r = $this->adminRequires($request, 'admin.agents')) {
+            return $r;
         }
+
+        $admin = $request->user();
 
         if ($agentApproval->status !== 'pending') {
             return response()->json([
@@ -186,12 +181,11 @@ class AgentApprovalController extends Controller
     {
         $user = $request->user();
 
-        if ($user->role === 'admin') {
-            // Admin voit toutes les demandes
+        if ($user->canAsAdmin('admin.agents')) {
             $requests = AgentApproval::with(['company', 'approvedBy'])
                 ->orderBy('created_at', 'desc')
                 ->paginate(20);
-        } elseif ($user->role === 'entreprise') {
+        } elseif ($user->hasPermissionTo('entreprise.b2b.access')) {
             // Entreprise voit ses demandes
             $company = Company::where('contact_user_id', $user->id)->first();
             if (!$company) {

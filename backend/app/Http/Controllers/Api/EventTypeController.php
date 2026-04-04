@@ -2,22 +2,29 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\EventType;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Traits\AdminRequiresPermission;
+use App\Models\EventType;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class EventTypeController extends Controller
 {
+    use AdminRequiresPermission;
+
     public function index(Request $request): JsonResponse
     {
         $query = EventType::orderBy('sort_order');
-        
-        // Si include_inactive=true, inclure les inactifs (utile pour l'admin)
-        if (!$request->query('include_inactive')) {
+
+        if ($request->boolean('include_inactive')) {
+            $user = $request->user();
+            if (! $user || ! $user->canAsAdmin('admin.event-types')) {
+                $query->where('is_active', true);
+            }
+        } else {
             $query->where('is_active', true);
         }
-        
+
         $eventTypes = $query->get()->map(fn ($type) => [
             'id' => $type->id,
             'title' => $type->title,
@@ -35,8 +42,8 @@ class EventTypeController extends Controller
     public function show($id): JsonResponse
     {
         $eventType = EventType::find($id);
-        
-        if (!$eventType) {
+
+        if (! $eventType) {
             return response()->json([
                 'success' => false,
                 'message' => 'Type d\'événement non trouvé',
@@ -57,6 +64,10 @@ class EventTypeController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        if ($r = $this->adminRequires($request, 'admin.event-types')) {
+            return $r;
+        }
+
         $validated = $request->validate([
             'title' => 'required|string|max:255|unique:event_types,title',
             'description' => 'nullable|string',
@@ -81,9 +92,13 @@ class EventTypeController extends Controller
 
     public function update(Request $request, $id): JsonResponse
     {
+        if ($r = $this->adminRequires($request, 'admin.event-types')) {
+            return $r;
+        }
+
         $eventType = EventType::find($id);
-        
-        if (!$eventType) {
+
+        if (! $eventType) {
             return response()->json([
                 'success' => false,
                 'message' => 'Type d\'événement non trouvé',
@@ -112,11 +127,15 @@ class EventTypeController extends Controller
         ]);
     }
 
-    public function destroy($id): JsonResponse
+    public function destroy(Request $request, $id): JsonResponse
     {
+        if ($r = $this->adminRequires($request, 'admin.event-types')) {
+            return $r;
+        }
+
         $eventType = EventType::find($id);
-        
-        if (!$eventType) {
+
+        if (! $eventType) {
             return response()->json([
                 'success' => false,
                 'message' => 'Type d\'événement non trouvé',

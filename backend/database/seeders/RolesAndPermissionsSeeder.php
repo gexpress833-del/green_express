@@ -3,16 +3,17 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Support\PermissionCatalog;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
- * Crée les rôles et permissions (Spatie) et les assigne.
- * Rôles existants Green Express : admin, client, cuisinier, livreur, entreprise, verificateur.
+ * Crée les permissions (Spatie) et les rattache aux rôles selon config/roles.php.
+ * Le rôle admin reçoit toutes les permissions connues.
  *
- * Exécution : php artisan db:seed --class=RolesAndPermissionsSeeder
+ * php artisan db:seed --class=RolesAndPermissionsSeeder
  */
 class RolesAndPermissionsSeeder extends Seeder
 {
@@ -20,45 +21,30 @@ class RolesAndPermissionsSeeder extends Seeder
     {
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Permissions (nom = string unique)
-        $permissions = [
-            'gérer utilisateurs',
-            'gérer commandes',
-            'voir statistiques',
-            'gérer menus',
-            'gérer promotions',
-            'gérer entreprises',
-            'valider livraisons',
-            'valider tickets promotion',
-        ];
-
-        foreach ($permissions as $name) {
+        $allNames = PermissionCatalog::allPermissionNames();
+        foreach ($allNames as $name) {
             Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
         }
 
-        // Rôles et leurs permissions
-        $roles = [
-            'admin' => ['gérer utilisateurs', 'gérer commandes', 'voir statistiques', 'gérer menus', 'gérer promotions', 'gérer entreprises'],
-            'client' => ['voir statistiques'],
-            'cuisinier' => ['gérer menus', 'voir statistiques'],
-            'livreur' => ['voir statistiques', 'valider livraisons'],
-            'entreprise' => ['voir statistiques', 'gérer commandes'],
-            'verificateur' => ['voir statistiques', 'valider tickets promotion'],
-        ];
+        $rolesConfig = config('roles.roles', []);
 
-        foreach ($roles as $roleName => $permNames) {
+        foreach ($rolesConfig as $roleName => $meta) {
             $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
-            $role->syncPermissions($permNames);
-        }
-
-        // Assigner le rôle Spatie à chaque user selon sa colonne role
-        $users = User::all();
-        foreach ($users as $user) {
-            $roleName = $user->role ?? 'client';
-            $role = Role::where('name', $roleName)->first();
-            if ($role && ! $user->hasRole($roleName)) {
-                $user->assignRole($role);
+            if ($roleName === 'admin') {
+                $role->syncPermissions(Permission::where('guard_name', 'web')->pluck('name')->all());
+            } else {
+                $role->syncPermissions($meta['permissions'] ?? []);
             }
         }
+
+        foreach (User::query()->cursor() as $user) {
+            $roleName = $user->role ?? 'client';
+            if (! Role::where('name', $roleName)->where('guard_name', 'web')->exists()) {
+                continue;
+            }
+            $user->syncRoles([$roleName]);
+        }
+
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
     }
 }

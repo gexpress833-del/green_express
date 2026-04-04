@@ -11,6 +11,7 @@ import Link from 'next/link'
     icon         – emoji optionnel
     desktopExtra – contenu JSX supplémentaire (desktop uniquement)
     backHref     – lien retour (défaut : /client)
+  backLabel    – libellé du lien retour (défaut : Tableau de bord)
 */
 export default function ClientSubpageHeader({
   title,
@@ -18,6 +19,7 @@ export default function ClientSubpageHeader({
   icon,
   desktopExtra = null,
   backHref = '/client',
+  backLabel = 'Tableau de bord',
 }) {
   return (
     <>
@@ -34,7 +36,7 @@ export default function ClientSubpageHeader({
             textDecoration: 'none', fontSize: 13, fontWeight: 600,
             WebkitTapHighlightColor: 'transparent',
           }}>
-            ← Tableau de bord
+            ← {backLabel}
           </Link>
         </div>
 
@@ -68,7 +70,7 @@ export default function ClientSubpageHeader({
           textDecoration: 'none', fontSize: 13, fontWeight: 600,
           marginBottom: 24,
         }}>
-          ← Tableau de bord
+          ← {backLabel}
         </Link>
 
         <header className="mb-8 fade-in">

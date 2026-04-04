@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\AdminRequiresPermission;
 use App\Models\User;
 use App\Services\AppNotificationService;
 use Illuminate\Http\Request;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Log;
 
 class NotificationController extends Controller
 {
+    use AdminRequiresPermission;
+
     /**
      * Résout une notification par clé primaire et vérifie qu’elle appartient à l’utilisateur.
      * (Compat notifiable_type : App\Models\User vs App\User, etc.)
@@ -50,9 +53,12 @@ class NotificationController extends Controller
 
     public function index(Request $request)
     {
-        $user = $request->user();
+        $user = $request->user('api');
         if (! $user) {
-            return response()->json(['message' => 'Non authentifié'], 401);
+            return response()->json([
+                'unread_count' => 0,
+                'notifications' => [],
+            ]);
         }
 
         try {
@@ -66,6 +72,7 @@ class NotificationController extends Controller
                 'verificateur' => 'Vérificateur',
                 'cuisinier' => 'Cuisinier',
                 'entreprise' => 'Entreprise',
+                'secretaire' => 'Secrétariat',
                 'system' => 'Système',
             ];
             $notifications = $user->notifications()
@@ -120,7 +127,7 @@ class NotificationController extends Controller
 
     public function markRead(Request $request, string $id)
     {
-        $user = $request->user();
+        $user = $request->user('api');
         if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
@@ -140,7 +147,7 @@ class NotificationController extends Controller
 
     public function markAllRead(Request $request)
     {
-        $user = $request->user();
+        $user = $request->user('api');
         if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
@@ -155,7 +162,7 @@ class NotificationController extends Controller
 
     public function destroy(Request $request, string $id)
     {
-        $user = $request->user();
+        $user = $request->user('api');
         if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
@@ -175,7 +182,7 @@ class NotificationController extends Controller
 
     public function destroyAll(Request $request)
     {
-        $user = $request->user();
+        $user = $request->user('api');
         if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
@@ -195,11 +202,11 @@ class NotificationController extends Controller
      */
     public function broadcastAnnouncement(Request $request, AppNotificationService $appNotifications)
     {
-        $user = $request->user();
-        if (! $user || $user->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.notifications.broadcast')) {
+            return $r;
         }
 
+        $user = $request->user('api');
         $data = $request->validate([
             'title' => 'required|string|max:255',
             'message' => 'required|string|max:5000',

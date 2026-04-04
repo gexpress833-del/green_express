@@ -31,9 +31,9 @@ export default function VerifierDashboard(){
   }, [])
 
   return (
-    <section className="page-section min-h-screen">
-      <div className="container">
-        <DashboardGreeting>
+    <section className="page-section page-section--admin-tight min-h-screen">
+      <div className="mx-auto w-full max-w-[1400px]">
+        <DashboardGreeting compact>
           <h1 className="text-4xl font-bold mb-2" style={{
             background: 'linear-gradient(135deg, #0096ff 0%, #00ffff 100%)',
             WebkitBackgroundClip: 'text',
@@ -47,7 +47,7 @@ export default function VerifierDashboard(){
 
         <div className="dashboard-grid">
           <VerificateurSidebar />
-          <main className="main-panel">
+          <main className="main-panel min-h-0">
             {loading ? (
               <div className="card text-center py-12">
                 <p className="text-white/60">Chargement...</p>

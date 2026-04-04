@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Traits\AdminRequiresPermission;
 use App\Http\Traits\RequireAuth;
 use App\Http\Traits\RoleAccess;
+use Illuminate\Http\Request;
 use App\Models\Company;
 use App\Models\CompanySubscription;
 use App\Models\EmployeeMealPlan;
@@ -17,6 +19,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ExportController extends Controller
 {
+    use AdminRequiresPermission;
     use RoleAccess;
 
     private ExportService $exportService;
@@ -83,9 +86,9 @@ class ExportController extends Controller
     {
         // Vérifie que c'est bien l'employé ou un admin
         $isEmployee = auth()->user()->employee && auth()->user()->employee->id === $mealPlan->employee_id;
-        $isAdmin = $this->hasRole('admin');
+        $isAdmin = auth()->user() && auth()->user()->canAsAdmin('admin.exports');
 
-        if (!($isAdmin || $isEmployee)) {
+        if (! ($isAdmin || $isEmployee)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Non autorisé',
@@ -108,9 +111,11 @@ class ExportController extends Controller
      * PDF liste des agents d'une entreprise (pour les livreurs).
      * Réservé à l'admin.
      */
-    public function companyAgentsPDF(Company $company)
+    public function companyAgentsPDF(Request $request, Company $company)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.exports')) {
+            return $r;
+        }
 
         try {
             $filepath = $this->exportService->generateCompanyAgentsPDF($company);
@@ -199,13 +204,11 @@ class ExportController extends Controller
     {
         $user = auth()->user();
 
-        // Admin peut voir tous
-        if ($this->hasRole('admin')) {
+        if ($user && $user->canAsAdmin('admin.exports')) {
             return true;
         }
 
-        // Propriétaire de l'entreprise UNIQUEMENT
-        if ($company->contact_user_id === $user->id) {
+        if ($user && $company->contact_user_id === $user->id && $user->hasPermissionTo('entreprise.b2b.access')) {
             return true;
         }
 

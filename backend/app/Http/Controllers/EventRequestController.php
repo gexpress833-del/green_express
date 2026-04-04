@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\AdminRequiresPermission;
 use App\Models\EventRequest;
 use App\Notifications\EventRequestRespondedNotification;
 use Illuminate\Http\Request;
 
 class EventRequestController extends Controller
 {
+    use AdminRequiresPermission;
+
     /**
      * Enregistrer une demande de devis événementiel (client connecté obligatoire).
      * Nom et email sont pris du compte connecté.
@@ -56,8 +59,8 @@ class EventRequestController extends Controller
         if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
-        if ($user->role !== 'admin') {
-            return response()->json(['message' => 'Accès refusé'], 403);
+        if ($r = $this->adminRequires($request, 'admin.event-requests')) {
+            return $r;
         }
 
         $list = EventRequest::with('user:id,name,email')
@@ -73,11 +76,11 @@ class EventRequestController extends Controller
      */
     public function update(Request $request, int $id)
     {
-        $admin = $request->user();
-        if (! $admin || $admin->role !== 'admin') {
-            return response()->json(['message' => 'Accès refusé'], 403);
+        if ($r = $this->adminRequires($request, 'admin.event-requests')) {
+            return $r;
         }
 
+        $admin = $request->user();
         $eventRequest = EventRequest::find($id);
         if (! $eventRequest) {
             return response()->json(['message' => 'Demande introuvable'], 404);

@@ -2,20 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\AdminRequiresPermission;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
+    use AdminRequiresPermission;
+
     /**
      * Admin : liste paginée des paiements avec filtres.
      */
     public function index(Request $request)
     {
-        $user = $request->user();
-        if (! $user || $user->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.payments')) {
+            return $r;
         }
 
         $query = Payment::query()
@@ -48,9 +50,8 @@ class PaymentController extends Controller
      */
     public function stats(Request $request)
     {
-        $user = $request->user();
-        if (! $user || $user->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.payments')) {
+            return $r;
         }
 
         $base = Payment::query();
@@ -69,11 +70,11 @@ class PaymentController extends Controller
      */
     public function reconcile(Request $request)
     {
-        $user = $request->user();
-        if (! $user || $user->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.payments')) {
+            return $r;
         }
 
+        $user = $request->user();
         Log::info('Admin triggered payment reconciliation', ['user_id' => $user->id]);
 
         return response()->json([

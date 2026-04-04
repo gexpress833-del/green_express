@@ -101,7 +101,9 @@ class EmployeeMealPlanController extends Controller
      */
     public function store(Request $request, CompanySubscription $subscription)
     {
-        $this->requireRole('admin', 'entreprise');
+        if ($r = $this->requireAnyPermission($request, ['admin.company-subscriptions', 'b2b.meal-plans.manage'])) {
+            return $r;
+        }
 
         $validated = $request->validate([
             'employee_id' => 'required|exists:company_employees,id',
@@ -260,18 +262,19 @@ class EmployeeMealPlanController extends Controller
      */
     public function destroy(EmployeeMealPlan $mealPlan)
     {
-        // L'admin peut supprimer, l'employé ne peut que les brouillons
-        $isAdmin = $this->hasRole('admin');
-        $isEmployee = auth()->user()->employee && auth()->user()->employee->id === $mealPlan->employee_id;
+        $user = auth()->user();
+        $isAdminScope = $user->canAsAdmin('admin.company-subscriptions')
+            || $user->hasPermissionTo('b2b.meal-plans.manage');
+        $isEmployee = $user->employee && $user->employee->id === $mealPlan->employee_id;
 
-        if (!($isAdmin || $isEmployee)) {
+        if (! ($isAdminScope || $isEmployee)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Non autorisé',
             ], 403);
         }
 
-        if (!$isAdmin && $mealPlan->status !== 'draft') {
+        if (! $isAdminScope && $mealPlan->status !== 'draft') {
             return response()->json([
                 'success' => false,
                 'message' => 'Seuls les brouillons peuvent être supprimés',

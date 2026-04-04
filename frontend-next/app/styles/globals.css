@@ -835,6 +835,17 @@ input::placeholder {
   box-shadow: 0 0 20px rgba(57, 255, 20, 0.3);
 }
 
+/* Secrétariat — éviter une grande zone vide sous le tableau de bord */
+.secretaire-dashboard .main-panel {
+  min-height: 0;
+}
+
+/* Secrétariat — le .container du layout pad déjà : on évite le double padding latéral + l’air en trop en haut */
+.secretaire-dashboard.page-section.page-section--admin-tight {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 /* Dashboard layout */
 .dashboard-grid {
   display: grid;
@@ -1525,7 +1536,7 @@ input::placeholder {
   .page-section { padding: 2rem; }
 }
 
-/* Pages admin : moins d’air en haut (le layout fournit déjà le .container) */
+/* Dashboards admin / secrétariat : moins d’air en haut (le layout fournit déjà le .container) */
 .page-section--admin-tight {
   padding-top: 0.35rem;
   padding-bottom: 1rem;
@@ -3787,4 +3798,62 @@ button.client-sub-ongoing__day:hover {
   font-size: 0.875rem;
   color: rgba(255, 255, 255, 0.45);
   margin: 0;
+}
+
+/* Texte réservé aux lecteurs d’écran */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Accessibilité : lien d’évitement (clavier), focus visible */
+.skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.skip-link:focus {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 10px 16px;
+  clip: auto;
+  overflow: visible;
+  z-index: 10000;
+  background: #0b1220;
+  color: #e0fbff;
+  border: 2px solid #00ffff;
+  border-radius: 10px;
+  font-weight: 600;
+  text-decoration: none;
+}
+#contenu-client:focus,
+#contenu-secretaire:focus {
+  outline: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--color-neon-cyan, #00ffff);
+  outline-offset: 2px;
 }

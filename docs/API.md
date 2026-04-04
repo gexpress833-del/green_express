@@ -41,7 +41,7 @@ Une spécification OpenAPI minimale est disponible dans [openapi.yaml](openapi.y
 |--------|----------|-------------|
 | GET | `/orders` | Liste (admin: tout, autre: ses commandes) |
 | POST | `/orders` | Créer une commande |
-| POST | `/orders/{id}/initiate-payment` | Initier un paiement Mobile Money via pawaPay |
+| POST | `/orders/{id}/initiate-payment` | Initier un paiement Mobile Money via FlexPay |
 | POST | `/orders/{uuid}/validate-code` | Valider code livraison |
 
 **Création (POST /orders)** : `items` (array de `{menu_id, quantity, price?}`), `delivery_address`, `company_id?`.
@@ -90,7 +90,7 @@ Le backend appelle l’API FlexPay, stocke un `Payment` avec `provider = flexpay
 | GET | `/entreprise/stats` | Stats entreprise |
 | GET | `/subscriptions` | Liste abonnements |
 | POST | `/subscriptions` | Créer abonnement |
-| POST | `/subscriptions/{id}/initiate-payment` | Initier paiement d’abonnement via pawaPay |
+| POST | `/subscriptions/{id}/initiate-payment` | Initier paiement d’abonnement via FlexPay |
 | GET | `/users` | Liste utilisateurs (admin) |
 | POST | `/users/{id}/role` | Changer rôle (admin) |
 | POST | `/reports/generate` | Générer rapport |

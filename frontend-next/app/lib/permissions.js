@@ -13,58 +13,153 @@
  * }
  */
 
-// Définition des rôles et permissions
+/**
+ * Repli UI si l’API ne renvoie pas encore `user.permissions` (aligné sur backend/config/roles.php).
+ */
 const ROLES_CONFIG = {
-  'admin': {
+  admin: {
     label: 'Administrateur',
     permissions: [
-      'users.create', 'users.edit', 'users.delete', 'users.list',
-      'menus.create', 'menus.edit', 'menus.delete', 'menus.list', 'menus.approve',
-      'orders.list', 'orders.view', 'orders.cancel',
-      'stats.admin.view', 'stats.client.view', 'stats.cuisinier.view',
+      'users.create',
+      'users.edit',
+      'users.delete',
+      'users.assign-role',
+      'users.list',
+      'menus.create',
+      'menus.edit',
+      'menus.delete',
+      'menus.view',
+      'menus.approve',
+      'menus.reject',
+      'menus.list',
+      'orders.create',
+      'orders.edit',
+      'orders.delete',
+      'orders.view',
+      'orders.list',
+      'orders.cancel',
+      'promotions.create',
+      'promotions.edit',
+      'promotions.delete',
+      'promotions.view',
+      'promotions.claim',
+      'promotions.list',
       'promotions.manage',
-    ]
+      'stats.admin.view',
+      'stats.client.view',
+      'stats.cuisinier.view',
+      'stats.livreur.view',
+      'stats.verificateur.view',
+      'stats.entreprise.view',
+      'subscriptions.create',
+      'subscriptions.edit',
+      'subscriptions.delete',
+      'subscriptions.list',
+      'roles.manage_permissions',
+      'admin.companies',
+      'admin.payments',
+      'admin.reports',
+      'admin.deliveries',
+      'admin.event-requests',
+      'admin.event-types',
+      'admin.notifications.broadcast',
+      'admin.subscription-plans',
+      'admin.subscriptions',
+      'admin.company-subscriptions',
+      'admin.operational',
+      'admin.agents',
+      'admin.exports',
+      'operational.subscriptions.view',
+    ],
   },
-  'cuisinier': {
+  cuisinier: {
     label: 'Cuisinier',
     permissions: [
-      'menus.create', 'menus.edit-own', 'menus.delete-own',
+      'menus.create',
+      'menus.edit-own',
+      'menus.delete-own',
+      'menus.view-own',
+      'menus.list-own',
       'orders.view-own-menus',
+      'orders.list-own-menus',
+      'orders.change-status',
+      'orders.assign-livreur',
       'stats.cuisinier.view',
-    ]
+      'operational.subscriptions.view',
+    ],
   },
-  'client': {
+  client: {
     label: 'Client',
     permissions: [
-      'menus.view', 'menus.browse',
-      'orders.create', 'orders.view-own', 'orders.cancel-own',
-      'promotions.view', 'promotions.claim',
-      'subscriptions.manage',
+      'menus.view-approved',
+      'menus.list-approved',
+      'orders.create',
+      'orders.view-own',
+      'orders.list-own',
+      'orders.cancel-own',
+      'promotions.view',
+      'promotions.claim',
+      'promotions.list',
+      'subscriptions.create',
+      'subscriptions.cancel-own',
+      'subscriptions.view-own',
       'stats.client.view',
-    ]
+    ],
   },
-  'livreur': {
+  livreur: {
     label: 'Livreur',
     permissions: [
-      'orders.view-assignments', 'orders.update-delivery',
+      'orders.view-assignments',
+      'orders.list-assignments',
+      'orders.update-delivery-status',
+      'orders.validate-delivery-code',
       'stats.livreur.view',
-    ]
+    ],
   },
-  'verificateur': {
+  verificateur: {
     label: 'Vérificateur',
     permissions: [
-      'promotions.validate',
+      'promotions.validate-ticket',
+      'promotions.view',
+      'promotions.list',
       'stats.verificateur.view',
-    ]
+    ],
   },
-  'entreprise': {
-    label: 'Chef d\'entreprise',
+  entreprise: {
+    label: "Chef d'entreprise",
     permissions: [
+      'entreprise.b2b.access',
+      'company.employees.manage',
+      'b2b.meal-plans.manage',
       'users.view-own',
+      'users.list-own',
       'orders.view-own',
-      'subscriptions.manage',
+      'orders.list-own',
+      'subscriptions.create',
+      'subscriptions.view-own',
+      'subscriptions.list-own',
       'stats.entreprise.view',
-    ]
+    ],
+  },
+  secretaire: {
+    label: 'Secrétariat',
+    permissions: [
+      'orders.list',
+      'orders.view',
+      'orders.edit',
+      'orders.assign-livreur',
+      'livreur.assignments.view-all',
+      'stats.secretaire.view',
+    ],
+  },
+  agent: {
+    label: 'Agent',
+    permissions: [
+      'menus.view-approved',
+      'menus.list-approved',
+      'agent.dashboard',
+      'agent.meal-plans',
+    ],
   },
 }
 
@@ -112,12 +207,16 @@ export function canPerform(permission, user = null) {
     const userStr = localStorage.getItem('user')
     user = userStr ? JSON.parse(userStr) : null
   }
-  
+
   if (!user || !user.role) return false
-  
+
+  if (Array.isArray(user.permissions) && user.permissions.length > 0) {
+    return user.permissions.includes(permission)
+  }
+
   const roleConfig = ROLES_CONFIG[user.role]
   if (!roleConfig) return false
-  
+
   return roleConfig.permissions.includes(permission)
 }
 
@@ -126,15 +225,27 @@ export function canPerform(permission, user = null) {
  * @param {string} role - Rôle (optionnel, utilise le rôle de l'utilisateur storé si non fourni)
  * @returns {array}
  */
-export function getPermissions(role = null) {
+export function getPermissions(role = null, user = null) {
+  if (!user && typeof window !== 'undefined') {
+    const userStr = localStorage.getItem('user')
+    user = userStr ? JSON.parse(userStr) : null
+  }
+
+  if (user && Array.isArray(user.permissions) && user.permissions.length > 0) {
+    return user.permissions
+  }
+
+  if (!role && user) {
+    role = user.role
+  }
   if (!role && typeof window !== 'undefined') {
     const userStr = localStorage.getItem('user')
-    const user = userStr ? JSON.parse(userStr) : null
-    role = user ? user.role : null
+    const u = userStr ? JSON.parse(userStr) : null
+    role = u ? u.role : null
   }
-  
+
   if (!role) return []
-  
+
   const roleConfig = ROLES_CONFIG[role]
   return roleConfig ? roleConfig.permissions : []
 }
@@ -182,16 +293,28 @@ export function getRoleLabel(role) {
 }
 
 /**
+ * Rôles connus côté API (UserController) — chaque rôle a une route /{role} dans le front.
+ * Ne pas retomber sur /client pour un rôle staff inconnu : préférer /profile.
+ */
+const DASHBOARD_ROLE_ORDER = [
+  'admin', 'cuisinier', 'client', 'livreur', 'verificateur', 'entreprise', 'secretaire', 'agent',
+]
+
+/**
  * Chemin du tableau de bord selon le rôle (aligné sur la page login : /{role}).
  * @param {string|null|undefined} role
  * @returns {string}
  */
 export function getDashboardPathForRole(role) {
-  const r = String(role || 'client').toLowerCase()
+  if (role == null || String(role).trim() === '') return '/client'
+  const r = String(role).toLowerCase().trim()
   if (Object.prototype.hasOwnProperty.call(ROLES_CONFIG, r)) {
     return `/${r}`
   }
-  return '/client'
+  if (DASHBOARD_ROLE_ORDER.includes(r)) {
+    return `/${r}`
+  }
+  return '/profile'
 }
 
 const permissions = {

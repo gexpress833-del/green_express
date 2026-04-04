@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Traits\AdminRequiresPermission;
 use App\Http\Traits\RequireAuth;
 use App\Http\Traits\RoleAccess;
 use App\Models\Company;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Log;
  */
 class CompanySubscriptionController extends Controller
 {
+    use AdminRequiresPermission;
     use RoleAccess;
 
     private CompanyPricingService $pricingService;
@@ -36,7 +38,9 @@ class CompanySubscriptionController extends Controller
      */
     public function adminIndex(Request $request)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.company-subscriptions')) {
+            return $r;
+        }
 
         $subscriptions = CompanySubscription::with(['company.contactUser', 'pricingTier'])
             ->when($request->status, fn($q) => $q->where('status', $request->status))
@@ -125,7 +129,9 @@ class CompanySubscriptionController extends Controller
      */
     public function store(Request $request, Company $company)
     {
-        $this->requireRole('admin', 'entreprise');
+        if ($r = $this->requireAnyPermission($request, ['admin.company-subscriptions', 'entreprise.b2b.access'])) {
+            return $r;
+        }
 
         if (!$this->canAccessCompany($company)) {
             return response()->json([
@@ -144,7 +150,7 @@ class CompanySubscriptionController extends Controller
 
         $user = auth()->user();
         $employeeCount = null;
-        if ($this->hasRole('entreprise')) {
+        if ($user->hasPermissionTo('entreprise.b2b.access') && ! $user->canAsAdmin('admin.company-subscriptions')) {
             // L'entreprise ne peut souscrire que pour elle-même, avec son nombre d'agents
             if ($company->contact_user_id !== $user->id) {
                 return response()->json(['success' => false, 'message' => 'Non autorisé'], 403);
@@ -173,7 +179,7 @@ class CompanySubscriptionController extends Controller
             'end_date' => 'nullable|date|after:start_date',
         ]);
 
-        if ($this->hasRole('admin') && isset($validated['employee_count'])) {
+        if ($user->canAsAdmin('admin.company-subscriptions') && isset($validated['employee_count'])) {
             $employeeCount = $validated['employee_count'];
         }
         if ($employeeCount === null || $employeeCount < 1) {
@@ -218,7 +224,9 @@ class CompanySubscriptionController extends Controller
      */
     public function adminActivate(Request $request, CompanySubscription $companySubscription)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.company-subscriptions')) {
+            return $r;
+        }
 
         return $this->performCompanySubscriptionActivate($companySubscription);
     }
@@ -228,7 +236,9 @@ class CompanySubscriptionController extends Controller
      */
     public function activate(Request $request, CompanySubscription $subscription)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.company-subscriptions')) {
+            return $r;
+        }
 
         return $this->performCompanySubscriptionActivate($subscription);
     }
@@ -263,7 +273,9 @@ class CompanySubscriptionController extends Controller
      */
     public function renew(Request $request, CompanySubscription $subscription)
     {
-        $this->requireRole('admin', 'entreprise');
+        if ($r = $this->requireAnyPermission($request, ['admin.company-subscriptions', 'entreprise.b2b.access'])) {
+            return $r;
+        }
 
         if (!$this->canAccessCompany($subscription->company)) {
             return response()->json([
@@ -323,13 +335,11 @@ class CompanySubscriptionController extends Controller
     {
         $user = auth()->user();
 
-        // Admin peut voir tous
-        if ($this->hasRole('admin')) {
+        if ($user && $user->canAsAdmin('admin.company-subscriptions')) {
             return true;
         }
 
-        // Propriétaire de l'entreprise UNIQUEMENT
-        if ($company->contact_user_id === $user->id) {
+        if ($user && $company->contact_user_id === $user->id && $user->hasPermissionTo('entreprise.b2b.access')) {
             return true;
         }
 

@@ -19,7 +19,14 @@ class OperationalSubscriptionController extends Controller
     private function authorizeOperational(Request $request): ?JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! in_array($user->role, ['admin', 'cuisinier'], true)) {
+        if (! $user) {
+            return response()->json(['message' => 'Non authentifié'], 401);
+        }
+
+        $allowed = $user->hasPermissionTo('operational.subscriptions.view')
+            || $user->canAsAdmin('admin.operational');
+
+        if (! $allowed) {
             return response()->json(['message' => 'Accès réservé à l’administration ou à la cuisine.'], 403);
         }
 
@@ -61,7 +68,7 @@ class OperationalSubscriptionController extends Controller
                 $q->whereStatusFilter($status)->whereDateFilter($dateFilter);
             }
 
-            $personal = $q->get()->map(fn (Subscription $s) => $this->serializePersonal($s, $request->user()->role === 'admin'));
+            $personal = $q->get()->map(fn (Subscription $s) => $this->serializePersonal($s, (bool) $request->user()?->canAsAdmin('admin.operational')));
         }
 
         $company = collect();

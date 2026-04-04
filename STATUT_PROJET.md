@@ -11,10 +11,10 @@
 - **Base de données** : MySQL configurée (`.env` : `db_gexpress`), migrations en place
 - **Authentification** : Sanctum (`auth:api`) – login, register, logout, `/me`, cookies/session
 - **Rôles** : 6 rôles (admin, cuisinier, client, livreur, verificateur, entreprise) avec middlewares et contrôleurs dédiés
-- **API** : Menus, promotions (claim atomique), commandes, paiements pawaPay, abonnements, entreprises, employés, livraisons, stats par rôle, etc.
+- **API** : Menus, promotions (claim atomique), commandes, paiements FlexPay, abonnements, entreprises, employés, livraisons, stats par rôle, etc.
 - **Cloudinary** : Upload, suppression, transformation d’images ; config, validation (type, taille), rate limiting
 - **Sécurité** : CORS, rate limiting, validation des entrées, transactions pour les claims
-- **Config** : `.env.example` complet (Cloudinary, pawaPay, CORS, Sanctum, DB)
+- **Config** : `.env.example` complet (Cloudinary, FlexPay, CORS, Sanctum, DB)
 - **Tests** : PHPUnit (ex. CloudinaryUploadTest), factories `User`, `Menu`, `Promotion` + `HasFactory` sur les modèles
 - **Documentation API** : `docs/API.md` + `docs/openapi.yaml`
 
@@ -28,19 +28,17 @@
 - **LICENSE** : Fichier MIT présent
 - **CI/CD** : Workflow GitHub Actions dans `.github/workflows/ci-cd.yml` (backend tests, frontend build)
 - **Docs** : README, DEPLOYMENT, SECURITY, TEST_GUIDE, PRODUCTION_READINESS, FINAL_CHECKLIST, guides RBAC, etc.
-- **Roadmap README** : Phase 1 et Phase 2 marquées comme faites (commandes, livraison, validation tickets, webhooks pawaPay)
+- **Roadmap README** : Phase 1 et Phase 2 marquées comme faites (commandes, livraison, validation tickets, webhooks FlexPay)
 
 ---
 
 ## ❌ CE QUI RESTE À FAIRE (ou à finaliser)
 
 ### Priorité haute
-1. **Dépôt Git**  
-   Le dossier `c:\SERVICE` n’est **pas** un dépôt Git (pas de `.git`).  
-   À faire : `git init`, `.gitignore` adapté (déjà présent à la racine), premier commit. Indiquer l’URL du dépôt (GitHub/GitLab) dans le README si besoin.
+1. **Dépôt Git** : dépôt Git opérationnel (historique, push). À maintenir : branches, revue avant merge, secrets hors dépôt.
 
 ### Priorité moyenne (avant / pour la production)
-2. **SSL/TLS** : Certificat pour la production (non configuré).
+2. **SSL/TLS** : Render / Vercel fournissent HTTPS ; vérifier renouvellement et domaines personnalisés si ajoutés.
 3. **Backups base de données** : Automatisation non documentée/mise en place.
 4. **Monitoring** : Sentry (erreurs), DataDog/New Relic (perf), agrégation de logs, surveillance de disponibilité – non déployés.
 5. **Environnement de staging** : Non décrit comme déployé.
@@ -57,8 +55,8 @@
 14. **Phase 3 (roadmap)** : Notifications temps réel (WebSocket), 2FA, abonnements avancés, analytics, app mobile – non implémentés.
 
 ### Points de vigilance
-- **Webhooks** : `payments/webhook` et `pawapay/callback` sont en POST public ; s’assurer que la validation d’intégrité et les secrets éventuels sont cohérents en production.
-- **Secrets** : Vérifier qu’aucune clé (Cloudinary, pawaPay, etc.) n’est en dur dans le code et que `.env` / `.env.local` sont bien ignorés par Git.
+- **Webhooks** : `POST /api/flexpay/callback` (et webhook générique paiements si utilisé) sont publics ; en production, activer `FLEXPAY_WEBHOOK_SECRET` / signature si le prestataire le permet.
+- **Secrets** : Vérifier qu’aucune clé (Cloudinary, FlexPay, DB) n’est en dur dans le code et que `.env` / `.env.local` sont bien ignorés par Git.
 - **Base de données** : En production, prévoir PostgreSQL ou MySQL (au lieu de SQLite si encore utilisé en dev) et stratégie de sauvegarde.
 
 ---
@@ -67,13 +65,13 @@
 
 | Catégorie              | En place                         | Reste à faire / à finaliser        |
 |------------------------|----------------------------------|------------------------------------|
-| Backend / API          | ✅ Complet (auth, rôles, menus, commandes, pawaPay, Cloudinary, tests) | Lint PHP, Form Requests (optionnel) |
+| Backend / API          | ✅ Complet (auth, rôles, menus, commandes, FlexPay, Cloudinary, tests) | Lint PHP, Form Requests (optionnel) |
 | Frontend               | ✅ Complet (dashboards, menus, promotions, upload) | Scénarios Playwright E2E complets  |
 | Config / env           | ✅ `.env.example` backend, `.env.local.example` frontend | —                                   |
 | Tests                  | ✅ PHPUnit, factories, CI backend + build frontend | E2E Playwright, load tests         |
 | Documentation          | ✅ README, API, déploiement, sécurité, checklist | —                                   |
-| Git / CI               | ✅ Workflow GitHub Actions       | ❌ Dépôt Git non initialisé         |
+| Git / CI               | ✅ Dépôt Git, workflow CI        | Qualité CI / revues selon besoin    |
 | Licence                | ✅ LICENSE MIT                   | —                                   |
-| Production / Ops       | Partiel (checklist prête)        | SSL, backups, monitoring, staging, audit sécu, plan incident |
+| Production / Ops       | Partiel (checklist, FlexPay prod) | Backups, monitoring, staging, audit sécu, plan incident |
 
-En résumé : le cœur applicatif (backend + frontend + intégrations) est en place et documenté. Les principaux manques sont l’**initialisation du dépôt Git** et, pour la mise en production, les éléments **infra / ops** (SSL, backups, monitoring, staging, audits).
+En résumé : le cœur applicatif (backend + frontend + intégrations, dont FlexPay en production) est en place et documenté. Les principaux axes restants sont **infra / ops** (backups, monitoring, staging, audits) selon criticité.

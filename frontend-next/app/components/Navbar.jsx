@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useCart } from '@/contexts/CartContext'
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/notifications'
 import { PRIMARY_LOGO, nextLogoSrc } from '@/lib/landingMedia'
+import { canPerform } from '@/lib/permissions'
 
 const badgeStyle = {
   position: 'absolute',
@@ -23,18 +24,13 @@ const badgeStyle = {
 }
 
 export default function Navbar(){
-  const { user, loading, initialised, logout } = useAuth()
+  const { user, initialised, logout } = useAuth()
   const { itemCount: cartCount } = useCart()
   const [menuOpen, setMenuOpen] = useState(false)
   const [brandLogoSrc, setBrandLogoSrc] = useState(PRIMARY_LOGO)
   const [unreadCount, setUnreadCount] = useState(0)
   const pathname = usePathname()
   const isClient = user?.role === 'client'
-  /** Sur les sous-pages client, le libellé « Tableau de bord » fait doublon avec le lien retour de page : on affiche « Accueil ». */
-  const clientHubLabel =
-    isClient && pathname !== '/client' && pathname?.startsWith('/client')
-      ? 'Accueil'
-      : null
 
   useEffect(() => {
     setMenuOpen(false)
@@ -83,7 +79,7 @@ export default function Navbar(){
   return (
     <nav className="navbar">
       <div className="nav-inner">
-        <Link href="/" className="brand">
+        <Link href="/?from=brand" className="brand" aria-label="Green Express — page d'accueil">
           <img
             key={brandLogoSrc}
             src={brandLogoSrc}
@@ -110,28 +106,27 @@ export default function Navbar(){
         </button>
 
         <div className="nav-links">
-          {loading ? (
-            // Afficher les boutons même pendant le chargement
-            <>
-              <Link href="/login">Se connecter</Link>
-              <Link href="/register">S'inscrire</Link>
-            </>
+          {!initialised ? (
+            <span
+              className="inline-block min-h-[40px] min-w-[160px] rounded-lg bg-white/5 align-middle animate-pulse max-sm:w-full"
+              aria-busy="true"
+              aria-label="Chargement de la session"
+            />
           ) : user ? (
             <>
               <Link
                 href={`/${user.role || 'client'}`}
                 className={
                   pathname === `/${user.role || 'client'}` ||
-                  (isClient && pathname?.startsWith('/client'))
+                  (isClient && pathname?.startsWith('/client')) ||
+                  (user.role === 'secretaire' && pathname?.startsWith('/secretaire'))
                     ? 'active'
                     : ''
                 }
               >
-                {user.role === 'livreur' || user.role === 'admin' || user.role === 'cuisinier' || user.role === 'verificateur' || user.role === 'entreprise'
-                  ? 'Accueil'
-                  : clientHubLabel || 'Tableau de bord'}
+                Tableau de bord
               </Link>
-              {isClient && (
+              {isClient && canPerform('orders.create', user) && (
                 <Link
                   href="/client/cart"
                   className={`${pathname === '/client/cart' ? 'active' : ''} ${cartCount > 0 ? 'nav-link-has-badge' : ''}`.trim()}

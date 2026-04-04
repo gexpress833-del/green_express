@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use App\Models\Order;
 use App\Models\Menu;
 use App\Models\Subscription;
@@ -10,11 +11,13 @@ use App\Models\Company;
 use App\Models\CompanySubscription;
 use App\Models\DeliveryLog;
 use App\Models\User;
+use App\Http\Traits\AdminRequiresPermission;
 use App\Http\Traits\RoleAccess;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class AdminController extends Controller
 {
+    use AdminRequiresPermission;
     use RoleAccess;
 
     public function stats(Request $request)
@@ -25,11 +28,8 @@ class AdminController extends Controller
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
-            if ($user->role !== 'admin') {
-                return response()->json([
-                    'message' => 'Accès refusé. Rôle admin requis',
-                    'current_role' => $user->role
-                ], 403);
+            if ($r = $this->adminRequires($request, 'stats.admin.view')) {
+                return $r;
             }
 
             $ordersCount = Order::count();
@@ -57,9 +57,15 @@ class AdminController extends Controller
                 'deliveries_pending' => $deliveriesPending,
             ]);
         } catch (\Exception $e) {
+            Log::error('AdminController@stats', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
             return response()->json([
                 'message' => 'Erreur lors du calcul des statistiques',
-                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne'
+                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne',
             ], 500);
         }
     }
@@ -69,9 +75,8 @@ class AdminController extends Controller
      */
     public function statsPdf(Request $request)
     {
-        $user = $request->user();
-        if (!$user || $user->role !== 'admin') {
-            return response()->json(['message' => 'Accès refusé. Rôle admin requis.'], 403);
+        if ($r = $this->adminRequires($request, 'stats.admin.view')) {
+            return $r;
         }
 
         $ordersCount = Order::count();
@@ -109,7 +114,9 @@ class AdminController extends Controller
      */
     public function deliveries(Request $request)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.deliveries')) {
+            return $r;
+        }
 
         $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
         $deliveries = DeliveryLog::with(['company:id,name', 'mealPlan.employee', 'mealPlan.meal'])
@@ -129,7 +136,9 @@ class AdminController extends Controller
      */
     public function roles(Request $request)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'stats.admin.view')) {
+            return $r;
+        }
 
         $roles = [
             ['id' => 'admin', 'label' => 'Administrateur', 'description' => 'Accès complet au back-office'],
@@ -138,6 +147,7 @@ class AdminController extends Controller
             ['id' => 'cuisinier', 'label' => 'Cuisinier', 'description' => 'Gestion des menus et plats'],
             ['id' => 'livreur', 'label' => 'Livreur', 'description' => 'Suivi des livraisons'],
             ['id' => 'verificateur', 'label' => 'Verificateur', 'description' => 'Validation des codes promotion (tickets de réclamation client)'],
+            ['id' => 'secretaire', 'label' => 'Secrétariat', 'description' => 'Commandes, assignation livreurs'],
             ['id' => 'agent', 'label' => 'Agent', 'description' => 'Employé entreprise (accès limité)'],
         ];
 

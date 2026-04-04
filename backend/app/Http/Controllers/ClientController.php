@@ -20,16 +20,16 @@ class ClientController extends Controller
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
-            // Seuls les clients et admins peuvent voir ces stats
-            if ($user->role !== 'client' && $user->role !== 'admin') {
+            if (! $user->hasPermissionTo('stats.client.view')) {
                 return response()->json([
-                    'message' => 'Accès refusé. Rôle client ou admin requis',
-                    'current_role' => $user->role
+                    'message' => 'Accès refusé. Statistiques client requises.',
+                    'current_role' => $user->role,
                 ], 403);
             }
 
-            // Les clients ne voient que leurs propres stats, les admins voient tout
-            $userId = $user->role === 'admin' ? $request->input('user_id', $user->id) : $user->id;
+            $userId = $user->canAsAdmin('stats.client.view')
+                ? $request->input('user_id', $user->id)
+                : $user->id;
 
             $ordersCount = Order::where('user_id', $userId)->count();
             $subscriptionsCount = Subscription::where('user_id', $userId)

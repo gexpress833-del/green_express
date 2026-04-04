@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import GoldButton from '@/components/GoldButton';
@@ -14,6 +14,7 @@ const ROLES = [
   { value: 'verificateur', label: 'Vérificateur' },
   { value: 'agent', label: 'Agent' },
   { value: 'entreprise', label: 'Entreprise' },
+  { value: 'secretaire', label: 'Secrétariat' },
 ];
 
 const ROLE_LABELS = Object.fromEntries(ROLES.map((r) => [r.value, r.label]));
@@ -27,7 +28,7 @@ function formatDate(str) {
   });
 }
 
-export default function UsersPage() {
+function UsersPageContent() {
   const searchParams = useSearchParams();
   const roleFromUrl = searchParams.get('role') || '';
   const [users, setUsers] = useState([]);
@@ -270,5 +271,19 @@ export default function UsersPage() {
         </div>
       </div>
     </section>
+  );
+}
+
+export default function UsersPage() {
+  return (
+    <Suspense
+      fallback={
+        <section className="page-section page-section--admin-tight bg-[#0b1220] text-white min-h-screen">
+          <div className="max-w-5xl mx-auto p-8 text-center text-white/60">Chargement…</div>
+        </section>
+      }
+    >
+      <UsersPageContent />
+    </Suspense>
   );
 }

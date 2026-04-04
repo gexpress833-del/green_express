@@ -59,7 +59,7 @@ Chaque rôle accède à un **espace dédié** (`/client`, `/admin`, `/livreur`, 
 2. Il choisit un ou plusieurs plats (**panier** ou **commande rapide** depuis un menu).
 3. Il renseigne l’**adresse de livraison** et le **numéro Mobile Money** utilisé pour payer.
 4. La commande est créée côté API (souvent statut **en attente de paiement**).
-5. Le client **initie le paiement** Mobile Money ; le backend dialogue avec le **prestataire de paiement** (pawaPay / logique documentée dans le dépôt).
+5. Le client **initie le paiement** Mobile Money ; le backend dialogue avec **FlexPay** (voir `backend/docs/FLEXPAY.md` et le webhook `/api/flexpay/callback`).
 6. Quand le paiement est **confirmé** (callback ou job de relance), la commande passe au statut adapté et un **code de livraison** peut être généré / affiché.
 7. Le **livreur** (ou la cuisine) enchaîne selon les statuts prévus jusqu’à la livraison.
 

@@ -49,7 +49,7 @@ A complete food ordering platform with role-based dashboards, promotion system, 
 - **Next.js 13+** (App Router)
 - **React 18** (hooks)
 - **Tailwind CSS** (styling)
-- **Axios** (API calls)
+- **fetch** (`app/lib/api.js`, cookies Sanctum)
 
 ### Backend
 - **Laravel 10+** (API)
@@ -59,7 +59,7 @@ A complete food ordering platform with role-based dashboards, promotion system, 
 
 ### Infrastructure
 - **Cloudinary** (image storage)
-- **pawaPay** (paiements Mobile Money)
+- **FlexPay / FlexPaie** (Mobile Money RDC)
 - **Render** (backend hosting)
 - **Vercel** (frontend hosting)
 
@@ -315,7 +315,7 @@ See `docs/DEPLOY_RENDER.md` for:
 - [x] Order system (menu → order → payment)
 - [x] Delivery assignment (livreur : validate code)
 - [x] Promotion ticket validation (vérificateur)
-- [x] Payment webhooks (pawaPay)
+- [x] Payment webhooks (FlexPay)
 
 ### Phase 3 📅 PLANNED
 - [ ] Real-time notifications (WebSocket)

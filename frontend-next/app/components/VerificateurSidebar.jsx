@@ -1,15 +1,26 @@
 "use client"
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { filterNavByPermissions } from '@/lib/navPermissions'
+
+const menuItemsDef = [
+  { href: '/verificateur', label: 'Tableau de bord', icon: '📊', always: true },
+  { href: '/verificateur/validate', label: 'Valider un ticket', icon: '🎫', permission: 'promotions.validate-ticket' },
+  {
+    href: '/verificateur/history',
+    label: 'Historique validations',
+    icon: '📋',
+    anyOf: ['promotions.validate-ticket', 'stats.verificateur.view'],
+  },
+  { href: '/profile', label: 'Mon profil', icon: '👤', permission: null },
+]
 
 export default function VerificateurSidebar() {
   const pathname = usePathname()
-  const menuItems = [
-    { href: '/verificateur', label: 'Tableau de bord', icon: '📊' },
-    { href: '/verificateur/validate', label: 'Valider un ticket', icon: '🎫' },
-    { href: '/verificateur/history', label: 'Historique validations', icon: '📋' },
-    { href: '/profile', label: 'Mon profil', icon: '👤' },
-  ]
+  const { user } = useAuth()
+  const menuItems = filterNavByPermissions(menuItemsDef, user, { requireRole: 'verificateur' })
+
   return (
     <aside className="sidebar">
       <nav>

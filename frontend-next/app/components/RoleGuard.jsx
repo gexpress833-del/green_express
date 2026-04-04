@@ -13,19 +13,27 @@ export default function RoleGuard({ role, children }) {
   const router = useRouter();
   const pathname = usePathname();
   const basePath = `/${role}`;
+  /** Si l’API n’envoie pas encore `role`, on n’affiche pas un écran vide (undefined !== 'client'). */
+  const actualRole = user?.role ?? null;
 
   useEffect(() => {
     if (!user) return;
     if (!pathname?.startsWith(basePath)) return;
-    if (user.role !== role) {
-      // Rôle explicite : rediriger vers le tableau de bord du rôle (évite admin/entreprise bloqués sur /client)
-      const dashboard = user.role ? `/${user.role}` : '/client';
-      router.replace(dashboard);
+    if (actualRole == null) return;
+    if (actualRole !== role) {
+      router.replace(`/${actualRole}`);
     }
-  }, [user, pathname, router, role, basePath]);
+  }, [user, pathname, router, role, basePath, actualRole]);
 
-  if (user && user.role !== role && pathname?.startsWith(basePath)) {
-    return null;
+  if (user && actualRole != null && actualRole !== role && pathname?.startsWith(basePath)) {
+    return (
+      <div className="auth-gate-screen">
+        <div className="auth-gate-spinner" aria-hidden />
+        <p className="text-white/70 text-sm mt-4 text-center px-4 max-w-md">
+          Redirection vers votre espace…
+        </p>
+      </div>
+    );
   }
 
   return children;

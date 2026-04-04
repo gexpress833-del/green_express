@@ -2,11 +2,13 @@
 
 namespace App\Http\Traits;
 
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
  * Trait pour vérifier les rôles et permissions des utilisateurs.
- * Fournit des méthodes pour contrôler l'accès basé sur le rôle.
+ * Les permissions sont résolues via Spatie (hasPermissionTo), alignées sur config/roles.php.
  */
 trait RoleAccess
 {
@@ -47,27 +49,43 @@ trait RoleAccess
     }
 
     /**
-     * Vérifie si l'utilisateur a une permission spécifique.
-     * Retourne 403 si non autorisé.
+     * Vérifie une permission Spatie. Retourne 403 si non autorisé.
      */
-    protected function requirePermission(Request $request, string $permission)
+    protected function requirePermission(Request $request, string $permission): ?JsonResponse
     {
         $user = $request->user();
-        if (!$user) {
+        if (! $user instanceof User) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
-
-        $config = config('roles.roles');
-        $userRole = $config[$user->role] ?? null;
-
-        if (!$userRole || !in_array($permission, $userRole['permissions'] ?? [])) {
+        if (! $user->hasPermissionTo($permission)) {
             return response()->json([
-                'message' => 'Vous n\'avez pas la permission : ' . $permission,
-                'current_role' => $user->role
+                'message' => 'Permission refusée.',
+                'permission' => $permission,
             ], 403);
         }
 
-        return null; // Pas d'erreur
+        return null;
+    }
+
+    /**
+     * @param  array<int, string>  $permissions
+     */
+    protected function requireAnyPermission(Request $request, array $permissions): ?JsonResponse
+    {
+        $user = $request->user();
+        if (! $user instanceof User) {
+            return response()->json(['message' => 'Non authentifié'], 401);
+        }
+        foreach ($permissions as $permission) {
+            if ($user->hasPermissionTo($permission)) {
+                return null;
+            }
+        }
+
+        return response()->json([
+            'message' => 'Permission refusée.',
+            'required_one_of' => $permissions,
+        ], 403);
     }
 
     /**
@@ -81,9 +99,9 @@ trait RoleAccess
             return response()->json(['message' => 'Non authentifié'], 401);
         }
 
-        if ($user->id !== $ownerId && $user->role !== 'admin') {
+        if ($user->id !== $ownerId && ! $user->hasPermissionTo('users.edit')) {
             return response()->json([
-                'message' => 'Vous n\'êtes pas autorisé à accéder cette ressource'
+                'message' => 'Vous n\'êtes pas autorisé à accéder cette ressource',
             ], 403);
         }
 
@@ -93,15 +111,14 @@ trait RoleAccess
     /**
      * Retourne les permissions de l'utilisateur.
      */
-    protected function getUserPermissions(Request $request)
+    protected function getUserPermissions(Request $request): array
     {
         $user = $request->user();
-        if (!$user) {
+        if (! $user instanceof User) {
             return [];
         }
 
-        $config = config('roles.roles');
-        return $config[$user->role]['permissions'] ?? [];
+        return $user->getAllPermissions()->pluck('name')->all();
     }
 
     /**

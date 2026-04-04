@@ -56,6 +56,24 @@ return [
                 'subscriptions.edit',
                 'subscriptions.delete',
                 'subscriptions.list',
+
+                // Modules back-office (contrôle fin pour les comptes admin)
+                'roles.manage_permissions',
+                'admin.companies',
+                'admin.payments',
+                'admin.reports',
+                'admin.deliveries',
+                'admin.event-requests',
+                'admin.event-types',
+                'admin.notifications.broadcast',
+                'admin.subscription-plans',
+                'admin.subscriptions',
+                'admin.company-subscriptions',
+                'admin.operational',
+                'admin.agents',
+                'admin.exports',
+                'promotions.manage',
+                'operational.subscriptions.view',
             ]
         ],
         
@@ -73,9 +91,13 @@ return [
                 // Orders (peut voir les commandes de ses menus)
                 'orders.view-own-menus',
                 'orders.list-own-menus',
+                'orders.change-status',
+                'orders.assign-livreur',
                 
                 // Statistics
                 'stats.cuisinier.view',
+
+                'operational.subscriptions.view',
             ]
         ],
         
@@ -141,6 +163,10 @@ return [
             'label' => 'Chef d\'entreprise',
             'description' => 'Gère ses employés et les budgets',
             'permissions' => [
+                'entreprise.b2b.access',
+                'company.employees.manage',
+                'b2b.meal-plans.manage',
+
                 // User Management (peut gérer ses employés uniquement)
                 'users.view-own',
                 'users.list-own',
@@ -156,6 +182,30 @@ return [
                 
                 // Statistics
                 'stats.entreprise.view',
+            ]
+        ],
+
+        'secretaire' => [
+            'label' => 'Secrétariat',
+            'description' => 'Suivi des commandes et assignation des livreurs',
+            'permissions' => [
+                'orders.list',
+                'orders.view',
+                'orders.edit',
+                'orders.assign-livreur',
+                'livreur.assignments.view-all',
+                'stats.secretaire.view',
+            ]
+        ],
+
+        'agent' => [
+            'label' => 'Agent (entreprise)',
+            'description' => 'Employé B2B : repas et livraisons',
+            'permissions' => [
+                'menus.view-approved',
+                'menus.list-approved',
+                'agent.dashboard',
+                'agent.meal-plans',
             ]
         ],
     ],

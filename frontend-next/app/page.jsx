@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import PromoCard from '@/components/PromoCard'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiRequest } from '@/lib/api'
@@ -14,15 +14,27 @@ import {
   nextLogoSrc,
 } from '@/lib/landingMedia'
 
-export default function Home(){
+/** `/?from=brand` : accès volontaire à la landing (logo navbar) — sans redirection vers /{role}. */
+function HomePageInner() {
   const router = useRouter()
-  const { user, loading: authLoading, initialised } = useAuth()
+  const searchParams = useSearchParams()
+  const publicLanding = searchParams.get('from') === 'brand'
+  const { user, initialised } = useAuth()
   const heroVideoRef = useRef(null)
   const [logoSrc, setLogoSrc] = useState(PRIMARY_LOGO)
   const [currentPromo, setCurrentPromo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [plans, setPlans] = useState([])
   const [loadingPlans, setLoadingPlans] = useState(true)
+
+  /** Parcours marketing : invités + clients. Autres rôles → /{role} sauf si arrivée depuis le logo (publicLanding). */
+  useEffect(() => {
+    if (publicLanding) return
+    if (!initialised || !user?.role) return
+    if (user.role === 'client') return
+    const target = getDashboardPathForRole(user.role)
+    router.replace(target)
+  }, [initialised, user, router, publicLanding])
 
   useEffect(() => {
     apiRequest('/api/subscription-plans/public', { method: 'GET' })
@@ -54,13 +66,6 @@ export default function Home(){
   }, [])
 
   useEffect(() => {
-    if (!initialised || authLoading) return
-    if (user) {
-      router.replace(getDashboardPathForRole(user.role))
-    }
-  }, [user, authLoading, initialised, router])
-
-  useEffect(() => {
     const el = heroVideoRef.current
     if (!el) return
     const enforceMutedAndPlay = () => {
@@ -78,18 +83,20 @@ export default function Home(){
     }
   }, [])
 
-  if (!initialised || authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center app-bg">
-        <p className="text-white/70 text-sm">Chargement…</p>
-      </div>
-    )
-  }
+  const dashboardHref = user ? getDashboardPathForRole(user.role) : null
+  const subscriptionPlanHref = !user
+    ? '/login?returnUrl=/client/subscriptions'
+    : user.role === 'client'
+      ? '/client/subscriptions'
+      : dashboardHref
+  const subscriptionPlanLabel =
+    !user || user.role === 'client' ? 'Voir les abonnements' : 'Mon espace'
 
-  if (user) {
+  if (initialised && user?.role && user.role !== 'client' && !publicLanding) {
     return (
-      <div className="min-h-screen flex items-center justify-center app-bg">
-        <p className="text-white/70 text-sm">Redirection vers votre tableau de bord…</p>
+      <div className="min-h-screen flex flex-col items-center justify-center px-6" style={{ background: '#0b1220' }}>
+        <p className="text-white/80 text-center">Ouverture de votre espace…</p>
+        <p className="text-white/45 text-sm mt-2 text-center">Redirection selon votre profil ({user.role})</p>
       </div>
     )
   }
@@ -172,7 +179,7 @@ export default function Home(){
             </div>
           ) : currentPromo ? (
             <div className="max-w-5xl mx-auto">
-              <PromoCard promo={currentPromo} />
+              <PromoCard promo={currentPromo} loginRequired={initialised && !user} />
             </div>
           ) : (
             <div className="card text-center py-16 max-w-4xl mx-auto">
@@ -215,10 +222,10 @@ export default function Home(){
                     <p>{formatCurrencyCDF(Number(plan.price_month))} / mois</p>
                   </div>
                   <Link
-                    href="/login?returnUrl=/client/subscriptions"
+                    href={subscriptionPlanHref}
                     className="link-visible-cyan mt-4 inline-block px-4 py-2 rounded-lg text-sm font-semibold border transition"
                   >
-                    Voir les abonnements
+                    {subscriptionPlanLabel}
                   </Link>
                 </div>
               ))}
@@ -247,19 +254,44 @@ export default function Home(){
               Gérez le budget repas, les agents et l&apos;abonnement équipe. Accédez à votre espace dédié avec le même compte que vous utilisez pour vous connecter.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border transition"
-                style={{ color: '#0b1220', background: 'linear-gradient(135deg, #39ff14, #22d3ee)', borderColor: 'rgba(57, 255, 20, 0.5)' }}
-              >
-                Connexion entreprise
-              </Link>
-              <Link
-                href="/register"
-                className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border border-white/25 text-white/95 hover:bg-white/10 transition"
-              >
-                Créer un compte
-              </Link>
+              {!initialised ? (
+                <div
+                  className="mx-auto h-11 w-full max-w-md rounded-xl bg-white/5 animate-pulse sm:max-w-lg"
+                  aria-busy="true"
+                  aria-label="Chargement"
+                />
+              ) : !user ? (
+                <>
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border transition"
+                    style={{ color: '#0b1220', background: 'linear-gradient(135deg, #39ff14, #22d3ee)', borderColor: 'rgba(57, 255, 20, 0.5)' }}
+                  >
+                    Connexion entreprise
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border border-white/25 text-white/95 hover:bg-white/10 transition"
+                  >
+                    Créer un compte
+                  </Link>
+                </>
+              ) : user.role === 'entreprise' ? (
+                <Link
+                  href="/entreprise"
+                  className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border transition"
+                  style={{ color: '#0b1220', background: 'linear-gradient(135deg, #39ff14, #22d3ee)', borderColor: 'rgba(57, 255, 20, 0.5)' }}
+                >
+                  Mon espace entreprise
+                </Link>
+              ) : (
+                <Link
+                  href={dashboardHref}
+                  className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border border-white/25 text-white/95 hover:bg-white/10 transition"
+                >
+                  Mon tableau de bord
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -354,5 +386,19 @@ export default function Home(){
         </div>
       </section>
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen app-bg flex items-center justify-center" aria-busy="true" aria-label="Chargement">
+          <p className="text-white/40 text-sm">Chargement…</p>
+        </div>
+      }
+    >
+      <HomePageInner />
+    </Suspense>
   )
 }

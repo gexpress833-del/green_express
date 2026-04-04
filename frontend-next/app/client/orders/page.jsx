@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
 import { formatDate, formatCurrencyCDF } from '@/lib/helpers'
+import { getOrderStatusLabel } from '@/lib/orderStatus'
 import Link from 'next/link'
 
 export default function ClientOrders(){
@@ -63,19 +64,6 @@ export default function ClientOrders(){
               ) : (
                 <div className="space-y-4">
                   {orders.map(order => {
-                    const getStatusLabel = (status) => {
-                      const s = (status || '').toLowerCase()
-                      switch (s) {
-                        case 'pending_payment': return 'En attente de paiement'
-                        case 'paid': return 'Paiement confirmé'
-                        case 'pending': return 'En attente de livraison'
-                        case 'out_for_delivery': return 'En cours de livraison'
-                        case 'delivered': return 'Livrée'
-                        case 'cancelled': return 'Annulée'
-                        default: return status || 'En attente'
-                      }
-                    }
-
                     const getStatusBadge = (status) => {
                       const s = (status || '').toLowerCase()
                       switch (s) {
@@ -115,7 +103,7 @@ export default function ClientOrders(){
                             )}
                           </div>
                           <span className={`badge ${getStatusBadge(order.status)}`}>
-                            {getStatusLabel(order.status)}
+                            {getOrderStatusLabel(order.status)}
                           </span>
                         </div>
 
@@ -178,6 +166,12 @@ export default function ClientOrders(){
                         )}
 
                         <div className="flex flex-wrap justify-between items-center gap-2 pt-4 border-t border-white/10">
+                          <Link
+                            href={`/client/orders/${order.id}`}
+                            className="text-sm text-cyan-300/90 hover:text-cyan-200 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded px-1 -mx-1"
+                          >
+                            Suivi détaillé →
+                          </Link>
                           <p className="text-white/80 text-sm">
                             Total : <span className="font-semibold text-cyan-300 tabular-nums">
                               {order.total_amount != null

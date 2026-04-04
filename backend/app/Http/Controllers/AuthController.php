@@ -61,7 +61,7 @@ class AuthController extends Controller
         Auth::guard('api')->login($user);
         $request->session()->regenerate();
 
-        return response()->json(['user' => $user], 201);
+        return response()->json(['user' => $this->withPermissions($user->fresh())], 201);
     }
 
     /**
@@ -126,7 +126,7 @@ class AuthController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Demande d\'accès B2B envoyée. Un administrateur examinera votre demande.',
-                'user' => $user,
+                'user' => $this->withPermissions($user->fresh()),
             ], 201);
         } catch (\Exception $e) {
             Log::error('❌ [registerCompany] ' . $e->getMessage(), ['exception' => $e]);
@@ -169,7 +169,7 @@ class AuthController extends Controller
         Auth::guard('api')->login($user);
         $request->session()->regenerate();
 
-        return response()->json(['user' => $request->user('api')]);
+        return response()->json(['user' => $this->withPermissions($request->user('api'))]);
     }
 
     /**
@@ -211,13 +211,29 @@ class AuthController extends Controller
         if (! $user) {
             return response()->json(null, 200);
         }
-        return response()->json($user);
+
+        return response()->json($this->withPermissions($user));
     }
 
     /** Alias pour compatibilité existante */
     public function me(Request $request)
     {
         return $this->user($request);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function withPermissions(?User $user): ?array
+    {
+        if (! $user) {
+            return null;
+        }
+
+        $base = $user->toArray();
+        $base['permissions'] = $user->getAllPermissions()->pluck('name')->values()->all();
+
+        return $base;
     }
 
     /**

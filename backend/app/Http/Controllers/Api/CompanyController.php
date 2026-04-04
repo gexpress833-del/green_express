@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Traits\AdminRequiresPermission;
 use App\Http\Traits\RoleAccess;
 use App\Models\Company;
 use App\Models\CompanySubscription;
@@ -16,6 +17,7 @@ use Illuminate\Validation\Rule;
  */
 class CompanyController extends Controller
 {
+    use AdminRequiresPermission;
     use RoleAccess;
 
     private CompanyPricingService $pricingService;
@@ -30,7 +32,9 @@ class CompanyController extends Controller
      */
     public function index(Request $request)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.companies')) {
+            return $r;
+        }
 
         $companies = Company::with([
             'contactUser',
@@ -81,7 +85,9 @@ class CompanyController extends Controller
      */
     public function store(Request $request)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.companies')) {
+            return $r;
+        }
 
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:companies',
@@ -109,7 +115,9 @@ class CompanyController extends Controller
      */
     public function update(Request $request, Company $company)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.companies')) {
+            return $r;
+        }
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255', Rule::unique('companies')->ignore($company->id)],
@@ -144,7 +152,9 @@ class CompanyController extends Controller
      */
     public function approve(Request $request, Company $company)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.companies')) {
+            return $r;
+        }
 
         return DB::transaction(function () use ($request, $company) {
             $employeesList = $request->input('employees');
@@ -213,7 +223,9 @@ class CompanyController extends Controller
      */
     public function reject(Request $request, Company $company)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.companies')) {
+            return $r;
+        }
 
         $validated = $request->validate([
             'reason' => 'required|string|max:500',
@@ -233,9 +245,11 @@ class CompanyController extends Controller
     /**
      * Supprimer une entreprise
      */
-    public function destroy(Company $company)
+    public function destroy(Request $request, Company $company)
     {
-        $this->requireRole('admin');
+        if ($r = $this->adminRequires($request, 'admin.companies')) {
+            return $r;
+        }
 
         $company->delete();
 
@@ -258,13 +272,11 @@ class CompanyController extends Controller
     {
         $user = auth()->user();
 
-        // Admin peut voir tous
-        if ($this->hasRole('admin')) {
+        if ($user && $user->canAsAdmin('admin.companies')) {
             return true;
         }
 
-        // Propriétaire de l'entreprise UNIQUEMENT
-        if ($company->contact_user_id === $user->id) {
+        if ($user && $company->contact_user_id === $user->id && $user->hasPermissionTo('entreprise.b2b.access')) {
             return true;
         }
 

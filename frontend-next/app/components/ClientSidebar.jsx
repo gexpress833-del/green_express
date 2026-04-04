@@ -1,43 +1,105 @@
 "use client"
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { useCart } from '@/contexts/CartContext'
+import { useAuth } from '@/contexts/AuthContext'
+import { apiRequest } from '@/lib/api'
+import { filterNavByPermissions } from '@/lib/navPermissions'
 
-export default function ClientSidebar(){
+const menuItemsDef = [
+  { href: '/client', label: 'Accueil repas', icon: '📊', always: true },
+  {
+    href: '/client/menus',
+    label: 'Menus',
+    icon: '🍽️',
+    anyOf: ['menus.list-approved', 'menus.view-approved'],
+  },
+  { href: '/client/cart', label: 'Panier', icon: '🛒', permission: 'orders.create' },
+  { href: '/client/notifications', label: 'Notifications', icon: '🔔', permission: null, badgeKey: 'notif' },
+  { href: '/client/orders', label: 'Mes commandes', icon: '📦', anyOf: ['orders.view-own', 'orders.list-own'] },
+  {
+    href: '/client/subscriptions',
+    label: 'Abonnements',
+    icon: '💳',
+    anyOf: ['subscriptions.view-own', 'subscriptions.create'],
+  },
+  { href: '/client/promotions', label: 'Promotions', icon: '🎁', anyOf: ['promotions.view', 'promotions.list'] },
+  { href: '/client/invoices', label: 'Factures', icon: '📄', anyOf: ['orders.view-own', 'orders.list-own'] },
+  {
+    href: '/evenements',
+    label: 'Service événementiel',
+    icon: '🎉',
+    anyOf: ['stats.client.view', 'menus.list-approved'],
+  },
+  {
+    href: '/client/event-requests',
+    label: 'Mes demandes événements',
+    icon: '📋',
+    anyOf: ['stats.client.view', 'orders.create'],
+  },
+  { href: '/profile', label: 'Mon profil', icon: '👤', permission: null },
+]
+
+export default function ClientSidebar() {
   const pathname = usePathname()
   const { itemCount } = useCart()
-  
-  const menuItems = [
-    { href: '/client', label: 'Accueil repas', icon: '📊' },
-    { href: '/client/menus', label: 'Menus', icon: '🍽️' },
-    { href: '/client/cart', label: 'Panier', icon: '🛒', badge: itemCount },
-    { href: '/client/orders', label: 'Mes commandes', icon: '📦' },
-    { href: '/client/subscriptions', label: 'Abonnements', icon: '💳' },
-    { href: '/client/promotions', label: 'Promotions', icon: '🎁' },
-    { href: '/client/invoices', label: 'Factures', icon: '📄' },
-    { href: '/evenements', label: 'Service événementiel', icon: '🎉' },
-    { href: '/client/event-requests', label: 'Mes demandes événements', icon: '📋' },
-    { href: '/profile', label: 'Mon profil', icon: '👤' },
-  ]
+  const { user } = useAuth()
+  const [unreadNotif, setUnreadNotif] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    apiRequest('/api/notifications?limit=1', { method: 'GET' })
+      .then((r) => {
+        if (!cancelled && typeof r?.unread_count === 'number') setUnreadNotif(r.unread_count)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [pathname])
+
+  const menuItems = filterNavByPermissions(menuItemsDef, user, { requireRole: 'client' })
 
   return (
-    <aside className="sidebar">
-      <nav>
+    <aside className="sidebar" aria-label="Espace client">
+      <nav aria-label="Menu principal">
         <ul>
-          {menuItems.map(item => (
-            <li key={item.href}>
-              <Link 
-                href={item.href}
-                className={pathname === item.href ? 'active' : ''}
-              >
-                <span style={{ marginRight: '8px' }}>{item.icon}</span>
-                {item.label}
-                {item.badge != null && item.badge > 0 && (
-                  <span style={{ marginLeft: 6, background: 'rgba(212, 175, 55, 0.3)', color: '#f5e08a', borderRadius: 999, padding: '2px 8px', fontSize: 12, fontWeight: 700 }}>{item.badge}</span>
-                )}
-              </Link>
-            </li>
-          ))}
+          {menuItems.map((item) => {
+            const badge =
+              item.href === '/client/cart' && itemCount > 0
+                ? itemCount
+                : item.badgeKey === 'notif' && unreadNotif > 0
+                  ? unreadNotif
+                  : null
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={pathname === item.href ? 'active' : ''}
+                  aria-current={pathname === item.href ? 'page' : undefined}
+                >
+                  <span style={{ marginRight: '8px' }}>{item.icon}</span>
+                  {item.label}
+                  {badge != null && (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        background: 'rgba(212, 175, 55, 0.3)',
+                        color: '#f5e08a',
+                        borderRadius: 999,
+                        padding: '2px 8px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {badge}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       </nav>
     </aside>

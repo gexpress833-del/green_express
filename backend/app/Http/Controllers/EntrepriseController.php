@@ -22,9 +22,9 @@ class EntrepriseController extends Controller
         if (!$user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
-        if ($user->role !== 'entreprise') {
+        if (! $user->hasPermissionTo('entreprise.b2b.access')) {
             return response()->json([
-                'message' => 'Accès refusé. Rôle entreprise requis.',
+                'message' => 'Accès refusé. Portail entreprise requis.',
                 'current_role' => $user->role,
             ], 403);
         }
@@ -54,15 +54,17 @@ class EntrepriseController extends Controller
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
-            if ($user->role !== 'entreprise' && $user->role !== 'admin') {
+            $canEntrepriseStats = $user->hasPermissionTo('stats.entreprise.view')
+                && $user->hasPermissionTo('entreprise.b2b.access');
+            $canAdminStats = $user->canAsAdmin('stats.admin.view');
+            if (! $canEntrepriseStats && ! $canAdminStats) {
                 return response()->json([
-                    'message' => 'Accès refusé. Rôle entreprise ou admin requis',
+                    'message' => 'Accès refusé. Statistiques entreprise ou admin requises.',
                     'current_role' => $user->role,
                 ], 403);
             }
 
-            // Rôle entreprise : stats de la company dont il est le contact
-            if ($user->role === 'entreprise') {
+            if ($canEntrepriseStats && ! $canAdminStats) {
                 $company = Company::where('contact_user_id', $user->id)->first();
                 if (!$company) {
                     return response()->json([
@@ -135,8 +137,8 @@ class EntrepriseController extends Controller
         if (!$user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
-        if ($user->role !== 'entreprise') {
-            return response()->json(['message' => 'Accès refusé. Rôle entreprise requis.'], 403);
+        if (! $user->hasPermissionTo('entreprise.b2b.access')) {
+            return response()->json(['message' => 'Accès refusé. Portail entreprise requis.'], 403);
         }
 
         $company = Company::where('contact_user_id', $user->id)->first();

@@ -16,6 +16,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\SecretaireController;
 
 /*
 |--------------------------------------------------------------------------
@@ -89,6 +90,8 @@ Route::middleware(['auth:api'])->group(function () {
 // GET /api/user et /api/me : publics pour éviter 401 en console (réponse 200 + null si non connecté)
 Route::get('user', [AuthController::class, 'user'])->middleware('throttle:api');
 Route::get('me', [AuthController::class, 'me'])->middleware('throttle:api');
+// GET liste notifications : même principe (pas de auth:api) — invité → 200 + compteur 0 (évite 401 / spam console)
+Route::get('notifications', [NotificationController::class, 'index'])->middleware('throttle:api');
 Route::middleware(['auth:api', 'throttle:api'])->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('dashboard', [\App\Http\Controllers\DashboardController::class, '__invoke']);
@@ -105,8 +108,7 @@ Route::get('my-event-requests', [\App\Http\Controllers\EventRequestController::c
 Route::put('profile', [ProfileController::class, 'update'])->middleware('throttle:api');
 Route::put('profile/password', [ProfileController::class, 'updatePassword'])->middleware('throttle:api');
 
-// Notifications (DB)
-Route::get('notifications', [NotificationController::class, 'index'])->middleware('throttle:api');
+// Notifications (DB) — GET index déclaré plus haut avec GET /api/user
 Route::post('notifications/{id}/read', [NotificationController::class, 'markRead'])->middleware('throttle:api');
 Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->middleware('throttle:api');
 Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->middleware('throttle:api');
@@ -196,6 +198,11 @@ Route::get('admin/stats', [AdminController::class, 'stats'])->middleware('thrott
 Route::get('admin/stats/export-pdf', [AdminController::class, 'statsPdf'])->middleware('throttle:api');
 Route::get('admin/deliveries', [AdminController::class, 'deliveries'])->middleware('throttle:api');
 Route::get('admin/roles', [AdminController::class, 'roles'])->middleware('throttle:api');
+
+// Registre des permissions et édition par rôle (admin + roles.manage_permissions)
+Route::get('admin/permissions/registry', [\App\Http\Controllers\Api\RolePermissionController::class, 'registry'])->middleware('throttle:api');
+Route::get('admin/roles/{role}/permissions', [\App\Http\Controllers\Api\RolePermissionController::class, 'show'])->middleware('throttle:api');
+Route::put('admin/roles/{role}/permissions', [\App\Http\Controllers\Api\RolePermissionController::class, 'update'])->middleware('throttle:api');
 Route::get('cuisinier/stats', [\App\Http\Controllers\CuisinierController::class, 'stats'])->middleware('throttle:api');
 
 // Exploitation abonnements (admin + cuisinier) — filtres, demain, stats
@@ -204,6 +211,7 @@ Route::get('operational/subscriptions/stats', [OperationalSubscriptionController
 Route::get('operational/subscriptions', [OperationalSubscriptionController::class, 'index'])->middleware('throttle:api');
 Route::get('client/stats', [\App\Http\Controllers\ClientController::class, 'stats'])->middleware('throttle:api');
 Route::get('livreur/stats', [\App\Http\Controllers\LivreurController::class, 'stats'])->middleware('throttle:api');
+Route::get('secretaire/stats', [SecretaireController::class, 'stats'])->middleware('throttle:api');
 Route::get('livreurs', [\App\Http\Controllers\LivreurController::class, 'listForAssignment'])->middleware('throttle:api');
 Route::get('livreur/assignments', [\App\Http\Controllers\LivreurController::class, 'getAssignments'])->middleware('throttle:api');
 Route::post('livreur/validate-code', [\App\Http\Controllers\LivreurController::class, 'validateDeliveryCode'])->middleware('throttle:api');

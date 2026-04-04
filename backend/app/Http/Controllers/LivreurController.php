@@ -27,16 +27,19 @@ class LivreurController extends Controller
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
-            // Seuls les livreurs et admins peuvent voir ces stats
-            if ($user->role !== 'livreur' && $user->role !== 'admin') {
+            $canSeeLivreurStats = $user->hasPermissionTo('stats.livreur.view');
+            $canSeeAllDrivers = $user->hasPermissionTo('stats.admin.view')
+                || $user->hasPermissionTo('stats.secretaire.view');
+            if (! $canSeeLivreurStats && ! $canSeeAllDrivers) {
                 return response()->json([
-                    'message' => 'Accès refusé. Rôle livreur ou admin requis',
-                    'current_role' => $user->role
+                    'message' => 'Accès refusé. Statistiques livreur / secrétariat / admin requises.',
+                    'current_role' => $user->role,
                 ], 403);
             }
 
-            // Les livreurs ne voient que leurs propres stats, les admins voient tout
-            $userId = $user->role === 'admin' ? $request->input('user_id', $user->id) : $user->id;
+            $userId = $canSeeAllDrivers
+                ? $request->input('user_id', $user->id)
+                : $user->id;
 
             $assigned = Order::where('livreur_id', $userId)
                 ->whereIn('status', ['pending', 'paid', 'out_for_delivery'])
@@ -71,8 +74,8 @@ class LivreurController extends Controller
         try {
             $user = $request->user();
             if (!$user) return response()->json(['message' => 'Non authentifié'], 401);
-            if ($user->role !== 'admin' && $user->role !== 'cuisinier') {
-                return response()->json(['message' => 'Accès refusé. Rôle admin ou cuisinier requis', 'current_role' => $user->role], 403);
+            if (! $user->hasPermissionTo('orders.assign-livreur')) {
+                return response()->json(['message' => 'Accès refusé. Permission orders.assign-livreur requise.', 'current_role' => $user->role], 403);
             }
             $livreurs = User::where('role', 'livreur')->orderBy('name')->get(['id', 'name', 'email']);
             return response()->json($livreurs);
@@ -93,20 +96,21 @@ class LivreurController extends Controller
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
-            if ($user->role !== 'livreur' && $user->role !== 'admin') {
+            $seeAllOrders = $user->hasPermissionTo('orders.list');
+            $seeAssignments = $user->hasPermissionTo('orders.list-assignments');
+            if (! $seeAllOrders && ! $seeAssignments) {
                 return response()->json([
-                    'message' => 'Accès refusé. Rôle livreur ou admin requis',
-                    'current_role' => $user->role
+                    'message' => 'Accès refusé. Liste des commandes ou livraisons requise.',
+                    'current_role' => $user->role,
                 ], 403);
             }
 
-            $query = Order::with('items.menu', 'user')
+            $query = Order::with('items.menu', 'user', 'deliveryDriver')
                 ->whereIn('status', ['pending', 'paid', 'out_for_delivery'])
                 ->whereNotNull('delivery_code')
                 ->orderBy('created_at', 'asc');
 
-            // Le livreur ne voit que les commandes qui lui sont attribuées
-            if ($user->role === 'livreur') {
+            if (! $seeAllOrders && $seeAssignments) {
                 $query->where('livreur_id', $user->id);
             }
 
@@ -139,6 +143,13 @@ class LivreurController extends Controller
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
+            if (! $currentUser->canAsAdmin('orders.view') && ! $currentUser->hasPermissionTo('orders.validate-delivery-code')) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => 'Non autorisé à valider un code de livraison.',
+                ], 403);
+            }
+
             // Trouver la commande avec ce code
             $order = Order::where('delivery_code', $data['code'])
                 ->whereIn('status', ['pending', 'paid', 'out_for_delivery'])
@@ -151,8 +162,11 @@ class LivreurController extends Controller
                 ], 400);
             }
 
-            // Le livreur ne peut valider que les commandes qui lui sont attribuées (l'admin peut tout valider)
-            if ($currentUser->role === 'livreur' && (int) $order->livreur_id !== (int) $currentUser->id) {
+            if (
+                ! $currentUser->canAsAdmin('orders.view')
+                && $currentUser->hasPermissionTo('orders.validate-delivery-code')
+                && (int) $order->livreur_id !== (int) $currentUser->id
+            ) {
                 return response()->json([
                     'valid' => false,
                     'message' => 'Cette commande ne vous est pas attribuée. Vous ne pouvez valider que vos propres livraisons.'

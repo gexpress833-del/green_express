@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\AdminRequiresPermission;
 use App\Http\Requests\StoreOrderRequest;
+use App\Models\Company;
 use App\Models\Menu;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -20,6 +22,8 @@ use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
+    use AdminRequiresPermission;
+
     public function __construct(private OrderNotificationService $orderNotifications)
     {
     }
@@ -27,18 +31,21 @@ class OrderController extends Controller
     private function allowAdminOrCuisinier(Request $request): bool
     {
         $user = $request->user();
-        return $user && in_array($user->role, ['admin', 'cuisinier'], true);
+        return $user && (
+            $user->hasPermissionTo('orders.change-status')
+            || $user->canAsAdmin('orders.edit')
+        );
     }
 
     public function index(Request $request)
     {
         $user = $request->user();
 
-        if ($user->role === 'admin') {
+        if ($user->hasPermissionTo('orders.list')) {
             return Order::with(['items.menu', 'user.points', 'deliveryDriver'])->orderByDesc('created_at')->get();
         }
 
-        if ($user->role === 'cuisinier') {
+        if ($user->hasPermissionTo('orders.list-own-menus')) {
             return Order::with(['items.menu', 'user', 'deliveryDriver'])->orderByDesc('created_at')->get();
         }
 
@@ -50,15 +57,44 @@ class OrderController extends Controller
 
     public function show(Request $request, $id)
     {
+        $viewer = $request->user();
+        if (! $viewer) {
+            return response()->json(['message' => 'Non authentifié'], 401);
+        }
+
+        $order = Order::with(['items.menu', 'deliveryDriver'])->findOrFail($id);
+
+        if ($viewer->hasPermissionTo('orders.view-own') && (int) $order->user_id === (int) $viewer->id) {
+            return response()->json($order);
+        }
+
+        if (
+            $viewer->hasPermissionTo('entreprise.b2b.access')
+            && $order->company_id
+            && Company::where('contact_user_id', $viewer->id)->whereKey($order->company_id)->exists()
+        ) {
+            return response()->json($order->load(['items.menu', 'user', 'deliveryDriver']));
+        }
+
+        if ($viewer->hasPermissionTo('orders.view-assignments')) {
+            if ((int) ($order->livreur_id ?? 0) !== (int) $viewer->id) {
+                return response()->json(['message' => 'Accès refusé'], 403);
+            }
+
+            return response()->json($order->load(['items.menu', 'user', 'deliveryDriver']));
+        }
+
+        if ($viewer->hasPermissionTo('orders.view')) {
+            return response()->json($order->load(['items.menu', 'user.points', 'deliveryDriver']));
+        }
+
         if (! $this->allowAdminOrCuisinier($request)) {
             return response()->json(['message' => 'Accès refusé'], 403);
         }
 
-        $viewer = $request->user();
-        $userRelation = $viewer->role === 'admin' ? 'user.points' : 'user';
-        $order = Order::with(['items.menu', $userRelation, 'deliveryDriver'])->findOrFail($id);
+        $userRelation = $viewer->canAsAdmin('orders.view') ? 'user.points' : 'user';
 
-        return response()->json($order);
+        return response()->json($order->load(['items.menu', $userRelation, 'deliveryDriver']));
     }
 
     public function update(Request $request, $id)
@@ -81,9 +117,8 @@ class OrderController extends Controller
 
     public function destroy(Request $request, $id)
     {
-        $user = $request->user();
-        if (! $user || $user->role !== 'admin') {
-            return response()->json(['message' => 'Accès refusé. Admin uniquement.'], 403);
+        if ($r = $this->adminRequires($request, 'orders.delete')) {
+            return $r;
         }
 
         $order = Order::findOrFail($id);
@@ -110,8 +145,10 @@ class OrderController extends Controller
         $order = Order::findOrFail($id);
         $user = $request->user();
 
-        if ($user->role !== 'admin' && $user->role !== 'cuisinier') {
-            return response()->json(['message' => 'Accès refusé. Rôle admin ou cuisinier requis'], 403);
+        $canAssign = $user->hasPermissionTo('orders.assign-livreur')
+            || $user->canAsAdmin('orders.assign-livreur');
+        if (! $canAssign) {
+            return response()->json(['message' => 'Accès refusé. Permission orders.assign-livreur requise.'], 403);
         }
 
         $data = $request->validate(['livreur_id' => 'required|integer|exists:users,id']);
@@ -199,7 +236,7 @@ class OrderController extends Controller
         $order = Order::findOrFail($id);
         $user = $request->user();
 
-        if ($order->user_id !== $user->id && $user->role !== 'admin') {
+        if ($order->user_id !== $user->id && ! $user->canAsAdmin('orders.view')) {
             return response()->json(['message' => 'Non autorisé'], 403);
         }
 
@@ -331,7 +368,7 @@ class OrderController extends Controller
         $order = Order::findOrFail($id);
         $user = $request->user();
 
-        if ($order->user_id !== $user->id && $user->role !== 'admin') {
+        if ($order->user_id !== $user->id && ! $user->canAsAdmin('orders.view')) {
             return response()->json(['message' => 'Non autorisé'], 403);
         }
         if ($order->status !== 'pending_payment') {

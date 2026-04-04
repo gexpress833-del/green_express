@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\AdminRequiresPermission;
 use App\Models\SubscriptionPlan;
 use Illuminate\Http\Request;
 
 class SubscriptionPlanController extends Controller
 {
+    use AdminRequiresPermission;
+
     /**
      * Liste des plans actifs (public, sans auth) pour la page d'accueil.
      */
@@ -30,7 +33,7 @@ class SubscriptionPlanController extends Controller
             ->orderBy('sort_order')
             ->orderBy('id');
 
-        if ($user?->role !== 'admin') {
+        if (! $user || ! $user->canAsAdmin('admin.subscription-plans')) {
             $query->where('is_active', true)->forIndividuals();
         }
 
@@ -50,8 +53,8 @@ class SubscriptionPlanController extends Controller
      */
     public function store(Request $request)
     {
-        if ($request->user()?->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.subscription-plans')) {
+            return $r;
         }
 
         $data = $this->validatedPlanPayload($request);
@@ -80,8 +83,8 @@ class SubscriptionPlanController extends Controller
      */
     public function update(Request $request, SubscriptionPlan $subscriptionPlan)
     {
-        if ($request->user()?->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.subscription-plans')) {
+            return $r;
         }
 
         $data = $this->validatedPlanPayload($request, true);
@@ -108,8 +111,8 @@ class SubscriptionPlanController extends Controller
      */
     public function destroy(Request $request, SubscriptionPlan $subscriptionPlan)
     {
-        if ($request->user()?->role !== 'admin') {
-            return response()->json(['message' => 'Non autorisé.'], 403);
+        if ($r = $this->adminRequires($request, 'admin.subscription-plans')) {
+            return $r;
         }
 
         $subscriptionPlan->delete();

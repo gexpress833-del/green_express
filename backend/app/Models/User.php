@@ -8,11 +8,56 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements HasMedia
 {
     use HasFactory, Notifiable, InteractsWithMedia, HasApiTokens, HasRoles;
+
+    protected static function booted(): void
+    {
+        static::saved(function (User $user) {
+            if (! $user->wasRecentlyCreated && ! $user->wasChanged('role')) {
+                return;
+            }
+            $roleName = $user->role ?: 'client';
+            if (\Spatie\Permission\Models\Role::where('name', $roleName)->where('guard_name', 'web')->exists()) {
+                $user->syncRoles([$roleName]);
+            }
+        });
+    }
+
+    /**
+     * Vérifie une permission Spatie pour un compte dont le rôle applicatif est admin.
+     */
+    public function canAsAdmin(string $permission): bool
+    {
+        if ($this->role !== 'admin') {
+            return false;
+        }
+
+        return $this->safeHasPermissionTo($permission) === true;
+    }
+
+    /**
+     * Vérifie une permission sans lever d'exception si la ligne n'existe pas en base (seed manquant).
+     *
+     * @return bool|null true = autorisé, false = refusé, null = permission absente de la table `permissions`
+     */
+    public function safeHasPermissionTo(string $name): ?bool
+    {
+        $perm = Permission::query()
+            ->where('name', $name)
+            ->where('guard_name', 'web')
+            ->first();
+
+        if (! $perm) {
+            return null;
+        }
+
+        return $this->hasPermissionTo($perm);
+    }
 
     /**
      * The attributes that are mass assignable.

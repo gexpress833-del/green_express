@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { register, registerCompany } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/contexts/AuthContext'
 import { getApiErrorMessage } from '@/lib/api'
 import { isValidEmail, isValidPassword } from '@/lib/helpers'
 import { pushToast } from '@/components/Toaster'
@@ -26,6 +27,7 @@ export default function RegisterPage() {
   const [employeeList, setEmployeeList] = useState([])
 
   const router = useRouter()
+  const { refreshUser } = useAuth()
 
   const enterpriseSlots = (() => {
     if (accountType !== 'entreprise') return 0
@@ -109,6 +111,7 @@ export default function RegisterPage() {
     try {
       if (accountType === 'client') {
         await register(email, password, name, clientPhone.trim())
+        await refreshUser()
         router.push('/client')
       } else {
         const empCount = parseInt(employeeCount, 10) || 1

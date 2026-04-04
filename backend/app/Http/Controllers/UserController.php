@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Http\Traits\AdminRequiresPermission;
 use App\Http\Traits\RoleAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -10,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
+    use AdminRequiresPermission;
     use RoleAccess;
 
     /**
@@ -23,19 +25,15 @@ class UserController extends Controller
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
-            // Seuls les admins peuvent créer des utilisateurs
-            if ($user->role !== 'admin') {
-                return response()->json([
-                    'message' => 'Accès refusé. Seuls les administateurs peuvent créer des utilisateurs',
-                    'current_role' => $user->role
-                ], 403);
+            if ($r = $this->adminRequires($request, 'users.create')) {
+                return $r;
             }
 
             $data = $request->validate([
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|unique:users',
                 'password' => 'required|string|min:6',
-                'role' => 'required|string|in:admin,cuisinier,client,livreur,verificateur,agent,entreprise',
+                'role' => 'required|string|in:admin,cuisinier,client,livreur,verificateur,agent,entreprise,secretaire',
             ]);
 
             $newUser = User::create([
@@ -65,12 +63,8 @@ class UserController extends Controller
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
-            // Seuls les admins peuvent lister les utilisateurs
-            if ($user->role !== 'admin') {
-                return response()->json([
-                    'message' => 'Accès refusé. Seuls les administateurs peuvent lister les utilisateurs',
-                    'current_role' => $user->role
-                ], 403);
+            if ($r = $this->adminRequires($request, 'users.list')) {
+                return $r;
             }
 
             // Pagination pour éviter de charger tous les utilisateurs
@@ -115,16 +109,12 @@ class UserController extends Controller
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
-            // Seuls les admins peuvent modifier les rôles
-            if ($admin->role !== 'admin') {
-                return response()->json([
-                    'message' => 'Accès refusé. Seuls les administateurs peuvent modifier les rôles',
-                    'current_role' => $admin->role
-                ], 403);
+            if ($r = $this->adminRequires($request, 'users.assign-role')) {
+                return $r;
             }
 
             $data = $request->validate([
-                'role' => 'required|string|in:admin,cuisinier,client,livreur,verificateur,agent,entreprise'
+                'role' => 'required|string|in:admin,cuisinier,client,livreur,verificateur,agent,entreprise,secretaire'
             ]);
 
             $oldRole = $user->role;
@@ -158,11 +148,8 @@ class UserController extends Controller
             if (!$admin) {
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
-            if ($admin->role !== 'admin') {
-                return response()->json([
-                    'message' => 'Accès refusé. Seuls les administrateurs peuvent supprimer des utilisateurs',
-                    'current_role' => $admin->role
-                ], 403);
+            if ($r = $this->adminRequires($request, 'users.delete')) {
+                return $r;
             }
             if ($user->id === $admin->id) {
                 return response()->json([

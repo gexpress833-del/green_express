@@ -11,7 +11,7 @@ class UserPolicy
 
     public function assignRole(User $actor, User $target)
     {
-        return $actor->role === 'admin';
+        return $actor->hasPermissionTo('users.assign-role');
     }
 
     /**
@@ -19,6 +19,6 @@ class UserPolicy
      */
     public function create(User $actor)
     {
-        return $actor->role === 'admin';
+        return $actor->hasPermissionTo('users.create');
     }
 }

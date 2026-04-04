@@ -18,17 +18,15 @@ class CuisinierController extends Controller
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
-            // Seuls les cuisiniers et admins peuvent voir ces stats
-            if ($user->role !== 'cuisinier' && $user->role !== 'admin') {
+            if (! $user->hasPermissionTo('stats.cuisinier.view')) {
                 return response()->json([
-                    'message' => 'Accès refusé. Rôle cuisinier ou admin requis',
-                    'current_role' => $user->role
+                    'message' => 'Accès refusé. Statistiques cuisine requises.',
+                    'current_role' => $user->role,
                 ], 403);
             }
 
-            // Les cuisiniers ne voient que leurs propres stats, les admins voient tout
             $query = Menu::query();
-            if ($user->role === 'cuisinier') {
+            if ($user->hasPermissionTo('menus.list-own') && ! $user->hasPermissionTo('menus.list')) {
                 $query->where('created_by', $user->id);
             }
 
