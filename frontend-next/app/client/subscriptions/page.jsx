@@ -299,13 +299,15 @@ export default function ClientSubscriptions() {
               {paySubscription.plan} — {formatCurrencyCDF(Number(paySubscription.price))}
               <span className="block text-white/50 text-sm mt-1">Formule hebdomadaire (lun–ven)</span>
             </p>
-            <PaymentMethodsBanner compact className="mb-4" />
-            <ol className="text-white/75 text-sm space-y-1.5 mb-4 list-decimal list-inside border border-white/10 rounded-lg p-3 bg-white/5">
+            <div className="w-full min-w-0 flex flex-col gap-3 mb-4">
+              <PaymentMethodsBanner compact className="mb-0 payment-methods-banner--modal-row" />
+              <ol className="text-white/75 text-sm space-y-1.5 list-decimal list-inside border border-white/10 rounded-lg p-3 bg-white/5 w-full min-w-0">
               <li>Vérifiez le montant ci-dessus</li>
               <li>Indiquez votre numéro Mobile Money</li>
               <li>Appuyez sur « Lancer le paiement »</li>
               <li><strong className="text-cyan-300">Validez sur votre téléphone</strong> — en général moins de 2 minutes</li>
             </ol>
+            </div>
             {payError && (
               <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">{payError}</div>
             )}

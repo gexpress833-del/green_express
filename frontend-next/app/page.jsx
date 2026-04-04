@@ -13,6 +13,7 @@ import {
   VIDEO_SOURCES_MP4,
   nextLogoSrc,
 } from '@/lib/landingMedia'
+import PaymentMethodsBanner from '@/components/PaymentMethodsBanner'
 
 /** `/?from=brand` : accès volontaire à la landing (logo navbar) — sans redirection vers /{role}. */
 function HomePageInner() {
@@ -365,6 +366,36 @@ function HomePageInner() {
             >
               Demander un devis événement
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Paiements sécurisés — réassurance visuelle */}
+      <section
+        className="py-16 px-6"
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(15, 23, 42, 0.5) 0%, rgba(0, 255, 255, 0.04) 45%, rgba(15, 23, 42, 0.5) 100%)',
+        }}
+      >
+        <div className="container max-w-3xl mx-auto text-center">
+          <h2
+            className="text-2xl sm:text-3xl font-bold mb-3"
+            style={{
+              background: 'linear-gradient(135deg, #22d3ee 0%, #a78bfa 55%, #fbbf24 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
+            Paiements en toute sécurité
+          </h2>
+          <p className="text-white/75 text-sm sm:text-base mb-8 max-w-xl mx-auto leading-relaxed">
+            Réglez vos commandes et abonnements en toute confiance : cartes bancaires et Mobile Money (RDC) pris en charge
+            pour un parcours de paiement clair et protégé.
+          </p>
+          <div className="mx-auto max-w-2xl w-full payment-methods-banner--landing">
+            <PaymentMethodsBanner />
           </div>
         </div>
       </section>

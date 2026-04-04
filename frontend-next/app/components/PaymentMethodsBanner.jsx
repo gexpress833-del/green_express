@@ -26,16 +26,18 @@ export default function PaymentMethodsBanner({
         </span>
       )}
       <div className="payment-methods-banner__frame">
-        <Image
-          src="/images/payment-methods-banner.png"
-          alt=""
-          width={1200}
-          height={220}
-          className="payment-methods-banner__img"
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 720px"
-          priority={false}
-          aria-hidden
-        />
+        <div className="payment-methods-banner__img-wrap">
+          <Image
+            src="/images/payment-methods-banner.png"
+            alt=""
+            width={1200}
+            height={220}
+            className="payment-methods-banner__img"
+            sizes="(max-width: 512px) calc(100vw - 3rem), 480px"
+            priority={false}
+            aria-hidden
+          />
+        </div>
       </div>
     </div>
   )
