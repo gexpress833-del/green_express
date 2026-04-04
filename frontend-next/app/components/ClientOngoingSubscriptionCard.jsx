@@ -280,7 +280,9 @@ export default function ClientOngoingSubscriptionCard({ subscription: s, onPayCl
                 </div>
                 <div className="client-sub-dayplate__empty-visual" aria-hidden>
                   <div className="client-sub-dayplate__empty-ring" />
-                  <span className="client-sub-dayplate__empty-monogram">GX</span>
+                  <span className="client-sub-dayplate__empty-monogram-wrap">
+                    <span className="client-sub-dayplate__empty-monogram">GX</span>
+                  </span>
                 </div>
                 <h4 className="client-sub-dayplate__empty-title">Contenu catalogue en cours</h4>
                 <p className="client-sub-dayplate__empty-text">
