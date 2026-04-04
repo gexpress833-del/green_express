@@ -846,6 +846,22 @@ input::placeholder {
   padding-right: 0;
 }
 
+/* Client (desktop) — même ressenti que secrétariat : moins d’air en haut, pas de double .container */
+.client-dashboard-page.page-section.page-section--admin-tight {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.client-dashboard-page .main-panel {
+  min-height: 0;
+}
+
+/* Sous-pages client (abonnements, etc.) — même resserrage vertical que le dashboard */
+.client-subscriptions-page.page-section.page-section--admin-tight {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 /* Dashboard layout */
 .dashboard-grid {
   display: grid;
@@ -3746,6 +3762,136 @@ button.client-sub-ongoing__day:hover {
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+/* Mobile — carte abonnement : pleine largeur, contenu centré (évite l’effet « bande à gauche ») */
+@media (max-width: 639px) {
+  .client-subscriptions-page .client-sub-ongoing,
+  .client-sub-ongoing {
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .client-sub-ongoing__badge {
+    position: relative;
+    top: auto;
+    right: auto;
+    align-self: center;
+    margin: 0 0 0.5rem;
+  }
+
+  .client-sub-ongoing__hero {
+    width: 100%;
+    padding-right: 0;
+    padding-left: 0;
+    text-align: center;
+  }
+
+  .client-sub-ongoing__eyebrow {
+    text-align: center;
+  }
+
+  .client-sub-ongoing__title {
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .client-sub-ongoing__week {
+    justify-content: center;
+  }
+
+  .client-sub-ongoing__visual {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .client-sub-dayplate {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .client-sub-dayplate__content {
+    text-align: center;
+    align-items: center;
+  }
+
+  .client-sub-dayplate__context {
+    justify-content: center;
+  }
+
+  .client-sub-dayplate__main {
+    text-align: center;
+  }
+
+  .client-sub-dayplate__multilist {
+    width: 100%;
+    text-align: left;
+  }
+
+  .client-sub-dayplate__empty-head {
+    text-align: center;
+  }
+
+  .client-sub-dayplate__empty-text,
+  .client-sub-dayplate__empty-hint {
+    max-width: none;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .client-sub-ongoing__price-block {
+    align-items: center;
+    text-align: center;
+  }
+
+  .client-sub-ongoing__thumbs {
+    justify-content: center;
+  }
+
+  .client-sub-ongoing__chips {
+    align-items: stretch;
+  }
+
+  .client-sub-ongoing__chip {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .client-sub-ongoing__chip-v {
+    flex: none;
+    text-align: center;
+  }
+
+  .client-sub-ongoing__pending {
+    display: flex;
+    justify-content: center;
+  }
+
+  .client-sub-active-detail {
+    text-align: center;
+  }
+
+  .client-sub-active-detail__list {
+    text-align: left;
+    max-width: 28rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Messages statut (sous le bloc prix) */
+  .client-sub-ongoing > p {
+    text-align: center;
+  }
 }
 
 @media (min-width: 640px) {

@@ -24,9 +24,9 @@ export default function ClientSubpageHeader({
   return (
     <>
       {/* MOBILE uniquement (< 640px) */}
-      <div className="mobile-only" style={{ paddingBottom: 20 }}>
+      <div className="mobile-only client-subpage-header-mobile" style={{ paddingBottom: 12, textAlign: 'center' }}>
 
-        <div style={{ marginBottom: 18 }}>
+        <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'center' }}>
           <Link href={backHref} style={{
             display: 'inline-flex', alignItems: 'center', gap: 7,
             padding: '8px 16px', borderRadius: 12,
@@ -52,7 +52,7 @@ export default function ClientSubpageHeader({
         </h1>
 
         {subtitle && (
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.48)', margin: 0, lineHeight: 1.55 }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.48)', margin: '0 auto', lineHeight: 1.55, maxWidth: '36rem' }}>
             {subtitle}
           </p>
         )}

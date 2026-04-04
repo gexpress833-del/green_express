@@ -363,10 +363,10 @@ export default function ClientDashboard() {
         </div>
       </div>
 
-      {/* ══════════ LAYOUT DESKTOP / TABLETTE (≥ sm) ══════════ */}
-      <section className="desktop-only page-section min-h-screen">
-        <div className="container">
-          <DashboardGreeting>
+      {/* ══════════ LAYOUT DESKTOP / TABLETTE (≥ sm) — aligné secrétariat : admin-tight, pas de double .container */}
+      <section className="desktop-only client-dashboard-page page-section page-section--admin-tight min-h-screen text-white">
+        <div className="mx-auto w-full max-w-6xl px-0 sm:px-0">
+          <DashboardGreeting compact>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2" style={{
               background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
               WebkitBackgroundClip: 'text',
@@ -378,7 +378,7 @@ export default function ClientDashboard() {
             <p className="text-white/70 text-sm sm:text-base lg:text-lg">Vos menus, commandes, points et abonnement repas</p>
           </DashboardGreeting>
 
-          <div className="dashboard-grid">
+          <div className="dashboard-grid mt-6">
             <ClientSidebar />
             <main className="main-panel">
               {subBanner && (

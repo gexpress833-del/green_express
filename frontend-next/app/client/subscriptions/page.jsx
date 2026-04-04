@@ -178,21 +178,21 @@ export default function ClientSubscriptions() {
 
   return (
     <ReadOnlyGuard allowedActions={['view', 'read', 'subscribe']} showWarning={false}>
-      <section className="page-section min-h-screen bg-[#0b1220]">
-        <div className="container">
+      <section className="client-subscriptions-page page-section page-section--admin-tight min-h-screen bg-[#0b1220] text-white">
+        <div className="mx-auto w-full max-w-6xl px-0 sm:px-0">
           <ClientSubpageHeader
             title="Mes abonnements repas"
             subtitle="Formule hebdomadaire (lundi–vendredi) : souscription, paiement Mobile Money et suivi — même page, étapes guidées ci-dessous."
             icon="💳"
           />
 
-          <div className="card mb-6 p-4 sm:p-5 border border-cyan-500/25 bg-cyan-500/5">
+          <div className="card mb-6 p-4 sm:p-5 border border-cyan-500/25 bg-cyan-500/5 text-center sm:text-left">
             <p className="text-white/90 text-sm sm:text-base leading-relaxed m-0">
               <strong className="text-cyan-300">Validation par l’équipe :</strong> après souscription, votre demande est
               <strong> en attente d’approbation</strong> par un administrateur (vérification du paiement Mobile Money).
               Vous ne pouvez pas <strong>mettre en pause</strong> ni <strong>résilier vous-même</strong> un abonnement en cours — seul l’administrateur peut approuver, refuser ou annuler. Pour toute question, contactez le support.
             </p>
-            <div className="mt-4 pt-4 border-t border-cyan-500/25 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            <div className="mt-4 pt-4 border-t border-cyan-500/25 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 items-center sm:items-stretch">
               <GoldButton href="/client/subscriptions/historique" className="!inline-flex items-center justify-center gap-2 shrink-0 px-5 py-3 text-[15px] shadow-[0_4px_20px_rgba(212,175,55,0.35)]">
                 <span aria-hidden>📜</span>
                 Historique des abonnements
@@ -203,7 +203,7 @@ export default function ClientSubscriptions() {
             </div>
           </div>
 
-          <div id="renew" className="scroll-mt-24 space-y-6">
+          <div id="renew" className="scroll-mt-20 sm:scroll-mt-24 space-y-6">
               {alertRenew && (
                 <div className="mb-0 p-4 sm:p-5 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-200 flex items-center gap-4">
                   <span className="text-3xl">⚠️</span>

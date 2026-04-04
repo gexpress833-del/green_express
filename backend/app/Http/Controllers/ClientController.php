@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Point;
 use App\Models\Subscription;
+use App\Models\User;
 use App\Http\Traits\RoleAccess;
 use Illuminate\Http\Request;
 
@@ -12,21 +13,34 @@ class ClientController extends Controller
 {
     use RoleAccess;
 
+    /**
+     * Statistiques tableau de bord client.
+     * Utilise safeHasPermissionTo : hasPermissionTo() peut lever une exception si la ligne permission
+     * n’existe pas en base (ex. seed oublié en prod → 500 au lieu de 403).
+     */
     public function stats(Request $request)
     {
+        $user = $request->user();
+        if (! $user instanceof User) {
+            return response()->json(['message' => 'Non authentifié'], 401);
+        }
+
+        $can = $user->safeHasPermissionTo('stats.client.view');
+        if ($can === false) {
+            return response()->json([
+                'message' => 'Accès refusé. Statistiques client requises.',
+                'current_role' => $user->role,
+            ], 403);
+        }
+        // Permission absente du seeder : on autorise uniquement le rôle client (comportement historique)
+        if ($can === null && $user->role !== 'client') {
+            return response()->json([
+                'message' => 'Accès refusé. Statistiques client requises.',
+                'current_role' => $user->role,
+            ], 403);
+        }
+
         try {
-            $user = $request->user();
-            if (!$user) {
-                return response()->json(['message' => 'Non authentifié'], 401);
-            }
-
-            if (! $user->hasPermissionTo('stats.client.view')) {
-                return response()->json([
-                    'message' => 'Accès refusé. Statistiques client requises.',
-                    'current_role' => $user->role,
-                ], 403);
-            }
-
             $userId = $user->canAsAdmin('stats.client.view')
                 ? $request->input('user_id', $user->id)
                 : $user->id;
@@ -42,10 +56,12 @@ class ClientController extends Controller
                 'subscriptions' => $subscriptionsCount,
                 'points' => $pointsBalance,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            report($e);
+
             return response()->json([
                 'message' => 'Erreur lors du calcul des statistiques',
-                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne'
+                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne',
             ], 500);
         }
     }
