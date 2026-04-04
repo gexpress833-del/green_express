@@ -18,7 +18,7 @@ export const SECRETAIRE_NAV_CONFIG = [
   {
     href: '/secretaire/orders',
     label: 'Commandes & livreurs',
-    permission: 'orders.list',
+    anyOf: ['orders.list', 'orders.view'],
     isActive: (pathname) => pathname.startsWith('/secretaire/orders'),
   },
   {
@@ -26,6 +26,12 @@ export const SECRETAIRE_NAV_CONFIG = [
     label: 'Flux livraisons',
     anyOf: ['orders.list', 'livreur.assignments.view-all', 'orders.assign-livreur'],
     isActive: (pathname) => pathname.startsWith('/secretaire/flux'),
+  },
+  {
+    href: '/secretaire/event-requests',
+    label: 'Demandes événements',
+    permission: 'admin.event-requests',
+    isActive: (pathname) => pathname.startsWith('/secretaire/event-requests'),
   },
 ]
 

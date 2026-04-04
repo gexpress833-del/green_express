@@ -30,6 +30,7 @@ export function getOrderDeepLink(role, orderId) {
 export function getEventRequestDeepLink(role) {
   const r = (role || '').toLowerCase()
   if (r === ROLES.ADMIN) return '/admin/event-requests'
+  if (r === ROLES.SECRETAIRE) return '/secretaire/event-requests'
   if (r === ROLES.CLIENT) return '/client/event-requests'
   return role ? `/${role}` : '/client'
 }

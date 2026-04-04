@@ -51,7 +51,7 @@ class EventRequestController extends Controller
     }
 
     /**
-     * Liste des demandes événementielles (admin uniquement).
+     * Liste des demandes événementielles (permission `admin.event-requests` : admin, secrétariat délégué, etc.).
      */
     public function index(Request $request)
     {
@@ -59,7 +59,7 @@ class EventRequestController extends Controller
         if (! $user) {
             return response()->json(['message' => 'Non authentifié'], 401);
         }
-        if ($r = $this->adminRequires($request, 'admin.event-requests')) {
+        if ($r = $this->requiresSpatiePermission($request, 'admin.event-requests')) {
             return $r;
         }
 
@@ -72,11 +72,11 @@ class EventRequestController extends Controller
     }
 
     /**
-     * Traiter une demande (admin) : statut + réponse. Le client est notifié.
+     * Traiter une demande : statut + réponse. Le client est notifié.
      */
     public function update(Request $request, int $id)
     {
-        if ($r = $this->adminRequires($request, 'admin.event-requests')) {
+        if ($r = $this->requiresSpatiePermission($request, 'admin.event-requests')) {
             return $r;
         }
 

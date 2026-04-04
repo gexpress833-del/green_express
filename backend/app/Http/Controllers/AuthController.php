@@ -231,7 +231,15 @@ class AuthController extends Controller
         }
 
         $base = $user->toArray();
-        $base['permissions'] = $user->getAllPermissions()->pluck('name')->values()->all();
+        $perms = $user->getAllPermissions()->pluck('name')->values()->all();
+        // Repli si Spatie ne renvoie rien (rôle pas resynchronisé, cache, etc.) : aligné sur config/roles.php
+        if ($perms === [] && $user->role) {
+            $fromConfig = config('roles.roles.'.$user->role.'.permissions');
+            if (is_array($fromConfig) && $fromConfig !== []) {
+                $perms = $fromConfig;
+            }
+        }
+        $base['permissions'] = $perms;
 
         return $base;
     }

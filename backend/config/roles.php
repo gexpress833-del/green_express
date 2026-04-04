@@ -195,6 +195,7 @@ return [
                 'orders.assign-livreur',
                 'livreur.assignments.view-all',
                 'stats.secretaire.view',
+                'admin.event-requests',
             ]
         ],
 

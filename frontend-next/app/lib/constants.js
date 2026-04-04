@@ -16,6 +16,7 @@ export const ROLES = {
   VERIFICATEUR: 'verificateur',
   CLIENT: 'client',
   ENTREPRISE: 'entreprise',
+  SECRETAIRE: 'secretaire',
 };
 
 // API Endpoints

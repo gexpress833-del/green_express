@@ -10,5 +10,6 @@ export function normalizeSessionUser(data) {
   const raw = data.role
   if (raw == null || String(raw).trim() === '') return null
   const role = String(raw).toLowerCase().trim()
-  return { ...data, role }
+  const permissions = Array.isArray(data.permissions) ? data.permissions : []
+  return { ...data, role, permissions }
 }
