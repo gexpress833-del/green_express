@@ -1,0 +1,357 @@
+/* Fond ambiance + grille futuriste */
+.shell {
+  position: relative;
+  min-height: calc(100vh - 8rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1rem 3rem;
+  overflow: hidden;
+}
+
+.ambient {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -15%, rgba(34, 211, 238, 0.18), transparent 55%),
+    radial-gradient(ellipse 50% 45% at 100% 30%, rgba(168, 85, 247, 0.14), transparent 50%),
+    radial-gradient(ellipse 45% 40% at 0% 85%, rgba(212, 175, 55, 0.1), transparent 50%);
+}
+
+.gridFloor {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 45%, black 15%, transparent 72%);
+}
+
+.vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 0%, rgba(6, 8, 15, 0.85) 100%);
+}
+
+.card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 440px;
+  border-radius: 28px;
+  padding: 2.5rem 1.75rem 2.25rem;
+  background: linear-gradient(
+    165deg,
+    rgba(15, 23, 42, 0.65) 0%,
+    rgba(15, 23, 42, 0.35) 50%,
+    rgba(8, 12, 24, 0.55) 100%
+  );
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.12),
+    0 0 60px -8px rgba(34, 211, 238, 0.22),
+    0 28px 64px -16px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+@media (min-width: 640px) {
+  .card {
+    padding: 2.75rem 2.25rem 2.5rem;
+  }
+}
+
+.cardGlow {
+  pointer-events: none;
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    125deg,
+    rgba(34, 211, 238, 0.35) 0%,
+    rgba(168, 85, 247, 0.2) 45%,
+    rgba(212, 175, 55, 0.15) 100%
+  );
+  opacity: 0.45;
+  filter: blur(22px);
+  z-index: -1;
+}
+
+.neonTop {
+  height: 3px;
+  border-radius: 999px;
+  margin: 0 auto 1.75rem;
+  max-width: 180px;
+  background: linear-gradient(90deg, transparent, #22d3ee, #a855f7, #fbbf24, transparent);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.7), 0 0 28px rgba(168, 85, 247, 0.35);
+}
+
+.titleGradient {
+  font-size: clamp(1.75rem, 5vw, 2.15rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  background: linear-gradient(120deg, #e0f2fe 0%, #22d3ee 28%, #c4b5fd 55%, #fcd34d 85%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 40px rgba(34, 211, 238, 0.15);
+}
+
+.subtitle {
+  margin-top: 0.65rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: rgba(226, 232, 240, 0.55);
+  max-width: 26rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(165, 243, 252, 0.65);
+}
+
+.input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.9rem 1rem;
+  font-size: 0.95rem;
+  color: #f1f5f9;
+  transition:
+    color 0.2s,
+    background 0.2s;
+  outline: none;
+}
+
+.input::placeholder {
+  color: rgba(148, 163, 184, 0.45);
+}
+
+/* Input d'identifiant (normal) */
+#login-identifier {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(6, 10, 22, 0.55);
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+#login-identifier:focus {
+  border-color: rgba(34, 211, 238, 0.45);
+  box-shadow:
+    inset 0 2px 12px rgba(0, 0, 0, 0.25),
+    0 0 0 3px rgba(34, 211, 238, 0.12),
+    0 0 28px rgba(34, 211, 238, 0.12);
+}
+/* Mot de passe : place à droite pour l'œil. */
+#login-password {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(6, 10, 22, 0.55);
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
+  padding: 0.9rem 2.75rem 0.9rem 1rem;
+  margin: 0;
+  appearance: auto;
+}
+
+#login-password:focus {
+  border-color: rgba(34, 211, 238, 0.45);
+  box-shadow:
+    inset 0 2px 12px rgba(0, 0, 0, 0.25),
+    0 0 0 3px rgba(34, 211, 238, 0.12),
+    0 0 28px rgba(34, 211, 238, 0.12);
+}
+
+.passwordInputWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(6, 10, 22, 0.55);
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.25);
+  gap: 0.2rem;
+  padding: 0.2rem;
+}
+
+.passwordInputWrapper #login-password {
+  flex: 1;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0.7rem 0.9rem;
+}
+
+/* Œil natif masqué : le bouton personnalisé remplace (évite double icône). */
+.passwordInputWrapper input[type='password']::-ms-reveal {
+  display: none;
+}
+
+.passwordInputWrapper input[type='password']::-webkit-textfield-decoration-container {
+  display: none !important;
+}
+
+.togglePwButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(165, 243, 252, 0.7);
+  cursor: pointer;
+  pointer-events: auto;
+  user-select: none;
+  flex-shrink: 0;
+  transition:
+    color 0.2s,
+    background 0.2s;
+}
+
+.togglePwButton:hover {
+  color: rgba(165, 243, 252, 1);
+  background: rgba(34, 211, 238, 0.1);
+}
+
+.togglePwButton:active {
+  background: rgba(34, 211, 238, 0.2);
+  transform: scale(0.95);
+}
+
+.togglePwButton:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.55);
+  outline-offset: 1px;
+}
+
+.toggleIcon {
+  width: 1.2rem;
+  height: 1.2rem;
+  pointer-events: none;
+}
+
+.loginForm {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.passwordField {
+  width: 100%;
+}
+
+.hint {
+  margin-top: 0.4rem;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: rgba(148, 163, 184, 0.55);
+}
+
+.submit {
+  margin-top: 0.5rem;
+  width: 100%;
+  border: none;
+  border-radius: 16px;
+  padding: 0.95rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: #0b1220;
+  background: linear-gradient(105deg, #22d3ee 0%, #a78bfa 48%, #fbbf24 100%);
+  background-size: 140% 100%;
+  box-shadow:
+    0 0 32px rgba(34, 211, 238, 0.35),
+    0 0 48px rgba(167, 139, 250, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition:
+    transform 0.15s,
+    filter 0.2s,
+    box-shadow 0.2s,
+    opacity 0.2s;
+}
+
+.submit:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow:
+    0 0 40px rgba(34, 211, 238, 0.45),
+    0 0 56px rgba(167, 139, 250, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.submit:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.footer {
+  margin-top: 1.75rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgba(203, 213, 225, 0.65);
+}
+
+.link {
+  font-weight: 600;
+  color: #67e8f9;
+  text-decoration: none;
+  text-underline-offset: 4px;
+  transition: color 0.2s, text-shadow 0.2s;
+}
+
+.link:hover {
+  color: #a5f3fc;
+  text-shadow: 0 0 20px rgba(34, 211, 238, 0.45);
+}
+
+.badge {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  padding: 0.28rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(165, 243, 252, 0.85);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  background: rgba(34, 211, 238, 0.08);
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.12);
+}
+
+.alert {
+  margin-bottom: 1.25rem;
+  border-radius: 14px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(69, 10, 10, 0.45);
+  backdrop-filter: blur(8px);
+  padding: 0.85rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #fecaca;
+}

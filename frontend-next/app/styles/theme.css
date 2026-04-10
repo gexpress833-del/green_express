@@ -1,0 +1,51 @@
+/* Theme colors and variables */
+
+:root {
+  --primary-color: #0b1220;
+  --accent-color: #d4af37;
+  --text-color: #ffffff;
+  --secondary-bg: #1a1a2e;
+  --border-color: #d4af37;
+  --shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+h1 {
+  font-size: 2.5rem;
+  color: var(--accent-color);
+}
+
+h2 {
+  font-size: 2rem;
+  color: var(--text-color);
+}
+
+/* Landing page */
+.landing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+}
+
+.landing-inner h1 {
+  font-size: 4rem;
+  margin-bottom: 20px;
+}
+
+.subtitle {
+  font-size: 1.5rem;
+  color: var(--accent-color);
+}
+
+/* Smooth transitions */
+a, button {
+  transition: all 0.3s ease;
+}

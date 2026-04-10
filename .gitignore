@@ -1,0 +1,35 @@
+# Racine projet Green Express (backend + frontend-next)
+# Les dossiers backend/ et frontend-next/ ont leurs propres .gitignore
+
+.env
+docs/render-env-import.txt
+.env.local
+.env.*.local
+*.log
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+*.swp
+*.swo
+
+# Backend (Laravel)
+backend/vendor
+backend/node_modules
+backend/.env
+backend/.phpunit.result.cache
+backend/public/build
+backend/public/hot
+backend/storage/*.key
+
+# Frontend (Next.js)
+frontend-next/node_modules
+frontend-next/.next
+frontend-next/out
+frontend-next/.env.local
+frontend-next/.env.development.local
+frontend-next/.env.test.local
+frontend-next/.env.production.local
+
+# GitHub Actions (ne jamais pousser les workflows)
+.github/workflows/
