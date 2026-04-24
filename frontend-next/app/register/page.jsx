@@ -195,8 +195,8 @@ export default function RegisterPage() {
                   1. Démarrer l&apos;API : <code>cd backend</code> puis <code>php artisan serve</code>
                 </p>
                 <p style={{ margin: 0 }}>
-                  2. Dans <code>frontend-next/.env.local</code>, <code>NEXT_PUBLIC_API_URL</code> doit pointer vers
-                  l&apos;API (ex. http://127.0.0.1:8000).
+                  2. Vérifier <code>frontend-next/.env.local</code> : <code>NEXT_PUBLIC_API_URL</code> = origine du
+                  front (ex. http://localhost:3000) et <code>API_PROXY_TARGET</code> = Laravel (ex. :8000).
                 </p>
                 <button type="button" className={styles.retryBtn} onClick={() => setError('')}>
                   Fermer ce message

@@ -3,6 +3,8 @@
  * @param {object} params - loader params { src, width, quality }
  * @returns {string} optimized image URL
  */
+import { API_BASE } from './apiBase';
+
 export default function imageLoader({ src, width, quality }) {
   // If src is already a full URL (from Vercel.Blob), use it directly
   if (src.startsWith('http://') || src.startsWith('https://')) {
@@ -15,10 +17,6 @@ export default function imageLoader({ src, width, quality }) {
   // For local/placeholder images
   return src;
 }
-
-const API_BASE = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL
-  ? process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')
-  : 'http://localhost:8000';
 
 /**
  * URL absolue pour afficher une ressource hébergée sur l’API (storage, uploads, etc.)

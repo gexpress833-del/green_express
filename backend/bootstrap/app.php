@@ -12,14 +12,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Next.js proxy (localhost:3000 → :8000) : utiliser X-Forwarded-Host pour session / CSRF.
+        $middleware->trustProxies(at: '*');
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
-        // Session pour les routes API (Sanctum SPA : login, user, logout)
+        // Sanctum SPA : ce middleware seul injecte (pour les origines stateful) la pile
+        // cookies + session + CSRF. Ne pas prépéner StartSession/EncryptCookies en plus :
+        // double StartSession → session / jeton CSRF incohérents → POST /api/login en 419.
         $middleware->api(prepend: [
-            \Illuminate\Cookie\Middleware\EncryptCookies::class,
-            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
-            \Illuminate\Session\Middleware\StartSession::class,
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

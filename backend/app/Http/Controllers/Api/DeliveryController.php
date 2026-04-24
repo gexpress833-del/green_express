@@ -49,11 +49,12 @@ class DeliveryController extends Controller
             $query->whereDate('delivery_date', $request->date);
         }
 
-        $deliveries = $query->get();
+        $perPage = min(max((int) $request->input('per_page', 50), 1), 200);
+        $deliveries = $query->orderBy('delivery_date')->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'count' => $deliveries->count(),
+            'count' => $deliveries->total(),
             'data' => $deliveries,
         ]);
     }
@@ -163,13 +164,15 @@ class DeliveryController extends Controller
             ], 403);
         }
 
+        $perPage = min(max((int) $request->input('per_page', 50), 1), 200);
+
         $logs = $subscription->deliveryLogs()
             ->with(['mealPlan.employee', 'mealPlan.meal', 'mealPlan.side'])
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->when($request->start_date, fn($q) => $q->whereDate('delivery_date', '>=', $request->start_date))
             ->when($request->end_date, fn($q) => $q->whereDate('delivery_date', '<=', $request->end_date))
             ->orderBy('delivery_date')
-            ->paginate(50);
+            ->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -215,8 +218,16 @@ class DeliveryController extends Controller
      */
     public function employeeDeliveries(\App\Models\CompanyEmployee $employee)
     {
+        $authEmployee = auth()->user()?->employee;
+        if (! $authEmployee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur n\'est pas un employé d\'entreprise',
+            ], 400);
+        }
+
         // L'employé voit uniquement ses propres livraisons
-        if (auth()->user()->employee && auth()->user()->employee->id !== $employee->id) {
+        if ($authEmployee->id !== $employee->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Non autorisé',
@@ -232,9 +243,10 @@ class DeliveryController extends Controller
             ], 404);
         }
 
+        $perPage = min(max((int) request()->input('per_page', 100), 1), 500);
         $deliveries = $activeMealPlan->deliveryLogs()
             ->orderBy('delivery_date')
-            ->get();
+            ->paginate($perPage);
 
         return response()->json([
             'success' => true,

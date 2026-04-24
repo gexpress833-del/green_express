@@ -21,16 +21,37 @@ export default function ClientEventRequestsPage() {
   const { user, initialised, isAuthenticated } = useAuth()
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [meta, setMeta] = useState(null)
+
+  const loadList = (nextPage = 1) => {
+    const url = `/api/my-event-requests?page=${encodeURIComponent(nextPage)}&per_page=50`
+    return apiRequest(url, { method: 'GET' })
+      .then((payload) => {
+        if (Array.isArray(payload)) {
+          setList(payload)
+          setMeta(null)
+          setPage(1)
+          return
+        }
+        const rows = Array.isArray(payload?.data) ? payload.data : []
+        setList(rows)
+        setMeta(payload?.meta || null)
+        setPage(payload?.meta?.page || nextPage)
+      })
+      .catch(() => {
+        setList([])
+        setMeta(null)
+      })
+  }
 
   useEffect(() => {
     if (!initialised || !isAuthenticated) {
       router.replace('/login?returnUrl=' + encodeURIComponent('/client/event-requests'))
       return
     }
-    apiRequest('/api/my-event-requests', { method: 'GET' })
-      .then((data) => setList(Array.isArray(data) ? data : []))
-      .catch(() => setList([]))
-      .finally(() => setLoading(false))
+    setLoading(true)
+    loadList(1).finally(() => setLoading(false))
   }, [initialised, isAuthenticated, router])
 
   if (!initialised || !isAuthenticated) {
@@ -70,6 +91,38 @@ export default function ClientEventRequestsPage() {
                 </Link>
               </div>
             ) : (
+              <>
+              {meta && meta.last_page > 1 && (
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prev = Math.max(1, (meta.page || page) - 1)
+                      setLoading(true)
+                      loadList(prev).finally(() => setLoading(false))
+                    }}
+                    disabled={(meta.page || page) <= 1}
+                    className="px-3 py-2 rounded-lg border border-white/20 text-white/80 hover:bg-white/10 transition text-sm disabled:opacity-50"
+                  >
+                    Précédent
+                  </button>
+                  <div className="text-xs text-white/60">
+                    Page {meta.page} / {meta.last_page} — {meta.total} total
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = Math.min(meta.last_page || page, (meta.page || page) + 1)
+                      setLoading(true)
+                      loadList(next).finally(() => setLoading(false))
+                    }}
+                    disabled={(meta.page || page) >= (meta.last_page || page)}
+                    className="px-3 py-2 rounded-lg border border-white/20 text-white/80 hover:bg-white/10 transition text-sm disabled:opacity-50"
+                  >
+                    Suivant
+                  </button>
+                </div>
+              )}
               <div className="space-y-4">
                 {list.map((row) => (
                   <div key={row.id} className="card p-6 border border-white/10">
@@ -150,6 +203,7 @@ export default function ClientEventRequestsPage() {
                   </div>
                 ))}
               </div>
+              </>
             )}
       </div>
     </section>

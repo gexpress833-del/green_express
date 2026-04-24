@@ -257,41 +257,48 @@ export default function AdminMenus(){
               </div>
             </div>
 
-            {/* Boutons d'action */}
-            <div className="flex gap-3 pt-4 flex-wrap">
+            {/* Boutons d'action — styles explicites (évite fond blanc si Link+bouton ou CSS global) */}
+            <div className="flex gap-3 pt-4 flex-wrap admin-menu-detail-actions">
               {selectedMenu.status === 'pending' && (
                 <>
                   <button 
+                    type="button"
                     onClick={()=>{handleApprove(selectedMenu.id); if (approving !== selectedMenu.id) setShowDetail(false);}} 
                     disabled={approving===selectedMenu.id} 
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold rounded-lg transition disabled:opacity-50"
+                    className="flex-1 min-h-[48px] px-4 py-3 rounded-lg font-semibold text-white shadow-md border border-green-400/40 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:opacity-50"
                   >
                     {approving===selectedMenu.id ? '⌛ Approbation...' : '✓ Approuver'}
                   </button>
                   <button 
+                    type="button"
                     onClick={()=>{handleReject(selectedMenu.id); if (approving !== selectedMenu.id) setShowDetail(false);}} 
                     disabled={approving===selectedMenu.id} 
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold rounded-lg transition disabled:opacity-50"
+                    className="flex-1 min-h-[48px] px-4 py-3 rounded-lg font-semibold text-white shadow-md border border-orange-400/40 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 disabled:opacity-50"
                   >
                     {approving===selectedMenu.id ? '⌛ Rejet...' : '✕ Rejeter'}
                   </button>
                 </>
               )}
-              <Link href={`/admin/menus/${selectedMenu.id}/edit`} className="flex-1">
-                <button className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg transition">
-                  ✎ Éditer
-                </button>
+              <Link
+                data-variant="edit"
+                href={`/admin/menus/${selectedMenu.id}/edit`}
+                className="flex-1 min-h-[48px] inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold text-white no-underline shadow-md border border-cyan-400/50 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-500 hover:to-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+              >
+                ✎ Éditer
               </Link>
               <button 
+                type="button"
+                data-variant="danger"
                 onClick={()=>{handleDelete(selectedMenu.id); if (deleting !== selectedMenu.id) setShowDetail(false);}} 
                 disabled={deleting===selectedMenu.id} 
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold rounded-lg transition disabled:opacity-50"
+                className="flex-1 min-h-[48px] px-4 py-3 rounded-lg font-semibold text-white shadow-md border border-red-400/50 bg-gradient-to-r from-red-600 to-rose-800 hover:from-red-500 hover:to-rose-700 disabled:opacity-50"
               >
                 {deleting===selectedMenu.id ? '⌛ Suppression...' : '🗑 Supprimer'}
               </button>
               <button 
+                type="button"
                 onClick={()=>setShowDetail(false)} 
-                className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg transition"
+                className="flex-1 min-h-[48px] px-4 py-3 rounded-lg font-semibold text-white border border-white/25 bg-white/15 hover:bg-white/25 shadow-inner"
               >
                 ✕ Fermer
               </button>

@@ -140,10 +140,17 @@ class ExportController extends Controller
             ], 403);
         }
 
+        $limit = min(max((int) request()->input('limit', 500), 1), 5000);
         $mealPlans = $subscription->employeeMealPlans()
-            ->with(['employee', 'meal', 'side', 'deliveryLogs'])
+            ->with(['employee', 'meal', 'side'])
+            ->limit($limit)
             ->get()
             ->map(function ($plan) {
+                $deliveryCounts = $plan->deliveryLogs()
+                    ->selectRaw('status, COUNT(*) as count')
+                    ->groupBy('status')
+                    ->pluck('count', 'status');
+
                 return [
                     'employee' => [
                         'id' => $plan->employee->id,
@@ -161,9 +168,9 @@ class ExportController extends Controller
                         'progress' => $plan->getProgressPercentage(),
                     ],
                     'delivery_stats' => [
-                        'delivered' => $plan->deliveryLogs->where('status', 'delivered')->count(),
-                        'pending' => $plan->deliveryLogs->where('status', 'pending')->count(),
-                        'failed' => $plan->deliveryLogs->where('status', 'failed')->count(),
+                        'delivered' => (int) ($deliveryCounts['delivered'] ?? 0),
+                        'pending' => (int) ($deliveryCounts['pending'] ?? 0),
+                        'failed' => (int) ($deliveryCounts['failed'] ?? 0),
                     ],
                 ];
             });

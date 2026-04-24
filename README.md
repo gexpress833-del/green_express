@@ -72,7 +72,7 @@ A complete food ordering platform with role-based dashboards, promotion system, 
 cd backend
 composer install
 php artisan key:generate
-php artisan migrate:fresh --seed
+php artisan migrate:fresh --seed  # dev seulement — efface toute la base
 php artisan serve
 
 # 2. Frontend setup (new terminal)

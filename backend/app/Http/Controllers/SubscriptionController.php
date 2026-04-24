@@ -10,6 +10,7 @@ use App\Services\AppNotificationService;
 use App\Services\FlexPayService;
 use App\Services\PhoneRDCService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class SubscriptionController extends Controller
@@ -135,6 +136,14 @@ class SubscriptionController extends Controller
             $phoneNormalized = PhoneRDCService::toE164($formatted);
             $phone12 = $formatted;
 
+            $operator = PhoneRDCService::detectOperatorRDC($formatted);
+            if ($operator === null) {
+                return response()->json([
+                    'message' => 'Opérateur non reconnu. Utilisez un numéro Vodacom (81–83), Airtel (97–99), Orange (84, 85, 89) ou Afrimoney / Africell (90–91).',
+                    'error' => 'Opérateur non reconnu',
+                ], 400);
+            }
+
             $subCurrency = $subscription->currency ?? 'CDF';
             $resolved = $flexPay->resolveAmountAndCurrency((float) $subscription->price, (string) $subCurrency);
 
@@ -173,16 +182,27 @@ class SubscriptionController extends Controller
                 'currency_to_debit' => $resolved['currency'],
                 'message' => 'Paiement initié. En attente de confirmation sur votre mobile.',
                 'payment_completed' => false,
+                'operator' => $operator,
+                'operator_label' => PhoneRDCService::operatorLabel($operator),
+                'phone_formatted' => $phoneNormalized,
             ]);
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::warning('FlexPay subscription payment failed', [
+        } catch (\Throwable $e) {
+            Log::warning('FlexPay subscription payment failed', [
                 'subscription_id' => $id,
                 'error' => $e->getMessage(),
             ]);
 
+            $message = $e->getMessage();
+            $message = preg_replace('/\bFlexPay\b|\bFlexPaie\b/ui', 'le service de paiement', $message);
+            if (stripos($message, 'destination number') !== false || stripos($message, 'number you have entered is invalid') !== false) {
+                $message = 'Votre opérateur Mobile Money refuse le numéro. Utilisez 9 chiffres après +243 (ex: +243812345678 ou 0812345678).';
+            } elseif (stripos($message, 'minimum') !== false && stripos($message, 'CDF') !== false) {
+                $message = 'Le montant minimum pour un paiement Mobile Money en CDF n’est pas atteint pour cet abonnement.';
+            }
+
             return response()->json([
-                'message' => 'Impossible d’initier le paiement Mobile Money pour le moment. Réessayez dans quelques instants.',
-                'error' => 'payment_init_failed',
+                'message' => $message,
+                'error' => $message,
             ], 400);
         }
     }

@@ -10,6 +10,7 @@ use App\Services\AppNotificationService;
 use App\Services\FlexPayService;
 use App\Services\OrderNotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -77,56 +78,93 @@ class FlexPayController extends Controller
                 return response()->json(['message' => 'OK'], 200);
             }
 
-            if ($parsed['success']) {
-                $payment->update([
-                    'status' => 'completed',
-                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_callback' => $payload]),
-                ]);
+            DB::transaction(function () use ($payment, $parsed, $payload) {
+                $payment = Payment::query()->lockForUpdate()->find($payment->id);
+                if (! $payment) {
+                    return;
+                }
 
-                if ($payment->order && $payment->order->status === 'pending_payment') {
-                    $order = $payment->order;
-                    $oldStatus = (string) $order->status;
-                    $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                    while (Order::where('delivery_code', $deliveryCode)->exists()) {
-                        $deliveryCode = 'GX-' . strtoupper(Str::random(6));
+                $raw = array_merge($payment->raw_response ?? [], ['last_callback' => $payload]);
+
+                if ($parsed['success']) {
+                    if ($payment->status !== 'completed') {
+                        $payment->update([
+                            'status' => 'completed',
+                            'failure_reason' => null,
+                            'raw_response' => $raw,
+                        ]);
+                    } else {
+                        $payment->update(['raw_response' => $raw]);
                     }
-                    $order->update([
-                        'status' => 'paid',
-                        'delivery_code' => $deliveryCode,
+
+                    if ($payment->order_id) {
+                        $order = Order::query()->lockForUpdate()->find($payment->order_id);
+                        if ($order && $order->status === 'pending_payment') {
+                            $oldStatus = (string) $order->status;
+                            $deliveryCode = $order->delivery_code;
+                            if (! $deliveryCode) {
+                                $deliveryCode = 'GX-' . strtoupper(Str::random(6));
+                                while (Order::where('delivery_code', $deliveryCode)->exists()) {
+                                    $deliveryCode = 'GX-' . strtoupper(Str::random(6));
+                                }
+                            }
+                            $order->update([
+                                'status' => 'paid',
+                                'delivery_code' => $deliveryCode,
+                            ]);
+                            $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
+                        }
+                    }
+
+                    if ($payment->subscription_id) {
+                        $sub = Subscription::query()->lockForUpdate()->find($payment->subscription_id);
+                        if ($sub && $sub->isPending()) {
+                            Subscription::applyPaymentConfirmedScheduling($sub, now());
+                            $this->appNotifications->notifyClientAndAdminsAfterSubscriptionPayment($sub->fresh());
+                        }
+                    }
+
+                    if ($payment->company_subscription_id) {
+                        $companySub = CompanySubscription::query()->lockForUpdate()->find($payment->company_subscription_id);
+                        if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
+                            $companySub->update(['payment_status' => 'paid']);
+                        }
+                    }
+
+                    return;
+                }
+
+                if ($parsed['failure']) {
+                    if (! in_array($payment->status, ['completed', 'failed'], true)) {
+                        $payment->update([
+                            'status' => 'failed',
+                            'failure_reason' => $parsed['message'] ?: 'Échec FlexPay',
+                            'raw_response' => $raw,
+                        ]);
+                    } else {
+                        $payment->update(['raw_response' => $raw]);
+                    }
+
+                    if ($payment->order_id) {
+                        $order = Order::query()->lockForUpdate()->find($payment->order_id);
+                        if ($order && $order->status === 'pending_payment') {
+                            $order->update(['status' => 'cancelled']);
+                        }
+                    }
+
+                    return;
+                }
+
+                // Pending / unknown status
+                if ($payment->status !== 'completed') {
+                    $payment->update([
+                        'status' => 'pending',
+                        'raw_response' => $raw,
                     ]);
-                    $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
+                } else {
+                    $payment->update(['raw_response' => $raw]);
                 }
-
-                if ($payment->subscription_id) {
-                    $sub = Subscription::find($payment->subscription_id);
-                    if ($sub && $sub->isPending()) {
-                        Subscription::applyPaymentConfirmedScheduling($sub, now());
-                        $this->appNotifications->notifyClientAndAdminsAfterSubscriptionPayment($sub->fresh());
-                    }
-                }
-
-                if ($payment->company_subscription_id) {
-                    $companySub = CompanySubscription::query()->find($payment->company_subscription_id);
-                    if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
-                        $companySub->update(['payment_status' => 'paid']);
-                    }
-                }
-            } elseif ($parsed['failure']) {
-                $payment->update([
-                    'status' => 'failed',
-                    'failure_reason' => $parsed['message'] ?: 'Échec FlexPay',
-                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_callback' => $payload]),
-                ]);
-
-                if ($payment->order) {
-                    $payment->order->update(['status' => 'cancelled']);
-                }
-            } else {
-                $payment->update([
-                    'status' => 'pending',
-                    'raw_response' => array_merge($payment->raw_response ?? [], ['last_callback' => $payload]),
-                ]);
-            }
+            });
 
             return response()->json(['message' => 'OK'], 200);
         } catch (\Exception $e) {

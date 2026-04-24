@@ -1,9 +1,10 @@
+import { API_BASE } from './apiBase';
+
 /**
  * Client API pour le backend Laravel (Sanctum SPA).
  * Session portée par cookies httpOnly : toutes les requêtes en credentials: 'include'.
  * Pas de token en localStorage.
  */
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const defaultHeaders = {
   Accept: 'application/json',
@@ -16,12 +17,17 @@ const defaultHeaders = {
 function getXsrfToken() {
   if (typeof document === 'undefined') return null;
   const name = 'XSRF-TOKEN';
-  const decodedCookie = decodeURIComponent(document.cookie);
-  const cookieArray = decodedCookie.split(';');
+  const cookieArray = document.cookie.split(';');
   for (let cookie of cookieArray) {
     cookie = cookie.trim();
     if (cookie.startsWith(name + '=')) {
-      return cookie.substring(name.length + 1);
+      let v = cookie.substring(name.length + 1);
+      try {
+        v = decodeURIComponent(v);
+      } catch {
+        /* valeur déjà lisible */
+      }
+      return v;
     }
   }
   return null;
@@ -49,8 +55,22 @@ export async function getCsrfCookie() {
     throw new Error(`Impossible de contacter le serveur. URL utilisée : ${base}. ${hint}`);
   }
   if (!res.ok) {
+    let detail = '';
+    try {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const j = await res.json();
+        detail = j?.hint ? ` ${j.hint}` : j?.message ? ` (${j.message})` : '';
+      }
+    } catch {
+      /* ignore */
+    }
+    const extra500 =
+      res.status === 500
+        ? ' Souvent : MySQL arrêté alors que SESSION_DRIVER=database dans backend/.env — passez SESSION_DRIVER=file en local ou démarrez MySQL (WAMP).'
+        : '';
     throw new Error(
-      'Cookie de sécurité indisponible. Vérifiez la configuration CORS de l\'API (origines autorisées, credentials: true) et que la route /sanctum/csrf-cookie existe.'
+      `Cookie CSRF indisponible (HTTP ${res.status}).${detail} Vérifiez que Laravel tourne (port 8000), API_PROXY_TARGET dans .env.local.${extra500}`
     );
   }
 }
@@ -73,6 +93,9 @@ function humanizeLaravelValidationMessage(msg) {
 }
 
 function formatApiErrorMessage(status, errorData) {
+  if (status === 419) {
+    return 'Session de sécurité expirée. Réessayez l’action.';
+  }
   const generic = errorData?.message ?? errorData?.error ?? `Erreur ${status}`;
   if (status === 422 && errorData?.errors && typeof errorData.errors === 'object') {
     const first = Object.values(errorData.errors).flat().find(Boolean);
@@ -98,6 +121,32 @@ export function getApiErrorMessage(err) {
   return humanizeLaravelValidationMessage(err?.data?.error) || 'Une erreur est survenue';
 }
 
+/** Méthodes sans jeton CSRF (Laravel). */
+function methodNeedsCsrf(method) {
+  const m = (method || 'GET').toUpperCase();
+  return m !== 'GET' && m !== 'HEAD';
+}
+
+/**
+ * Prépare les en-têtes avec X-XSRF-TOKEN pour POST/PUT/PATCH/DELETE.
+ * Si le cookie XSRF est absent (nouvel onglet, session longue), appelle /sanctum/csrf-cookie d’abord.
+ */
+async function buildHeadersWithXsrf(method, fetchOptions) {
+  const headers = { ...defaultHeaders, ...fetchOptions.headers };
+  if (!methodNeedsCsrf(method)) return headers;
+
+  if (typeof window !== 'undefined' && !getXsrfToken()) {
+    await getCsrfCookie();
+  }
+  const xsrfToken = getXsrfToken();
+  if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
+
+  if (fetchOptions.body instanceof FormData) {
+    delete headers['Content-Type'];
+  }
+  return headers;
+}
+
 /**
  * Requête API authentifiée par session (cookies).
  * @param {string} path - Chemin (ex: '/api/login', '/api/user')
@@ -107,26 +156,25 @@ export async function apiRequest(path, options = {}) {
   const { skipSessionExpiredOn401: _skipFlag, ...fetchOptions } = options;
   const fullURL = path.startsWith('http') ? path : `${API_BASE}${path}`;
   const method = fetchOptions.method || 'GET';
-  const headers = { ...defaultHeaders, ...fetchOptions.headers };
-  
-  // Ajouter le token XSRF pour les requêtes non-GET
-  if (method !== 'GET') {
-    const xsrfToken = getXsrfToken();
-    if (xsrfToken) {
-      headers['X-XSRF-TOKEN'] = xsrfToken;
-    }
-  }
 
-  // Pas de Content-Type pour FormData (upload)
-  if (fetchOptions.body instanceof FormData) {
-    delete headers['Content-Type'];
-  }
+  let headers = await buildHeadersWithXsrf(method, fetchOptions);
 
-  const res = await fetch(fullURL, {
+  let res = await fetch(fullURL, {
     ...fetchOptions,
     credentials: 'include',
     headers,
   });
+
+  // Jeton CSRF expiré ou absent au moment du fetch : une seconde tentative après rafraîchissement
+  if (res.status === 419 && typeof window !== 'undefined' && methodNeedsCsrf(method)) {
+    await getCsrfCookie();
+    headers = await buildHeadersWithXsrf(method, fetchOptions);
+    res = await fetch(fullURL, {
+      ...fetchOptions,
+      credentials: 'include',
+      headers,
+    });
+  }
 
   if (res.status === 401) {
     const errorData = await res.json().catch(() => null);
@@ -177,11 +225,18 @@ export async function fetchApiBlob(path, options = {}) {
   const method = options.method || 'GET';
   const headers = { ...options.headers };
   if (!headers.Accept) headers.Accept = 'application/pdf';
-  if (method !== 'GET') {
+  if (methodNeedsCsrf(method) && typeof window !== 'undefined') {
+    if (!getXsrfToken()) await getCsrfCookie();
     const xsrfToken = getXsrfToken();
     if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
   }
-  const res = await fetch(fullURL, { ...options, credentials: 'include', headers });
+  let res = await fetch(fullURL, { ...options, credentials: 'include', headers });
+  if (res.status === 419 && methodNeedsCsrf(method) && typeof window !== 'undefined') {
+    await getCsrfCookie();
+    const xsrfToken = getXsrfToken();
+    if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
+    res = await fetch(fullURL, { ...options, credentials: 'include', headers });
+  }
   if (res.status === 401) {
     if (typeof window !== 'undefined') {
       const returnUrl = encodeURIComponent(window.location.pathname || '/');
@@ -207,16 +262,32 @@ export async function uploadImageFile(file, folder = 'uploads') {
   formData.append('image', file);
   formData.append('folder', folder);
 
-  const xsrfToken = typeof document !== 'undefined' ? getXsrfToken() : null;
   const headers = { Accept: 'application/json' };
-  if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
+  if (typeof document !== 'undefined') {
+    if (!getXsrfToken()) await getCsrfCookie();
+    const xsrfToken = getXsrfToken();
+    if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
+  }
 
-  const res = await fetch(`${API_BASE}/api/upload-image`, {
+  let res = await fetch(`${API_BASE}/api/upload-image`, {
     method: 'POST',
     credentials: 'include',
     headers,
     body: formData,
   });
+
+  if (res.status === 419 && typeof document !== 'undefined') {
+    await getCsrfCookie();
+    const xsrf2 = getXsrfToken();
+    const h2 = { Accept: 'application/json' };
+    if (xsrf2) h2['X-XSRF-TOKEN'] = xsrf2;
+    res = await fetch(`${API_BASE}/api/upload-image`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: h2,
+      body: formData,
+    });
+  }
 
   if (res.status === 401) {
     if (typeof window !== 'undefined') {
@@ -232,4 +303,4 @@ export async function uploadImageFile(file, folder = 'uploads') {
   return res.json();
 }
 
-export { API_BASE };
+export { API_BASE } from './apiBase';

@@ -59,7 +59,9 @@ class AuthController extends Controller
 
         // Connexion automatique après inscription (session Sanctum + guard api)
         Auth::guard('api')->login($user);
-        $request->session()->regenerate();
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
 
         return response()->json(['user' => $this->withPermissions($user->fresh())], 201);
     }
@@ -167,7 +169,9 @@ class AuthController extends Controller
         }
 
         Auth::guard('api')->login($user);
-        $request->session()->regenerate();
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
 
         return response()->json(['user' => $this->withPermissions($request->user('api'))]);
     }
@@ -250,8 +254,10 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         Auth::guard('api')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        if ($request->hasSession()) {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
 
         return response()->json(['message' => 'Logged out']);
     }

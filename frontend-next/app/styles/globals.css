@@ -1698,6 +1698,31 @@ input::placeholder {
   transform-origin: center center;
 }
 
+/* Admin menus — modale détails : certains styles globaux écrasent Tailwind (fond clair + texte blanc illisible) */
+.modal-messagebox-box .admin-menu-detail-actions a[data-variant='edit'] {
+  background: linear-gradient(135deg, #0e7490 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  border: 2px solid rgba(103, 232, 249, 0.55) !important;
+  text-decoration: none !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.modal-messagebox-box .admin-menu-detail-actions a[data-variant='edit']:hover {
+  filter: brightness(1.08);
+}
+.modal-messagebox-box .admin-menu-detail-actions button[data-variant='danger'] {
+  background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%) !important;
+  color: #ffffff !important;
+  border: 2px solid rgba(252, 165, 165, 0.85) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.modal-messagebox-box .admin-menu-detail-actions button[data-variant='danger']:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.modal-messagebox-box .admin-menu-detail-actions button[data-variant='danger']:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* Scrollbar - Neon */
 ::-webkit-scrollbar {
   width: 12px;

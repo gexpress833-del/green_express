@@ -15,12 +15,16 @@ const PROTECTED_PREFIXES = [
   '/secretaire',
 ]
 
-/** Cookie de session Laravel (Sanctum SPA). Présent après connexion. */
-const SESSION_COOKIE_NAME = 'laravel_session'
+/**
+ * Doit correspondre à config/session.php (cookie = slug(APP_NAME) + '-session').
+ * APP_NAME « Green Express » → green-express-session — pas « laravel_session ».
+ */
+const SESSION_COOKIE_NAME =
+  process.env.NEXT_PUBLIC_SESSION_COOKIE_NAME || 'green-express-session'
 
 /** En dev, l'API est souvent sur un autre port (ex. 8000) que le frontend (3000). Le cookie est alors enregistré pour l'origine de l'API et n'est pas envoyé au frontend → le middleware ne peut pas le voir. On laisse RequireAuth (côté client) gérer la redirection. */
 function isCrossOriginApi(request) {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
   try {
     const apiOrigin = new URL(apiUrl).origin
     const requestOrigin = new URL(request.url).origin

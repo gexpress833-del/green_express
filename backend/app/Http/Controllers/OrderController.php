@@ -41,12 +41,21 @@ class OrderController extends Controller
     {
         $user = $request->user();
 
+        if (! $user) {
+            return response()->json(['message' => 'Non authentifié'], 401);
+        }
+
         if ($user->hasPermissionTo('orders.list')) {
             return Order::with(['items.menu', 'user.points', 'deliveryDriver'])->orderByDesc('created_at')->get();
         }
 
         if ($user->hasPermissionTo('orders.list-own-menus')) {
-            return Order::with(['items.menu', 'user', 'deliveryDriver'])->orderByDesc('created_at')->get();
+            return Order::with(['items.menu', 'user', 'deliveryDriver'])
+                ->whereHas('items.menu', function ($q) use ($user) {
+                    $q->where('created_by', $user->id);
+                })
+                ->orderByDesc('created_at')
+                ->get();
         }
 
         return Order::with('items.menu')
@@ -413,12 +422,38 @@ class OrderController extends Controller
     public function validateCode(Request $request, $uuid)
     {
         try {
+            $currentUser = $request->user();
+            if (! $currentUser) {
+                return response()->json(['message' => 'Non authentifié'], 401);
+            }
+
+            $code = strtoupper(trim((string) $request->input('code', '')));
+            $request->merge(['code' => $code]);
             $data = $request->validate([
                 'code' => 'required|string|size:9',
             ]);
 
             $order = Order::where('uuid', $uuid)->firstOrFail();
-            $user = $request->user();
+
+            $canValidate = $currentUser->canAsAdmin('orders.view')
+                || $currentUser->hasPermissionTo('orders.validate-delivery-code');
+            if (! $canValidate) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => 'Non autorisé à valider un code de livraison.',
+                ], 403);
+            }
+
+            if (
+                ! $currentUser->canAsAdmin('orders.view')
+                && $currentUser->hasPermissionTo('orders.validate-delivery-code')
+                && (int) ($order->livreur_id ?? 0) !== (int) $currentUser->id
+            ) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => 'Cette commande ne vous est pas attribuée. Vous ne pouvez valider que vos propres livraisons.',
+                ], 403);
+            }
 
             if (! $order->delivery_code || $order->delivery_code !== $data['code']) {
                 return response()->json([
@@ -427,7 +462,7 @@ class OrderController extends Controller
                 ], 400);
             }
 
-            if (! in_array($order->status, ['pending', 'out_for_delivery'], true)) {
+            if (! in_array($order->status, ['pending', 'paid', 'out_for_delivery'], true)) {
                 return response()->json([
                     'valid' => false,
                     'message' => 'Cette commande ne peut plus être validée.',
@@ -451,7 +486,7 @@ class OrderController extends Controller
             if ($pointsAlreadyCredited) {
                 $oldStatus = (string) $order->status;
                 $order->update(['status' => 'delivered']);
-                $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'delivered', $user);
+                $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'delivered', $currentUser);
                 \App\Models\Invoice::createForOrderIfMissing($order);
                 return response()->json([
                     'valid' => true,
@@ -476,7 +511,7 @@ class OrderController extends Controller
 
             $oldStatus = (string) $order->status;
             $order->update(['status' => 'delivered']);
-            $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'delivered', $user);
+            $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'delivered', $currentUser);
             \App\Models\Invoice::createForOrderIfMissing($order);
 
             return response()->json([

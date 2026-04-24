@@ -49,11 +49,13 @@ class EmployeeMealPlanController extends Controller
 
         // SÉCURITÉ: Filtrer STRICTEMENT par employee_id
         // L'employé ne peut voir que SES plans, pas ceux des autres employés
+        $perPage = min(max((int) $request->input('per_page', 10), 1), 50);
+
         $mealPlans = $employee->mealPlans()
-            ->with(['subscription', 'meal', 'side', 'deliveryLogs'])
+            ->with(['subscription', 'meal', 'side'])
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->latest()
-            ->paginate(10);
+            ->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -69,7 +71,14 @@ class EmployeeMealPlanController extends Controller
     public function getActivePlan(CompanyEmployee $employee)
     {
         // SÉCURITÉ STRICTE: Vérifier que c'est bien l'employé authentifié
-        if (auth()->user()->employee->id !== $employee->id) {
+        $authEmployee = auth()->user()?->employee;
+        if (! $authEmployee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur n\'est pas un employé d\'entreprise',
+            ], 400);
+        }
+        if ($authEmployee->id !== $employee->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Non autorisé. Vous ne pouvez accéder qu\'aux données de votre propre compte.',
@@ -90,7 +99,12 @@ class EmployeeMealPlanController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $activePlan->load(['subscription', 'meal', 'side', 'deliveryLogs']),
+            'data' => $activePlan->load([
+                'subscription',
+                'meal',
+                'side',
+                'deliveryLogs' => fn ($q) => $q->orderBy('delivery_date')->limit(200),
+            ]),
         ]);
     }
 
@@ -152,7 +166,14 @@ class EmployeeMealPlanController extends Controller
     public function update(Request $request, EmployeeMealPlan $mealPlan)
     {
         // Vérifier que c'est bien l'employé
-        if (auth()->user()->employee->id !== $mealPlan->employee_id) {
+        $authEmployee = auth()->user()?->employee;
+        if (! $authEmployee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur n\'est pas un employé d\'entreprise',
+            ], 400);
+        }
+        if ($authEmployee->id !== $mealPlan->employee_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Non autorisé',
@@ -187,7 +208,14 @@ class EmployeeMealPlanController extends Controller
     public function confirm(EmployeeMealPlan $mealPlan)
     {
         // Vérifier que c'est bien l'employé
-        if (auth()->user()->employee->id !== $mealPlan->employee_id) {
+        $authEmployee = auth()->user()?->employee;
+        if (! $authEmployee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur n\'est pas un employé d\'entreprise',
+            ], 400);
+        }
+        if ($authEmployee->id !== $mealPlan->employee_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Non autorisé',
@@ -216,7 +244,14 @@ class EmployeeMealPlanController extends Controller
     public function stats(EmployeeMealPlan $mealPlan)
     {
         // Vérifier que c'est bien l'employé
-        if (auth()->user()->employee->id !== $mealPlan->employee_id) {
+        $authEmployee = auth()->user()?->employee;
+        if (! $authEmployee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur n\'est pas un employé d\'entreprise',
+            ], 400);
+        }
+        if ($authEmployee->id !== $mealPlan->employee_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Non autorisé',

@@ -49,7 +49,7 @@ cp .env.example .env
 php artisan key:generate
 php artisan jwt:secret
 
-# Base de données
+# Base de données (développement uniquement : efface toutes les tables)
 php artisan migrate:fresh --seed
 
 # Démarrer serveur
@@ -154,13 +154,22 @@ curl http://127.0.0.1:8000/api/promotions
    heroku deploy:git -a green-express-api
    ```
 
-4. **Migrations**
+4. **Migrations** (ne jamais utiliser `migrate:fresh` en production : cela supprime toutes les données)
    ```bash
-   heroku run php artisan migrate:fresh --seed -a green-express-api
+   heroku run php artisan migrate --force -a green-express-api
    ```
+   Données de référence (plans, menus, comptes de démo) : exécuter un seeder dédié si besoin, pas un reset de base.
 
 ### Après Déploiement
 - API disponible sur: `https://green-express-api.herokuapp.com/api`
+
+## Perte de données en production (causes fréquentes)
+
+- **`migrate:fresh` ou `db:wipe`** : suppriment toutes les tables et les données. À réserver au développement local uniquement.
+- **Nouvelle instance PostgreSQL** ou **`DATABASE_URL` changée** : l’application se connecte à une base vide (migrations seules ne recréent pas les utilisateurs réels).
+- **Mauvaise base** : variables d’environnement pointant vers staging ou une autre région.
+
+**Reconstituer le catalogue** (plans d’abonnement, menus de démo, comptes `*@test.com`, permissions) : `php artisan migrate --force` puis `php artisan db:seed --class=RenderProductionSeeder --force` sur le serveur (ou `composer seed-render` en local avec `.env` pointant vers la bonne base). Les **comptes clients réels** ne sont récupérables que via une **sauvegarde** hébergeur (ex. backups Render).
 
 ## Environment Variables Checklist
 

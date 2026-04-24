@@ -15,6 +15,11 @@ use Illuminate\Database\Seeder;
  *
  * Déjà migré : exécuter après `php artisan migrate --force`.
  *
+ * Contenu : types d’événements, plans d’abonnement, permissions Spatie, comptes de démo
+ * (admin@test.com / password, etc.), menus catalogue. Ne recrée pas les clients réels perdus :
+ * si la base a été vidée (migrate:fresh, nouvelle instance Postgres, DATABASE_URL changée),
+ * il faut une sauvegarde Render pour retrouver les données historiques.
+ *
  * Shell Render (réseau privé, hôte interne possible) :
  *   php artisan config:clear && php artisan db:seed --class=RenderProductionSeeder --force
  *
@@ -38,7 +43,16 @@ class RenderProductionSeeder extends Seeder
         $this->call([
             EventTypeSeeder::class,
             SubscriptionPlanSeeder::class,
-            RolesAndPermissionsSeeder::class,
         ]);
+
+        $rolesSeeder = new RolesAndPermissionsSeeder;
+        $rolesSeeder->setCommand($this->command);
+        $rolesSeeder->syncPermissionsAndRoleDefinitions();
+
+        $this->call(UsersTableSeeder::class);
+
+        $rolesSeeder->syncRolesForAllUsers();
+
+        $this->call(MenusSeeder::class);
     }
 }

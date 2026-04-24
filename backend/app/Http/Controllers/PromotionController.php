@@ -29,7 +29,8 @@ class PromotionController extends Controller
     public function index(Request $request)
     {
         // Si liste publique sans filtres, utiliser cache
-        $cacheKey = 'promotions_list_' . $request->getQueryString();
+        $version = (int) Cache::get('promotions_cache_version', 1);
+        $cacheKey = 'promotions_list_v' . $version . '_' . $request->getQueryString();
         $cacheMinutes = 60; // 1 heure
         
         if (!$request->has('menu_id') && !$request->user()) {
@@ -111,6 +112,9 @@ class PromotionController extends Controller
      */
     public function store(StorePromotionRequest $request)
     {
+        if ($r = $this->adminRequires($request, 'promotions.manage')) {
+            return $r;
+        }
         $user = $request->user();
         if (!$user) {
             return response()->json(['message' => 'Non authentifié. Connectez-vous pour créer une promotion.'], 401);
@@ -124,8 +128,7 @@ class PromotionController extends Controller
 
             $this->appNotifications->notifyPromotionPublished($promo, $notifyFeatured);
 
-            // Invalider le cache
-            Cache::flush();
+            $this->bumpPromotionsCacheVersion();
 
             return response()->json($promo->load('menu'), 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -147,6 +150,9 @@ class PromotionController extends Controller
      */
     public function update(UpdatePromotionRequest $request, $id)
     {
+        if ($r = $this->adminRequires($request, 'promotions.manage')) {
+            return $r;
+        }
         $promo = Promotion::find($id);
         if (!$promo) {
             return response()->json(['message' => 'Promotion introuvable'], 404);
@@ -154,7 +160,7 @@ class PromotionController extends Controller
         try {
             $data = $request->validated();
             $promo->update($data);
-            Cache::flush();
+            $this->bumpPromotionsCacheVersion();
             return response()->json($promo->load('menu'), 200);
         } catch (\Exception $e) {
             Log::error('Promo update error: ' . $e->getMessage());
@@ -179,7 +185,7 @@ class PromotionController extends Controller
         }
         try {
             $promo->delete();
-            Cache::flush();
+            $this->bumpPromotionsCacheVersion();
             return response()->json(['message' => 'Promotion supprimée'], 200);
         } catch (\Exception $e) {
             Log::error('Promo destroy error: ' . $e->getMessage());
@@ -271,12 +277,28 @@ class PromotionController extends Controller
     public function myClaims(Request $request)
     {
         $user = $request->user();
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
         $perPage = min(max($request->input('per_page', 15), 1), 100);
         
         return PromotionClaim::where('user_id', $user->id)
             ->with(['promotion' => function($q) { $q->with('menu'); }])
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
+    }
+
+    private function bumpPromotionsCacheVersion(): void
+    {
+        try {
+            if (! Cache::has('promotions_cache_version')) {
+                Cache::forever('promotions_cache_version', 2);
+                return;
+            }
+            Cache::increment('promotions_cache_version');
+        } catch (\Exception $e) {
+            Cache::forever('promotions_cache_version', time());
+        }
     }
 
     /**

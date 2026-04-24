@@ -143,7 +143,14 @@ class LivreurController extends Controller
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
-            if (! $currentUser->canAsAdmin('orders.view') && ! $currentUser->hasPermissionTo('orders.validate-delivery-code')) {
+            $hasValidateDeliveryCodePermission = false;
+            try {
+                $hasValidateDeliveryCodePermission = $currentUser->hasPermissionTo('orders.validate-delivery-code');
+            } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
+                $hasValidateDeliveryCodePermission = false;
+            }
+
+            if (! $currentUser->canAsAdmin('orders.view') && ! $hasValidateDeliveryCodePermission) {
                 return response()->json([
                     'valid' => false,
                     'message' => 'Non autorisé à valider un code de livraison.',
@@ -164,7 +171,7 @@ class LivreurController extends Controller
 
             if (
                 ! $currentUser->canAsAdmin('orders.view')
-                && $currentUser->hasPermissionTo('orders.validate-delivery-code')
+                && $hasValidateDeliveryCodePermission
                 && (int) $order->livreur_id !== (int) $currentUser->id
             ) {
                 return response()->json([

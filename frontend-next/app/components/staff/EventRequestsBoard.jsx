@@ -44,21 +44,38 @@ const COL_STYLES = {
 export default function EventRequestsBoard({ sidebar, titleStyle }) {
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [meta, setMeta] = useState(null)
   const [treating, setTreating] = useState(null)
   const [responseStatus, setResponseStatus] = useState('contacted')
   const [responseText, setResponseText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  const loadList = () => {
-    return apiRequest('/api/admin/event-requests', { method: 'GET' })
-      .then((data) => setList(Array.isArray(data) ? data : []))
-      .catch(() => setList([]))
+  const loadList = (nextPage = 1) => {
+    const url = `/api/admin/event-requests?page=${encodeURIComponent(nextPage)}&per_page=50`
+    return apiRequest(url, { method: 'GET' })
+      .then((payload) => {
+        if (Array.isArray(payload)) {
+          setList(payload)
+          setMeta(null)
+          setPage(1)
+          return
+        }
+        const rows = Array.isArray(payload?.data) ? payload.data : []
+        setList(rows)
+        setMeta(payload?.meta || null)
+        setPage(payload?.meta?.page || nextPage)
+      })
+      .catch(() => {
+        setList([])
+        setMeta(null)
+      })
   }
 
   useEffect(() => {
     setLoading(true)
-    loadList().finally(() => setLoading(false))
+    loadList(1).finally(() => setLoading(false))
   }, [])
 
   function openTreat(row) {
@@ -134,6 +151,37 @@ export default function EventRequestsBoard({ sidebar, titleStyle }) {
                   {list.length} demande{list.length > 1 ? 's' : ''} — faites défiler horizontalement pour voir la colonne
                   Message
                 </p>
+                {meta && meta.last_page > 1 && (
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const prev = Math.max(1, (meta.page || page) - 1)
+                        setLoading(true)
+                        loadList(prev).finally(() => setLoading(false))
+                      }}
+                      disabled={(meta.page || page) <= 1}
+                      className="px-3 py-1.5 rounded-lg border border-white/20 text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                    >
+                      Précédent
+                    </button>
+                    <div className="text-xs text-white/60">
+                      Page {meta.page} / {meta.last_page} — {meta.total} total
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.min(meta.last_page || page, (meta.page || page) + 1)
+                        setLoading(true)
+                        loadList(next).finally(() => setLoading(false))
+                      }}
+                      disabled={(meta.page || page) >= (meta.last_page || page)}
+                      className="px-3 py-1.5 rounded-lg border border-white/20 text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                    >
+                      Suivant
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="max-w-full overflow-hidden" style={{ isolation: 'isolate' }}>
                 <div

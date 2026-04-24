@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { apiRequest } from '@/lib/api'
 import { formatDate } from '@/lib/helpers'
 import { useCart } from '@/contexts/CartContext'
+import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
 
 function subscriptionBannerCopy(ongoing) {
@@ -128,6 +129,7 @@ function MobileMenuCard({ menu }) {
 /* ─── Page principale ────────────────────────────────────────── */
 export default function ClientDashboard() {
   const router = useRouter()
+  const { user, initialised, refreshUser } = useAuth()
   const [stats, setStats]   = useState(null)
   const [loading, setLoading] = useState(true)
   const [menus, setMenus]   = useState([])
@@ -135,17 +137,24 @@ export default function ClientDashboard() {
   const [search, setSearch] = useState('')
   const [ongoingSubs, setOngoingSubs] = useState(null)
 
-  /* Stats */
+  /* Stats (session obligatoire ; skipSessionExpiredOn401 évite redirect sur 401 isolé) */
   const fetchStats = () => {
-    apiRequest('/api/client/stats', { method: 'GET' })
-      .then(r  => { setStats(r); setLoading(false) })
-      .catch(() => { setStats(s => s ?? { points: 0, orders: 0, subscriptions: 0 }); setLoading(false) })
+    apiRequest('/api/client/stats', { method: 'GET', skipSessionExpiredOn401: true })
+      .then((r) => {
+        setStats(r)
+        setLoading(false)
+      })
+      .catch(async (err) => {
+        if (err?.status === 401) await refreshUser()
+        setStats((s) => s ?? { points: 0, orders: 0, subscriptions: 0 })
+        setLoading(false)
+      })
   }
 
-  /* Menus (pour la vue mobile) */
+  /* Menus : endpoint public (pas /api/menus/browse qui est derrière auth:api) */
   const fetchMenus = async () => {
     try {
-      const r = await apiRequest('/api/menus/browse?status=approved&per_page=8', { method: 'GET' })
+      const r = await apiRequest('/api/menus/public/browse?status=approved&per_page=8', { method: 'GET' })
       let list = Array.isArray(r) ? r : (r?.data?.data || r?.data || [])
       setMenus(list.slice(0, 8))
     } catch { setMenus([]) }
@@ -163,17 +172,52 @@ export default function ClientDashboard() {
     } catch { setPromo(null) }
   }
 
-  useEffect(() => { fetchStats(); fetchMenus(); fetchPromo() }, [])
+  useEffect(() => {
+    if (!initialised) return
+    fetchMenus()
+    fetchPromo()
+    let cancelled = false
+    ;(async () => {
+      if (!user) {
+        setStats({ orders: 0, subscriptions: 0, points: 0 })
+        setLoading(false)
+        return
+      }
+      const me = await refreshUser()
+      if (cancelled) return
+      if (!me) {
+        setStats({ orders: 0, subscriptions: 0, points: 0 })
+        setLoading(false)
+        return
+      }
+      fetchStats()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [initialised, user, refreshUser])
 
   useEffect(() => {
-    apiRequest('/api/subscriptions', { method: 'GET' })
+    if (!initialised || !user) {
+      setOngoingSubs([])
+      return
+    }
+    apiRequest('/api/subscriptions', { method: 'GET', skipSessionExpiredOn401: true })
       .then((r) => {
         const list = Array.isArray(r) ? r : []
         setOngoingSubs(list.filter((s) => s.status === 'pending' || s.status === 'active'))
       })
-      .catch(() => setOngoingSubs([]))
-  }, [])
-  useEffect(() => { const t = setInterval(fetchStats, 30000); return () => clearInterval(t) }, [])
+      .catch(async (err) => {
+        if (err?.status === 401) await refreshUser()
+        setOngoingSubs([])
+      })
+  }, [initialised, user, refreshUser])
+
+  useEffect(() => {
+    if (!user) return
+    const t = setInterval(fetchStats, 30000)
+    return () => clearInterval(t)
+  }, [user])
 
   const goSearch = (e) => {
     e.preventDefault()

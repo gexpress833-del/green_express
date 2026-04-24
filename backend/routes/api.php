@@ -54,10 +54,10 @@ Route::get('login', function () {
 });
 
 // Webhook paiement (public, sécurisé par signature provider)
-Route::post('payments/webhook', [PaymentController::class, 'webhook']);
+Route::post('payments/webhook', [PaymentController::class, 'webhook'])->middleware('throttle:api');
 
 // Webhook FlexPay (public, protégé par signature si configurée)
-Route::post('flexpay/callback', [\App\Http\Controllers\FlexPayController::class, 'callback']);
+Route::post('flexpay/callback', [\App\Http\Controllers\FlexPayController::class, 'callback'])->middleware('throttle:api');
 
 // Promotions (public - visibles par tous)
 Route::get('promotions', [PromotionController::class, 'index']);
@@ -68,9 +68,9 @@ Route::get('subscription-plans/public', [SubscriptionPlanController::class, 'pub
 // Menus publics (sans auth - pour prévisualisation, page d'accueil, etc.)
 Route::get('menus/public/recent', [MenuController::class, 'publicRecent'])->middleware('throttle:api');
 Route::get('menus/public/browse', [MenuController::class, 'browse'])->middleware('throttle:api');
-Route::post('promotions/{id}/claim', [PromotionController::class, 'claim'])->middleware('throttle:api'); // Auth check done manually in controller
+Route::post('promotions/{id}/claim', [PromotionController::class, 'claim'])->middleware('auth:api', 'throttle:api'); 
 Route::post('promotions', [PromotionController::class, 'store'])->middleware('auth:api', 'throttle:api');
-Route::get('my-promotion-claims', [PromotionController::class, 'myClaims'])->middleware('throttle:api'); // Auth check done manually
+Route::get('my-promotion-claims', [PromotionController::class, 'myClaims'])->middleware('auth:api', 'throttle:api');
 Route::get('promotions/{id}', [PromotionController::class, 'show']);
 Route::put('promotions/{id}', [PromotionController::class, 'update'])->middleware('auth:api', 'throttle:api');
 Route::delete('promotions/{id}', [PromotionController::class, 'destroy'])->middleware('auth:api', 'throttle:api');
@@ -148,7 +148,7 @@ Route::get('orders/{id}/pdf', [OrderController::class, 'pdf'])->middleware('thro
 Route::post('orders', [OrderController::class, 'store'])->middleware('throttle:api'); // Auth check manually
 Route::post('orders/{id}/initiate-payment', [OrderController::class, 'initiatePayment'])->middleware('throttle:api'); // Auth check manually
 Route::post('orders/{id}/confirm-payment', [OrderController::class, 'confirmPayment'])->middleware('throttle:api'); // Auth check manually
-Route::post('orders/{uuid}/validate-code', [OrderController::class, 'validateCode'])->middleware('throttle:api'); // Auth check manually
+Route::post('orders/{uuid}/validate-code', [OrderController::class, 'validateCode'])->middleware('auth:api', 'throttle:api');
 Route::patch('orders/{id}/assign-livreur', [OrderController::class, 'assignLivreur'])->middleware('throttle:api');
 
 // Plans d'abonnement (clients: actifs, admin: tous)

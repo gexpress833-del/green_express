@@ -27,6 +27,25 @@ Sur ta machine uniquement, tu peux conserver une copie **`backend/.env.productio
 - `DB_CONNECTION`
 - `DB_URL` ou `DB_HOST` / `DB_PORT` / `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD`
 
+**Perte soudaine des données (utilisateurs, menus, plans)** : en production, vérifier que personne n’a lancé `php artisan migrate:fresh` ou `db:wipe` (cela détruit tout). Vérifier aussi que `DATABASE_URL` / `DB_URL` pointe toujours vers **la même** instance Postgres (une nouvelle base Render ou une URL copiée par erreur = base vide). Référence données catalogue : `composer seed-render` ou `db:seed --class=RenderProductionSeeder` après `migrate --force`. Les comptes clients historiques ne reviennent que via **sauvegarde** (ex. Render → backups).
+
+**Contrôle rapide** : `php artisan gx:production-health` — affiche la connexion DB active (URL avec mot de passe masqué), `APP_URL`, et le nombre de lignes (users, menus, plans, etc.).
+
+### Restauration PostgreSQL (données historiques)
+
+Sans **fichier de sauvegarde** (`.sql` ou dump `pg_dump` custom), aucune restauration des anciens comptes / commandes n’est possible : l’application ne peut pas « reconstruire » des données jamais exportées.
+
+1. **Obtenir un dump**  
+   - **Render** : Dashboard → votre base Postgres → onglet **Backups** (selon le plan ; les offres gratuites n’ont souvent pas d’historique long). Téléchargez un point de restauration si disponible.  
+   - **Copie locale** : si vous aviez exporté avant la perte, utilisez ce fichier.  
+   - **À l’avenir** : `cd backend` puis `.\scripts\export-postgres-dump.ps1` (nécessite `pg_dump` dans le PATH) → fichier sous `backend/backups/` (dossier ignoré par Git).
+
+2. **Restaurer** (nécessite `psql` pour `.sql`, ou `pg_restore` pour un dump custom) :  
+   `.\scripts\restore-postgres-from-dump.ps1 -DumpPath "C:\chemin\vers\fichier.sql"`  
+   Le script lit `DATABASE_URL` / `DB_URL` dans `.env.production` par défaut. **Cela peut écraser** la base actuelle : exporter l’état présent avant si besoin.
+
+3. Après restauration : `php artisan migrate --force` si le schéma a divergé, puis `php artisan gx:production-health`.
+
 ### Sessions / frontend
 - `SESSION_DRIVER`
 - `SESSION_SAME_SITE`

@@ -102,22 +102,32 @@ function HomePageInner() {
     )
   }
 
+  const primaryCtaHref = user
+    ? dashboardHref
+    : '/register'
+  const primaryCtaLabel = user
+    ? (user.role === 'client' ? 'Accéder à mes commandes' : 'Mon espace')
+    : 'Créer mon compte gratuit'
+  const secondaryCtaHref = user && user.role === 'client'
+    ? '/client/menus'
+    : '/menus'
+  const secondaryCtaLabel = 'Découvrir les menus'
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="landing hero-anim-bg">
         <div className="landing-inner">
           <div className="landing-hero-column">
-            {/* Flottement uniquement sur le texte — pas sur la vidéo (évite décalage / « désordre ») */}
             <div className="hero-ambient-motion">
-              <div className="mb-10 hero-anim-logo">
+              <div className="mb-8 hero-anim-logo">
                 <img
                   key={logoSrc}
                   src={logoSrc}
                   alt="Green Express"
                   decoding="async"
                   fetchPriority="high"
-                  className="mx-auto block h-auto w-auto max-h-[min(260px,42vh)] max-w-[min(280px,88vw)] object-contain"
+                  className="mx-auto block h-auto w-auto max-h-[min(220px,36vh)] max-w-[min(240px,72vw)] object-contain"
                   style={{
                     borderRadius: 20,
                     boxShadow: '0 0 30px rgba(0, 255, 255, 0.3)',
@@ -126,14 +136,89 @@ function HomePageInner() {
                   onError={() => setLogoSrc((s) => nextLogoSrc(s))}
                 />
               </div>
-              <h1 className="title hero-anim-title">Green Express</h1>
-              <p className="subtitle hero-anim-subtitle">
-                Commandez vos repas préférés et gagnez des points fidélité.<br />
-                Pour les particuliers.
+              <h1 className="title hero-anim-title">
+                Vos repas préférés, livrés en un clin d&apos;œil.
+              </h1>
+              <p className="subtitle hero-anim-subtitle" style={{ maxWidth: 640, margin: '20px auto 0' }}>
+                Green Express, la plateforme de commande et livraison de repas en RDC.
+                Commandez en quelques secondes, suivez votre livreur en temps réel
+                et gagnez des points fidélité à chaque commande.
               </p>
+
+              {/* CTAs */}
+              <div
+                className="hero-anim-subtitle"
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  justifyContent: 'center',
+                  marginTop: 28,
+                }}
+              >
+                <Link
+                  href={primaryCtaHref || '/register'}
+                  className="inline-flex items-center justify-center"
+                  style={{
+                    minHeight: 48,
+                    padding: '12px 26px',
+                    borderRadius: 14,
+                    fontWeight: 700,
+                    fontSize: 15,
+                    color: '#0b1220',
+                    background: 'linear-gradient(135deg, #39ff14 0%, #22d3ee 100%)',
+                    border: '1px solid rgba(57, 255, 20, 0.5)',
+                    boxShadow: '0 10px 30px rgba(34, 211, 238, 0.25)',
+                  }}
+                >
+                  {primaryCtaLabel}
+                </Link>
+                <Link
+                  href={secondaryCtaHref}
+                  className="inline-flex items-center justify-center"
+                  style={{
+                    minHeight: 48,
+                    padding: '12px 26px',
+                    borderRadius: 14,
+                    fontWeight: 700,
+                    fontSize: 15,
+                    color: '#a5f3fc',
+                    background: 'rgba(34, 211, 238, 0.14)',
+                    border: '1px solid rgba(34, 211, 238, 0.55)',
+                  }}
+                >
+                  {secondaryCtaLabel}
+                </Link>
+              </div>
+
+              {/* Trust badges */}
+              <div
+                className="hero-anim-subtitle"
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 14,
+                  justifyContent: 'center',
+                  marginTop: 24,
+                  color: 'rgba(255,255,255,0.7)',
+                  fontSize: 13,
+                }}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: '#39ff14' }}>●</span> Livraison rapide
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: '#22d3ee' }}>●</span> Paiement sécurisé
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: '#a78bfa' }}>●</span> Points fidélité
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: '#fbbf24' }}>●</span> Service 7j/7
+                </span>
+              </div>
             </div>
 
-            {/* Classes CSS dans globals.css (pas de Tailwind dans ce projet) */}
             <div className="landing-hero-video-wrap">
               <div className="landing-hero-video-frame">
                 <video
@@ -157,6 +242,89 @@ function HomePageInner() {
         </div>
       </section>
 
+      {/* Chiffres clés / Social proof */}
+      <section className="py-12 px-6">
+        <div className="container" style={{ maxWidth: 1100 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 16,
+            }}
+          >
+            <div className="stat-card">
+              <h4>Commandes livrées</h4>
+              <p>10 000+</p>
+            </div>
+            <div className="stat-card">
+              <h4>Clients satisfaits</h4>
+              <p>95 %</p>
+            </div>
+            <div className="stat-card">
+              <h4>Délai moyen</h4>
+              <p>&lt; 45 min</p>
+            </div>
+            <div className="stat-card">
+              <h4>Partenaires</h4>
+              <p>+30 restaurants</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Comment ça marche */}
+      <section className="py-16 px-6" style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(34, 211, 238, 0.04) 50%, transparent 100%)' }}>
+        <div className="container" style={{ maxWidth: 1100 }}>
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4" style={{
+              background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>
+              Comment ça marche
+            </h2>
+            <p className="text-lg text-white/80 max-w-2xl mx-auto">
+              Commander un repas n&apos;a jamais été aussi simple : trois étapes, c&apos;est tout.
+            </p>
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: 24,
+              maxWidth: 960,
+              margin: '0 auto',
+            }}
+          >
+            <div className="step-card">
+              <div className="step-number">1</div>
+              <div className="step-icon">🍽️</div>
+              <h3 className="step-title">Choisissez vos plats</h3>
+              <p className="step-desc">
+                Parcourez les menus de nos restaurants partenaires et composez votre commande selon vos envies.
+              </p>
+            </div>
+            <div className="step-card">
+              <div className="step-number">2</div>
+              <div className="step-icon">💳</div>
+              <h3 className="step-title">Payez en toute sécurité</h3>
+              <p className="step-desc">
+                Carte bancaire ou Mobile Money (Orange Money, M-Pesa, Airtel Money). Paiement protégé, facture automatique.
+              </p>
+            </div>
+            <div className="step-card">
+              <div className="step-number">3</div>
+              <div className="step-icon">🛵</div>
+              <h3 className="step-title">Recevez & savourez</h3>
+              <p className="step-desc">
+                Suivez votre livreur en temps réel. Votre repas arrive chaud, à l&apos;heure, et vous gagnez des points fidélité.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Promotion Actuelle Section */}
       <section className="py-20 px-6" style={{background: 'linear-gradient(180deg, transparent 0%, rgba(0, 255, 255, 0.03) 50%, transparent 100%)'}}>
         <div className="container">
@@ -170,7 +338,7 @@ function HomePageInner() {
               Promotion du Moment
             </h2>
             <p className="text-lg text-white/80 max-w-2xl mx-auto">
-              Réclamez ce plat exclusif avec vos points fidélité
+              Profitez de notre offre exclusive du moment et réclamez-la avec vos points fidélité.
             </p>
           </div>
           
@@ -202,10 +370,11 @@ function HomePageInner() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
             }}>
-              Types d&apos;abonnement Green Express
+              Nos abonnements
             </h2>
             <p className="text-lg text-white/80 max-w-2xl mx-auto">
-              Choisissez la formule qui vous convient : par semaine ou par mois, en FC.
+              Mangez bien, tous les jours, sans y penser. Choisissez la formule
+              hebdomadaire ou mensuelle qui colle à votre rythme — déjà en FC.
             </p>
           </div>
           {loadingPlans ? (
@@ -252,7 +421,9 @@ function HomePageInner() {
               Vous représentez une entreprise ?
             </h2>
             <p className="text-white/80 text-base sm:text-lg mb-6 max-w-xl mx-auto leading-relaxed">
-              Gérez le budget repas, les agents et l&apos;abonnement équipe. Accédez à votre espace dédié avec le même compte que vous utilisez pour vous connecter.
+              Offrez à vos équipes des repas de qualité, gérez un budget cantine,
+              suivez les commandes et la facturation depuis un espace entreprise dédié.
+              Idéal pour administrations, hôpitaux, écoles et sociétés privées.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
               {!initialised ? (
@@ -310,7 +481,8 @@ function HomePageInner() {
             Nos Services
           </h2>
           <p className="text-lg text-white/80 max-w-2xl mx-auto">
-            Commandes au quotidien, abonnements et traiteur pour vos événements
+            Du repas du quotidien aux grandes occasions, Green Express
+            s&apos;adapte à tous vos besoins.
           </p>
         </div>
 
@@ -325,10 +497,11 @@ function HomePageInner() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
             }}>
-              Pour les Clients
+              Pour les particuliers
             </h3>
             <p className="service-description">
-              Commandez vos plats préférés, suivez vos livraisons en temps réel et gagnez des points fidélité à chaque commande.
+              Composez votre commande en quelques clics, payez en toute sécurité
+              et recevez votre repas à domicile ou au bureau. Votre fidélité est récompensée à chaque commande.
             </p>
             <ul className="service-features">
               <li className="service-feature"><span className="feature-check">✓</span> Commandes en ligne</li>
@@ -351,7 +524,9 @@ function HomePageInner() {
               Service événementiel
             </h3>
             <p className="service-description">
-              Mariages, conférences, réunions, anniversaires : Green Express adapte son offre à votre budget, au nombre d&apos;invités et au type d&apos;événement.
+              Mariage, conférence, séminaire, anniversaire : notre équipe traiteur
+              compose un menu sur mesure, adapté à votre budget, au nombre d&apos;invités
+              et à votre thématique. Devis rapide, service impeccable.
             </p>
             <ul className="service-features">
               <li className="service-feature"><span className="feature-check">✓</span> Mariages et réceptions</li>
@@ -402,18 +577,61 @@ function HomePageInner() {
 
       {/* CTA Section */}
       <section className="py-20 px-6" style={{background: 'linear-gradient(135deg, rgba(0, 255, 255, 0.05) 0%, rgba(157, 78, 221, 0.05) 100%)'}}>
-        <div className="container text-center">
+        <div className="container text-center" style={{ maxWidth: 760 }}>
           <h2 className="text-4xl font-bold mb-4" style={{
             background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text'
           }}>
-            Prêt à commencer ?
+            Prêt à passer à table ?
           </h2>
           <p className="text-lg text-white/80 mb-8 max-w-2xl mx-auto">
-            Rejoignez Green Express dès aujourd'hui et découvrez une nouvelle façon de commander vos repas
+            Rejoignez des milliers d&apos;utilisateurs qui ont adopté Green Express pour
+            leurs repas du quotidien. Inscription gratuite, aucun engagement.
           </p>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 12,
+              justifyContent: 'center',
+            }}
+          >
+            <Link
+              href={primaryCtaHref || '/register'}
+              className="inline-flex items-center justify-center"
+              style={{
+                minHeight: 48,
+                padding: '12px 28px',
+                borderRadius: 14,
+                fontWeight: 700,
+                fontSize: 15,
+                color: '#0b1220',
+                background: 'linear-gradient(135deg, #39ff14 0%, #22d3ee 100%)',
+                border: '1px solid rgba(57, 255, 20, 0.5)',
+                boxShadow: '0 10px 30px rgba(34, 211, 238, 0.25)',
+              }}
+            >
+              {primaryCtaLabel}
+            </Link>
+            <Link
+              href={secondaryCtaHref}
+              className="inline-flex items-center justify-center"
+              style={{
+                minHeight: 48,
+                padding: '12px 28px',
+                borderRadius: 14,
+                fontWeight: 700,
+                fontSize: 15,
+                color: '#a5f3fc',
+                background: 'rgba(34, 211, 238, 0.14)',
+                border: '1px solid rgba(34, 211, 238, 0.55)',
+              }}
+            >
+              {secondaryCtaLabel}
+            </Link>
+          </div>
         </div>
       </section>
     </div>

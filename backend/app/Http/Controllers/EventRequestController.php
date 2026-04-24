@@ -63,12 +63,27 @@ class EventRequestController extends Controller
             return $r;
         }
 
-        $list = EventRequest::with('user:id,name,email')
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(fn ($er) => $this->formatEventRequest($er));
+        $perPage = min(max((int) $request->input('per_page', 50), 1), 200);
+        $page = max((int) $request->input('page', 1), 1);
 
-        return response()->json($list);
+        $paginator = EventRequest::with('user:id,name,email')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        $list = collect($paginator->items())
+            ->map(fn ($er) => $this->formatEventRequest($er))
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $list,
+            'meta' => [
+                'page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
+            ],
+        ]);
     }
 
     /**
@@ -118,12 +133,27 @@ class EventRequestController extends Controller
             return response()->json(['message' => 'Non authentifié'], 401);
         }
 
-        $list = EventRequest::where('user_id', $user->id)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(fn ($er) => $this->formatEventRequest($er));
+        $perPage = min(max((int) $request->input('per_page', 50), 1), 200);
+        $page = max((int) $request->input('page', 1), 1);
 
-        return response()->json($list);
+        $paginator = EventRequest::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        $list = collect($paginator->items())
+            ->map(fn ($er) => $this->formatEventRequest($er))
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $list,
+            'meta' => [
+                'page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
+            ],
+        ]);
     }
 
     private function formatEventRequest(EventRequest $er): array

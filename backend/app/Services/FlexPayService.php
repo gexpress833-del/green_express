@@ -132,8 +132,14 @@ class FlexPayService
                 throw new Exception($data['message'] ?? 'Erreur du service de paiement (HTTP ' . $response->status() . ').');
             }
 
-            $code = isset($data['code']) ? (int) $data['code'] : 1;
-            if ($code !== 0) {
+            $rawCode = $data['code'] ?? null;
+            $codeOk = false;
+            if ($rawCode !== null && $rawCode !== '' && is_numeric($rawCode)) {
+                $codeOk = (int) $rawCode === 0;
+            }
+            if (! $codeOk) {
+                Log::warning('FlexPay initiate code non succès', ['code' => $rawCode, 'body' => $data]);
+
                 throw new Exception($data['message'] ?? 'Paiement refusé par l’opérateur Mobile Money.');
             }
 

@@ -19,6 +19,15 @@ class RolesAndPermissionsSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->syncPermissionsAndRoleDefinitions();
+        $this->syncRolesForAllUsers();
+    }
+
+    /**
+     * Permissions Spatie + rattachement aux rôles (sans toucher aux utilisateurs).
+     */
+    public function syncPermissionsAndRoleDefinitions(): void
+    {
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         $allNames = PermissionCatalog::allPermissionNames();
@@ -36,6 +45,16 @@ class RolesAndPermissionsSeeder extends Seeder
                 $role->syncPermissions($meta['permissions'] ?? []);
             }
         }
+
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+    }
+
+    /**
+     * Applique la colonne legacy users.role aux rôles Spatie (à exécuter après création des users).
+     */
+    public function syncRolesForAllUsers(): void
+    {
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         foreach (User::query()->cursor() as $user) {
             $roleName = $user->role ?? 'client';

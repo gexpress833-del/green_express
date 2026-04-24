@@ -425,10 +425,24 @@ export default function ClientOrderPaymentPage() {
                   </div>
                 </div>
               ) : !order ? (
-                <div className="card text-center py-12">
-                  <p className="text-white/60 text-lg">Commande introuvable.</p>
-                  <div className="mt-4">
-                    <GoldButton href="/client/orders">Retour à mes commandes</GoldButton>
+                <div className="card text-center py-12 max-w-xl mx-auto">
+                  <p className="text-white/90 text-lg font-medium">
+                    {orderId
+                      ? `Impossible d’afficher la commande n°${orderId}`
+                      : 'Aucune commande à payer'}
+                  </p>
+                  {error ? (
+                    <p className="text-red-300/90 text-sm mt-3">{error}</p>
+                  ) : (
+                    <p className="text-white/50 text-sm mt-3 leading-relaxed">
+                      {orderId
+                        ? 'Cette commande n’existe plus sur le serveur (lien favori, ancienne notification ou base réinitialisée), ou elle est liée à un autre compte. Pour commander un repas : choisis un plat dans le catalogue.'
+                        : 'Pour un repas individuel, ouvre un plat depuis les menus : une nouvelle commande sera créée, puis tu pourras payer.'}
+                    </p>
+                  )}
+                  <div className="mt-6 flex flex-wrap gap-3 justify-center">
+                    <GoldButton href="/client/menus">Choisir un plat</GoldButton>
+                    <GoldButton href="/client/orders">Mes commandes</GoldButton>
                   </div>
                 </div>
               ) : (

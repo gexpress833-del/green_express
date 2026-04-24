@@ -229,7 +229,7 @@ class CompanyEmployeeController extends Controller
     /**
      * Activer le compte d'un employé
      */
-    public function activate(CompanyEmployee $employee)
+    public function activate(Request $request, CompanyEmployee $employee)
     {
         if ($r = $this->requireAnyPermission($request, ['admin.companies', 'company.employees.manage'])) {
             return $r;
@@ -254,7 +254,7 @@ class CompanyEmployeeController extends Controller
     /**
      * Désactiver le compte d'un employé
      */
-    public function deactivate(CompanyEmployee $employee)
+    public function deactivate(Request $request, CompanyEmployee $employee)
     {
         if ($r = $this->requireAnyPermission($request, ['admin.companies', 'company.employees.manage'])) {
             return $r;
@@ -279,7 +279,7 @@ class CompanyEmployeeController extends Controller
     /**
      * Réinitialiser le mot de passe d'un employé
      */
-    public function resetPassword(CompanyEmployee $employee)
+    public function resetPassword(Request $request, CompanyEmployee $employee)
     {
         if ($r = $this->requireAnyPermission($request, ['admin.companies', 'company.employees.manage'])) {
             return $r;
