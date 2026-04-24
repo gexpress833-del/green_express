@@ -38,6 +38,12 @@ function getXsrfToken() {
  * À appeler avant login / register.
  */
 export async function getCsrfCookie() {
+  // Contexte : uniquement l'hote courant (localhost => dev). En prod on ne divulgue
+  // aucune information technique (ports, .env, WAMP, MySQL, etc.) dans les messages UX.
+  const isLocalHost =
+    typeof window !== 'undefined' &&
+    /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
+
   let res;
   try {
     res = await fetch(`${API_BASE}/sanctum/csrf-cookie`, {
@@ -45,14 +51,15 @@ export async function getCsrfCookie() {
       credentials: 'include',
     });
   } catch (err) {
-    const base = typeof window !== 'undefined' ? API_BASE : process.env.NEXT_PUBLIC_API_URL || '(build-time)';
-    const isLocal =
-      typeof base === 'string' &&
-      (base.includes('localhost') || base.includes('127.0.0.1'));
-    const hint = isLocal
-      ? `Démarrez l’API dans un terminal : cd backend puis php artisan serve (port 8000). Vérifiez aussi MySQL et le fichier backend/.env.`
-      : `Vérifiez NEXT_PUBLIC_API_URL (URL HTTPS de l’API Render, sans /api à la fin) sur Vercel puis redéployez le front.`;
-    throw new Error(`Impossible de contacter le serveur. URL utilisée : ${base}. ${hint}`);
+    if (isLocalHost) {
+      const base = typeof window !== 'undefined' ? API_BASE : '(build-time)';
+      throw new Error(
+        `Impossible de contacter le serveur (${base}). Démarrez l’API : cd backend puis php artisan serve.`,
+      );
+    }
+    throw new Error(
+      'Connexion au service indisponible. Merci de réessayer dans quelques instants.',
+    );
   }
   if (!res.ok) {
     let detail = '';
@@ -60,17 +67,26 @@ export async function getCsrfCookie() {
       const ct = res.headers.get('content-type') || '';
       if (ct.includes('application/json')) {
         const j = await res.json();
-        detail = j?.hint ? ` ${j.hint}` : j?.message ? ` (${j.message})` : '';
+        // On n'affiche les "hints" serveurs qu'en local.
+        if (isLocalHost) {
+          detail = j?.hint ? ` ${j.hint}` : j?.message ? ` (${j.message})` : '';
+        }
       }
     } catch {
       /* ignore */
     }
-    const extra500 =
-      res.status === 500
-        ? ' Souvent : MySQL arrêté alors que SESSION_DRIVER=database dans backend/.env — passez SESSION_DRIVER=file en local ou démarrez MySQL (WAMP).'
-        : '';
+    if (isLocalHost) {
+      const extra500 =
+        res.status === 500
+          ? ' (500 souvent dû à MySQL/SESSION_DRIVER en local).'
+          : '';
+      throw new Error(
+        `Cookie CSRF indisponible (HTTP ${res.status}).${detail}${extra500}`,
+      );
+    }
+    // Production : message générique sans détails techniques.
     throw new Error(
-      `Cookie CSRF indisponible (HTTP ${res.status}).${detail} Vérifiez que Laravel tourne (port 8000), API_PROXY_TARGET dans .env.local.${extra500}`
+      'Le service est temporairement indisponible. Merci de réessayer dans un instant.',
     );
   }
 }

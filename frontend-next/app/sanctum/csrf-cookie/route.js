@@ -23,14 +23,19 @@ export async function GET(request) {
       cache: 'no-store',
     })
   } catch (e) {
+    // Log cote serveur (Vercel/logs) — jamais exposé au navigateur.
+    console.error('[csrf-cookie proxy] backend injoignable', { target, error: String(e?.message || e) })
+    const isProd = process.env.NODE_ENV === 'production'
     return NextResponse.json(
-      {
-        message: 'API Laravel injoignable',
-        hint: 'Démarrez le backend : cd backend puis php artisan serve --host=127.0.0.1 --port=8000',
-        target,
-        error: String(e?.message || e),
-      },
-      { status: 502 }
+      isProd
+        ? { message: 'Service temporairement indisponible.' }
+        : {
+            message: 'API Laravel injoignable',
+            hint: 'Démarrez le backend : cd backend puis php artisan serve --host=127.0.0.1 --port=8000',
+            target,
+            error: String(e?.message || e),
+          },
+      { status: 502 },
     )
   }
 
