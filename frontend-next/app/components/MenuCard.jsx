@@ -43,6 +43,65 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
     setTimeout(() => setAddedFeedback(false), 1500)
   }
 
+  /* ─── Variante publique : visiteur non-connecte. Meme look que "client" mais
+     les actions renvoient vers /login avec returnUrl pour declencher la connexion. ─── */
+  if (variant === 'public') {
+    const loginHref = `/login?returnUrl=${encodeURIComponent('/client/menus')}`
+    return (
+      <article className="client-menu-card">
+        <div className="card-image-fixed client-menu-card__media">
+          {menu.image && !imageError ? (
+            <img
+              src={menu.image}
+              alt={menu.name || menu.title || ''}
+              className="client-menu-card__img"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="client-menu-card__placeholder">Pas d&apos;image</div>
+          )}
+
+          <div className="client-menu-card__badges">
+            {isPopular && (
+              <span className="client-menu-card__badge client-menu-card__badge--hot">Populaire</span>
+            )}
+            <span
+              className={`client-menu-card__badge ${
+                isAvailable ? 'client-menu-card__badge--ok' : 'client-menu-card__badge--off'
+              }`}
+            >
+              {isAvailable ? 'Dispo' : 'Indispo'}
+            </span>
+          </div>
+
+          <div className="client-menu-card__price-float">{formatCurrency(menu.price, menu.currency)}</div>
+        </div>
+
+        <div className="client-menu-card__body">
+          <h3 className="client-menu-card__title">{menu.name || menu.title}</h3>
+          <p className="client-menu-card__desc">{menu.description || 'Découvrez ce plat de la maison.'}</p>
+
+          <div className="client-menu-card__actions">
+            <Link
+              href={loginHref}
+              className="client-menu-card__btn client-menu-card__btn--primary"
+              style={{ textAlign: 'center', textDecoration: 'none' }}
+            >
+              🔒 Se connecter pour commander
+            </Link>
+            <div className="client-menu-card__secondary">
+              <p className="client-menu-card__secondary-hint">Inscription gratuite</p>
+              <Link href="/register" className="client-menu-card__link">
+                Créer un compte
+                <span aria-hidden>→</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </article>
+    )
+  }
+
   /* ─── Variante client : styles réels (globals.css .client-menu-card*) ─── */
   if (variant === 'client') {
     return (
