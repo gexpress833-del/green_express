@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { serverBackendOrigin } from '@/lib/serverBackendUrl'
+import { rewriteProxiedSetCookie } from '@/lib/rewriteCookie'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,13 +45,15 @@ export async function GET(request) {
     statusText: res.statusText,
   })
 
+  // Réécrit les Set-Cookie pour le domaine courant (strip Domain=, Path=/, Secure si HTTPS).
+  const isHttps = (request.headers.get('x-forwarded-proto') || '').toLowerCase() === 'https'
   if (typeof res.headers.getSetCookie === 'function') {
     for (const c of res.headers.getSetCookie()) {
-      response.headers.append('Set-Cookie', c)
+      response.headers.append('Set-Cookie', rewriteProxiedSetCookie(c, { secure: isHttps }))
     }
   } else {
     const single = res.headers.get('set-cookie')
-    if (single) response.headers.append('Set-Cookie', single)
+    if (single) response.headers.append('Set-Cookie', rewriteProxiedSetCookie(single, { secure: isHttps }))
   }
 
   const cacheControl = res.headers.get('cache-control')

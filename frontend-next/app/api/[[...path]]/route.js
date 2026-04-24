@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { serverBackendOrigin } from '@/lib/serverBackendUrl'
+import { rewriteProxiedSetCookie } from '@/lib/rewriteCookie'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -71,13 +72,16 @@ async function proxyRequest(request, context) {
     statusText: res.statusText,
   })
 
+  // Réécrit les Set-Cookie du backend pour qu'ils soient acceptés sur le domaine courant
+  // (strip Domain=, Path=/, Secure si HTTPS). Indispensable en prod (proxy cross-domain).
+  const isHttps = (request.headers.get('x-forwarded-proto') || u.protocol.replace(':', '')) === 'https'
   if (typeof res.headers.getSetCookie === 'function') {
     for (const c of res.headers.getSetCookie()) {
-      response.headers.append('Set-Cookie', c)
+      response.headers.append('Set-Cookie', rewriteProxiedSetCookie(c, { secure: isHttps }))
     }
   } else {
     const single = res.headers.get('set-cookie')
-    if (single) response.headers.append('Set-Cookie', single)
+    if (single) response.headers.append('Set-Cookie', rewriteProxiedSetCookie(single, { secure: isHttps }))
   }
 
   res.headers.forEach((value, key) => {
