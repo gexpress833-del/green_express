@@ -417,6 +417,104 @@ class OrderController extends Controller
     }
 
     /**
+     * Etat clair du paiement d'une commande pour le client (polling UI).
+     * Renvoie un statut consolide (pending / completed / failed / no_payment)
+     * et un message lisible. Sert a remplacer le polling sur /api/orders.
+     */
+    public function paymentStatus(Request $request, $id)
+    {
+        $order = Order::findOrFail($id);
+        $user = $request->user();
+
+        if (! $user || ($order->user_id !== $user->id && ! $user->canAsAdmin('orders.view'))) {
+            return response()->json(['message' => 'Non autorisé'], 403);
+        }
+
+        $payment = Payment::where('order_id', $order->id)
+            ->orderByDesc('id')
+            ->first();
+
+        $paymentStatus = $payment?->status ?? 'none';
+        $orderStatus = (string) $order->status;
+        $deliveryCode = $order->delivery_code;
+
+        // Statut consolide pour le frontend
+        if ($deliveryCode && in_array($orderStatus, ['paid', 'pending', 'out_for_delivery', 'delivered'], true)) {
+            $consolidated = 'completed';
+            $message = 'Paiement confirmé. Code de livraison généré.';
+        } elseif ($paymentStatus === 'failed') {
+            $consolidated = 'failed';
+            $reason = $payment->failure_reason ?: 'Le paiement n\'a pas abouti.';
+            // Masquer le nom du prestataire technique
+            $reason = preg_replace('/\bFlexPay\b|\bFlexPaie\b/ui', 'le service de paiement', (string) $reason);
+            $message = $reason;
+        } elseif ($paymentStatus === 'cancelled' || $orderStatus === 'cancelled') {
+            $consolidated = 'cancelled';
+            $message = 'Commande annulée.';
+        } elseif ($paymentStatus === 'pending') {
+            $consolidated = 'pending';
+            $message = 'Paiement en attente : confirmez l\'opération sur votre téléphone (Mobile Money).';
+        } else {
+            $consolidated = 'no_payment';
+            $message = 'Aucun paiement n\'a encore été initié pour cette commande.';
+        }
+
+        return response()->json([
+            'order_id' => $order->id,
+            'order_status' => $orderStatus,
+            'payment_status' => $paymentStatus,
+            'status' => $consolidated,
+            'delivery_code' => $deliveryCode,
+            'failure_reason' => $payment?->failure_reason,
+            'message' => $message,
+            'updated_at' => optional($payment?->updated_at)->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Permet au client (proprietaire) d'annuler sa commande tant que le paiement
+     * n'a pas abouti. Utile en cas de solde insuffisant ou de paiement bloque.
+     * Marque aussi tout Payment encore "pending" comme "cancelled".
+     */
+    public function cancelOwn(Request $request, $id)
+    {
+        $order = Order::findOrFail($id);
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json(['message' => 'Non authentifié'], 401);
+        }
+        if ($order->user_id !== (int) $user->id) {
+            return response()->json(['message' => 'Cette commande ne vous appartient pas.'], 403);
+        }
+
+        $cancellableStatuses = ['pending_payment'];
+        if (! in_array($order->status, $cancellableStatuses, true)) {
+            return response()->json([
+                'message' => 'Cette commande ne peut plus être annulée (paiement déjà confirmé ou statut avancé).',
+            ], 400);
+        }
+
+        $oldStatus = (string) $order->status;
+        $order->update(['status' => 'cancelled']);
+
+        // Marque tout paiement encore en attente comme annule (n'ecrase pas completed/failed)
+        Payment::where('order_id', $order->id)
+            ->where('status', 'pending')
+            ->update([
+                'status' => 'cancelled',
+                'failure_reason' => 'Annulée par le client',
+            ]);
+
+        $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'cancelled', $user);
+
+        return response()->json([
+            'message' => 'Commande annulée.',
+            'order' => $order->load('items.menu'),
+        ]);
+    }
+
+    /**
      * Valider le code de livraison et créditer les points.
      */
     public function validateCode(Request $request, $uuid)

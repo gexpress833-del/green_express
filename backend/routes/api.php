@@ -148,6 +148,10 @@ Route::get('orders/{id}/pdf', [OrderController::class, 'pdf'])->middleware('thro
 Route::post('orders', [OrderController::class, 'store'])->middleware('throttle:api'); // Auth check manually
 Route::post('orders/{id}/initiate-payment', [OrderController::class, 'initiatePayment'])->middleware('throttle:api'); // Auth check manually
 Route::post('orders/{id}/confirm-payment', [OrderController::class, 'confirmPayment'])->middleware('throttle:api'); // Auth check manually
+// Statut consolide du paiement pour le polling client (succes / pending / failed / cancelled)
+Route::get('orders/{id}/payment-status', [OrderController::class, 'paymentStatus'])->middleware('throttle:api'); // Auth check manually
+// Annulation par le client proprietaire (uniquement si pending_payment)
+Route::post('orders/{id}/cancel-own', [OrderController::class, 'cancelOwn'])->middleware('throttle:api'); // Auth check manually
 Route::post('orders/{uuid}/validate-code', [OrderController::class, 'validateCode'])->middleware('auth:api', 'throttle:api');
 Route::patch('orders/{id}/assign-livreur', [OrderController::class, 'assignLivreur'])->middleware('throttle:api');
 

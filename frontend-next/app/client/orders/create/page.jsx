@@ -63,9 +63,12 @@ export default function ClientOrderPaymentPage() {
   const [provider, setProvider] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [creatingOrder, setCreatingOrder] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState('')
   const [paymentInfo, setPaymentInfo] = useState(null)
   const [polling, setPolling] = useState(false)
+  // paymentState: { status: 'idle'|'pending'|'completed'|'failed'|'cancelled'|'timeout', message: string, failureReason?: string }
+  const [paymentState, setPaymentState] = useState({ status: 'idle', message: '' })
   const [confirmModal, setConfirmModal] = useState(null)
   const pollRef = useRef({ timer: null, attempts: 0 })
 
@@ -197,20 +200,55 @@ export default function ClientOrderPaymentPage() {
     const tick = async () => {
       pollRef.current.attempts += 1
       try {
-        const list = await loadOrders()
-        const found = list.find((item) => String(item.id) === String(orderId))
-        if (found && found.delivery_code && String(found.status).toLowerCase() !== 'pending_payment') {
-          setOrder(found)
+        const status = await apiRequest(`/api/orders/${orderId}/payment-status`, { method: 'GET' })
+        const s = String(status?.status || '').toLowerCase()
+
+        if (s === 'completed') {
+          // Recharge la commande pour obtenir le delivery_code et items.menu a jour
+          await loadOrders()
+          setPaymentState({ status: 'completed', message: status.message || 'Paiement confirmé.' })
           setPolling(false)
           pushToast({ type: 'success', message: 'Paiement confirmé. Code de livraison généré.' })
           return
         }
+
+        if (s === 'failed') {
+          await loadOrders()
+          setPaymentState({
+            status: 'failed',
+            message: status.message || 'Le paiement n\'a pas abouti.',
+            failureReason: status.failure_reason,
+          })
+          setPolling(false)
+          pushToast({ type: 'error', message: status.message || 'Paiement refusé.' })
+          return
+        }
+
+        if (s === 'cancelled') {
+          await loadOrders()
+          setPaymentState({ status: 'cancelled', message: status.message || 'Commande annulée.' })
+          setPolling(false)
+          return
+        }
+
+        // Pending : on garde le message a jour pour l'UI
+        if (s === 'pending') {
+          setPaymentState((prev) => ({
+            status: 'pending',
+            message: status.message || prev.message || 'Paiement en cours…',
+          }))
+        }
       } catch {
-        /* erreurs réseau ignorées pendant le polling */
+        /* erreurs reseau ignorees pendant le polling */
       }
 
       if (pollRef.current.attempts >= 60) {
+        // Timeout : 60 essais x 3s = 3 minutes
         setPolling(false)
+        setPaymentState({
+          status: 'timeout',
+          message: 'Pas de confirmation reçue après 3 minutes. Vérifiez votre téléphone (USSD Mobile Money) ou réessayez. Si le problème persiste, annulez la commande.',
+        })
         return
       }
 
@@ -232,6 +270,7 @@ export default function ClientOrderPaymentPage() {
     const normalizedPhone = normalizePhone(phone.trim())
     setSubmitting(true)
     setError('')
+    setPaymentState({ status: 'pending', message: 'Envoi de la demande à votre opérateur Mobile Money…' })
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), CREATE_PAY_TIMEOUT_MS)
     try {
@@ -251,23 +290,86 @@ export default function ClientOrderPaymentPage() {
 
       setPaymentInfo(response)
       setOrder(response?.order || order)
-      pushToast({ type: 'success', message: response?.message || 'Paiement initié.' })
 
       if (response?.delivery_code || response?.payment_completed) {
+        // Paiement deja confirme cote backend (cas rare mais possible)
         await loadOrders()
+        setPaymentState({ status: 'completed', message: response?.message || 'Paiement confirmé.' })
+        pushToast({ type: 'success', message: 'Paiement confirmé.' })
       } else {
+        setPaymentState({
+          status: 'pending',
+          message: response?.message || 'Paiement initié. Confirmez sur votre téléphone (Mobile Money).',
+        })
+        pushToast({ type: 'info', message: 'Paiement initié. Vérifiez votre téléphone.' })
         startPollingOrderStatus()
       }
     } catch (err) {
+      let msg
       if (err?.name === 'AbortError') {
-        setError('Délai dépassé. Si l\'API était en veille, réessayez dans une minute.')
+        msg = 'Délai dépassé. Si l\'API était en veille, réessayez dans une minute.'
       } else {
-        setError(getApiErrorMessage(err))
+        msg = getApiErrorMessage(err)
       }
+      setError(msg)
+      setPaymentState({ status: 'failed', message: msg })
     } finally {
       clearTimeout(timeoutId)
       setSubmitting(false)
     }
+  }
+
+  function handleRetryPayment() {
+    // Reessaye le paiement avec les memes infos. Garde le numero saisi.
+    if (!order || submitting) return
+    setError('')
+    setPaymentInfo(null)
+    setPaymentState({ status: 'idle', message: '' })
+    if (pollRef.current.timer) {
+      clearTimeout(pollRef.current.timer)
+      pollRef.current.timer = null
+    }
+    pollRef.current.attempts = 0
+    setPolling(false)
+    handleInitiatePayment()
+  }
+
+  async function doCancelOwnOrder() {
+    if (!order || cancelling) return
+    setCancelling(true)
+    setError('')
+    if (pollRef.current.timer) {
+      clearTimeout(pollRef.current.timer)
+      pollRef.current.timer = null
+    }
+    setPolling(false)
+    try {
+      await getCsrfCookie()
+      const response = await apiRequest(`/api/orders/${order.id}/cancel-own`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      setOrder(response?.order || { ...order, status: 'cancelled' })
+      setPaymentState({ status: 'cancelled', message: 'Commande annulée.' })
+      pushToast({ type: 'success', message: 'Commande annulée.' })
+      // Redirection vers la liste des commandes apres un court delai
+      setTimeout(() => router.replace('/client/orders'), 1200)
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  function handleCancelOwnOrder() {
+    if (!order || cancelling) return
+    setConfirmModal({
+      title: 'Annuler la commande',
+      message: `Confirmer l'annulation de la commande #${order.id} ? Aucun débit ne sera effectué si le paiement n'a pas encore abouti.`,
+      variant: 'danger',
+      confirmLabel: 'Annuler la commande',
+      onConfirm: () => { setConfirmModal(null); doCancelOwnOrder() },
+    })
   }
 
   function handleInitiatePayment() {
@@ -480,9 +582,91 @@ export default function ClientOrderPaymentPage() {
                           {error}
                         </div>
                       )}
-                      {paymentInfo?.message && (
-                        <div className="mb-4 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-200 text-sm">
-                          {paymentInfo.message}
+
+                      {paymentState.status === 'pending' && (
+                        <div className="mb-5 p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/40">
+                          <div className="flex items-start gap-3">
+                            <span className="text-2xl animate-pulse" aria-hidden="true">📱</span>
+                            <div>
+                              <p className="text-cyan-200 font-medium">Paiement en cours…</p>
+                              <p className="text-cyan-100/80 text-sm mt-1">{paymentState.message}</p>
+                              <p className="text-cyan-100/60 text-xs mt-2">
+                                Cette page se met à jour automatiquement. Cela peut prendre jusqu'à 3 minutes.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {paymentState.status === 'failed' && (
+                        <div className="mb-5 p-4 rounded-lg bg-red-500/15 border border-red-500/50">
+                          <div className="flex items-start gap-3">
+                            <span className="text-2xl" aria-hidden="true">❌</span>
+                            <div className="flex-1">
+                              <p className="text-red-200 font-semibold">Le paiement n'a pas abouti</p>
+                              <p className="text-red-100/90 text-sm mt-1">{paymentState.message}</p>
+                              <p className="text-red-100/70 text-xs mt-2">
+                                Causes fréquentes : solde insuffisant, refus côté opérateur, code USSD non confirmé à temps.
+                                Aucun montant n'a été débité.
+                              </p>
+                              <div className="flex flex-wrap gap-3 mt-4">
+                                <button
+                                  type="button"
+                                  onClick={handleRetryPayment}
+                                  disabled={submitting || cancelling}
+                                  className="gold disabled:opacity-50"
+                                >
+                                  Réessayer le paiement
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleCancelOwnOrder}
+                                  disabled={submitting || cancelling}
+                                  className="px-4 py-2 rounded-lg bg-red-500/30 hover:bg-red-500/40 border border-red-500/60 text-red-100 text-sm disabled:opacity-50"
+                                >
+                                  {cancelling ? 'Annulation…' : 'Annuler la commande'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {paymentState.status === 'timeout' && (
+                        <div className="mb-5 p-4 rounded-lg bg-amber-500/15 border border-amber-500/50">
+                          <div className="flex items-start gap-3">
+                            <span className="text-2xl" aria-hidden="true">⏱️</span>
+                            <div className="flex-1">
+                              <p className="text-amber-200 font-semibold">Pas de confirmation reçue</p>
+                              <p className="text-amber-100/90 text-sm mt-1">{paymentState.message}</p>
+                              <div className="flex flex-wrap gap-3 mt-4">
+                                <button
+                                  type="button"
+                                  onClick={handleRetryPayment}
+                                  disabled={submitting || cancelling}
+                                  className="gold disabled:opacity-50"
+                                >
+                                  Réessayer le paiement
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleCancelOwnOrder}
+                                  disabled={submitting || cancelling}
+                                  className="px-4 py-2 rounded-lg bg-red-500/30 hover:bg-red-500/40 border border-red-500/60 text-red-100 text-sm disabled:opacity-50"
+                                >
+                                  {cancelling ? 'Annulation…' : 'Annuler la commande'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {paymentState.status === 'cancelled' && (
+                        <div className="mb-5 p-4 rounded-lg bg-white/5 border border-white/15">
+                          <p className="text-white/80 text-sm">
+                            ✖ {paymentState.message} Redirection vers vos commandes…
+                          </p>
                         </div>
                       )}
 
@@ -543,14 +727,17 @@ export default function ClientOrderPaymentPage() {
 
                       <div className="flex flex-wrap gap-3 justify-end mt-6">
                         <GoldButton href="/client/orders">Retour</GoldButton>
-                        <button
-                          type="button"
-                          onClick={handleInitiatePayment}
-                          disabled={submitting || polling}
-                          className="gold disabled:opacity-50"
-                        >
-                          {submitting ? 'Envoi...' : polling ? 'Vérification en cours...' : 'Lancer le paiement'}
-                        </button>
+                        {/* Le bouton principal est masque quand un etat d'echec/timeout est affiche : la carte ci-dessus propose Reessayer / Annuler. */}
+                        {paymentState.status !== 'failed' && paymentState.status !== 'timeout' && paymentState.status !== 'cancelled' && (
+                          <button
+                            type="button"
+                            onClick={handleInitiatePayment}
+                            disabled={submitting || polling}
+                            className="gold disabled:opacity-50"
+                          >
+                            {submitting ? 'Envoi...' : polling ? 'Vérification en cours...' : 'Lancer le paiement'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
