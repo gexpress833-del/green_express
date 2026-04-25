@@ -417,6 +417,49 @@ class OrderController extends Controller
     }
 
     /**
+     * Convertit un failure_reason technique en message clair pour le client.
+     * - Masque le nom du prestataire (FlexPay/FlexPaie).
+     * - Remplace les valeurs generiques peu lisibles ("Echec FlexPay") par un texte explicite.
+     * - Detecte quelques motifs frequents (solde insuffisant, refus operateur, timeout USSD).
+     */
+    private function humanizePaymentFailureReason(?string $reason): string
+    {
+        $r = trim((string) $reason);
+        if ($r === '') {
+            return 'Le paiement Mobile Money n\'a pas abouti. Aucun montant n\'a été débité.';
+        }
+
+        $lower = mb_strtolower($r);
+
+        // Cas generiques sans info utile cote utilisateur
+        if (preg_match('/^(echec|échec)\s+(flexpay|flexpaie|paiement)?\s*$/u', $lower)
+            || preg_match('/^(failed|payment\s*failed)$/u', $lower)
+            || $lower === 'flexpay'
+            || $lower === 'flexpaie'
+        ) {
+            return 'Le paiement Mobile Money a été refusé. Vérifiez votre solde, votre opérateur ou réessayez.';
+        }
+
+        // Motifs frequents (solde, USSD, refus operateur)
+        if (preg_match('/insufficient|insuffisant|solde/iu', $r)) {
+            return 'Solde Mobile Money insuffisant. Rechargez votre compte ou utilisez un autre numéro, puis réessayez.';
+        }
+        if (preg_match('/timeout|timed?\s*out|expir|d.lai/iu', $r)) {
+            return 'Aucune confirmation reçue à temps sur votre téléphone (USSD). Réessayez et validez le code dans la minute.';
+        }
+        if (preg_match('/cancel|refus|denied|reject/iu', $r)) {
+            return 'Paiement refusé par votre opérateur Mobile Money ou annulé sur le téléphone. Réessayez si nécessaire.';
+        }
+        if (preg_match('/destination number|number you have entered is invalid/iu', $r)) {
+            return 'Numéro Mobile Money invalide pour votre opérateur. Vérifiez le numéro saisi.';
+        }
+
+        // Sinon : on conserve le texte fourni mais on masque le nom du prestataire
+        $clean = preg_replace('/\bFlex\s*Pa(?:y|ie)\b/ui', 'le service de paiement', $r);
+        return (string) $clean;
+    }
+
+    /**
      * Etat clair du paiement d'une commande pour le client (polling UI).
      * Renvoie un statut consolide (pending / completed / failed / no_payment)
      * et un message lisible. Sert a remplacer le polling sur /api/orders.
@@ -444,10 +487,7 @@ class OrderController extends Controller
             $message = 'Paiement confirmé. Code de livraison généré.';
         } elseif ($paymentStatus === 'failed') {
             $consolidated = 'failed';
-            $reason = $payment->failure_reason ?: 'Le paiement n\'a pas abouti.';
-            // Masquer le nom du prestataire technique
-            $reason = preg_replace('/\bFlexPay\b|\bFlexPaie\b/ui', 'le service de paiement', (string) $reason);
-            $message = $reason;
+            $message = $this->humanizePaymentFailureReason($payment->failure_reason);
         } elseif ($paymentStatus === 'cancelled' || $orderStatus === 'cancelled') {
             $consolidated = 'cancelled';
             $message = 'Commande annulée.';
