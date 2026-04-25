@@ -145,13 +145,10 @@ class FlexPayController extends Controller
                         $payment->update(['raw_response' => $raw]);
                     }
 
-                    if ($payment->order_id) {
-                        $order = Order::query()->lockForUpdate()->find($payment->order_id);
-                        if ($order && $order->status === 'pending_payment') {
-                            $order->update(['status' => 'cancelled']);
-                        }
-                    }
-
+                    // Important : on NE marque PAS la commande comme 'cancelled' ici.
+                    // On garde Order.status='pending_payment' pour permettre au client
+                    // de reessayer le paiement (solde, USSD non confirme...) ou d'annuler
+                    // explicitement via le bouton "Annuler la commande" (cancelOwn).
                     return;
                 }
 

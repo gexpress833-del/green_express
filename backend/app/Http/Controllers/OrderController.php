@@ -250,7 +250,19 @@ class OrderController extends Controller
         }
 
         if ($order->status !== 'pending_payment') {
-            return response()->json(['message' => 'Cette commande a déjà été payée ou ne peut pas être payée'], 400);
+            // Cas retrocompatibilite : une version precedente du callback FlexPay
+            // mettait automatiquement Order.status='cancelled' sur echec de paiement,
+            // ce qui empechait toute re-tentative. On autorise une reactivation
+            // automatique tant que :
+            //  - aucun paiement n'a ete complete avec succes
+            //  - le client n'a PAS explicitement annule (cancelOwn marque le Payment en 'cancelled')
+            $hasCompleted = Payment::where('order_id', $order->id)->where('status', 'completed')->exists();
+            $hasExplicitCancel = Payment::where('order_id', $order->id)->where('status', 'cancelled')->exists();
+            if ($order->status === 'cancelled' && ! $hasCompleted && ! $hasExplicitCancel) {
+                $order->update(['status' => 'pending_payment']);
+            } else {
+                return response()->json(['message' => 'Cette commande a déjà été payée ou ne peut pas être payée'], 400);
+            }
         }
 
         $data = $request->validate([
