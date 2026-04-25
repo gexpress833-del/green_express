@@ -30,4 +30,4 @@ RUN chmod -R 775 storage bootstrap/cache
 # Pas de config:cache au build ni au démarrage : Laravel lit les variables Render à la volée.
 # Si migrate échoue (DB), on lance quand même serve pour que le déploiement soit "live" et que les logs soient visibles.
 EXPOSE 8000
-CMD ["sh", "-c", "php artisan migrate --force || true; exec php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
+CMD ["sh", "-c", "php artisan migrate --force || true; php artisan db:seed --class=RolesAndPermissionsSeeder --force || true; exec php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
