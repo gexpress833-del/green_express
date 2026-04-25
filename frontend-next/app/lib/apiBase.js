@@ -20,6 +20,11 @@ function resolveApiBase() {
       const pageIsNext = port === '3000' || port === '';
       if (isLocal && envIsApiPort && pageIsNext && u.origin !== o) return o;
       if (isLocal && envIsFrontendPort && u.origin !== o) return o;
+      // Prod (HTTPS) : les proxies /api/* et /sanctum/csrf-cookie sont en place
+      // pour assurer une origine commune (cookies session + XSRF). Si NEXT_PUBLIC_API_URL
+      // pointe vers un autre host (ex. backend Render), on utilise quand même l'origine
+      // courante pour éviter les requêtes cross-site qui cassent CSRF/session.
+      if (window.location.protocol === 'https:' && u.origin !== o) return o;
     } catch {
       /* ignore */
     }
