@@ -87,7 +87,9 @@ async function proxyRequest(request, context) {
   res.headers.forEach((value, key) => {
     const k = key.toLowerCase()
     if (k === 'set-cookie') return
-    if (['transfer-encoding', 'connection'].includes(k)) return
+    // fetch() Node a deja decompresse le body : on doit retirer Content-Encoding
+    // et Content-Length sinon le navigateur tente de redecompresser -> ERR_CONTENT_DECODING_FAILED.
+    if (['transfer-encoding', 'connection', 'content-encoding', 'content-length'].includes(k)) return
     response.headers.set(key, value)
   })
 
