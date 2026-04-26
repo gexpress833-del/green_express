@@ -489,6 +489,57 @@ class OrderController extends Controller
             ->orderByDesc('id')
             ->first();
 
+        // Check actif vers FlexPay : certains operateurs Mobile Money n'envoient
+        // PAS de callback quand l'utilisateur annule l'USSD ou quand il y a un
+        // refus silencieux. On interroge directement /check/{orderNumber} si le
+        // paiement est encore en pending depuis plus de 15s, au plus une fois
+        // toutes les 15s pour ne pas surcharger FlexPay.
+        if (
+            $payment
+            && $payment->status === 'pending'
+            && $payment->provider_payment_id
+            && $payment->updated_at
+            && $payment->updated_at->lt(now()->subSeconds(15))
+        ) {
+            try {
+                $flexPay = app(FlexPayService::class);
+                $check = $flexPay->checkTransaction((string) $payment->provider_payment_id);
+                if (is_array($check)) {
+                    if ($check['paid'] ?? false) {
+                        // Synchro vers completed + Order paid + delivery_code
+                        $payment->update([
+                            'status' => 'completed',
+                            'failure_reason' => null,
+                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
+                        ]);
+                        if ($order->status === 'pending_payment') {
+                            $oldStatus = (string) $order->status;
+                            $deliveryCode = 'GX-' . strtoupper(Str::random(6));
+                            while (Order::where('delivery_code', $deliveryCode)->exists()) {
+                                $deliveryCode = 'GX-' . strtoupper(Str::random(6));
+                            }
+                            $order->update(['status' => 'paid', 'delivery_code' => $deliveryCode]);
+                            $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
+                        }
+                        $payment->refresh();
+                        $order->refresh();
+                    } elseif ($check['failed'] ?? false) {
+                        $payment->update([
+                            'status' => 'failed',
+                            'failure_reason' => $payment->failure_reason ?: 'Échec FlexPay',
+                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
+                        ]);
+                        $payment->refresh();
+                    } else {
+                        // Toujours pending : on touch updated_at pour eviter de re-checker tout de suite
+                        $payment->touch();
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('FlexPay active check failed', ['order_id' => $order->id, 'msg' => $e->getMessage()]);
+            }
+        }
+
         $paymentStatus = $payment?->status ?? 'none';
         $orderStatus = (string) $order->status;
         $deliveryCode = $order->delivery_code;

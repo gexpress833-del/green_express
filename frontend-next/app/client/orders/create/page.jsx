@@ -587,12 +587,29 @@ export default function ClientOrderPaymentPage() {
                         <div className="mb-5 p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/40">
                           <div className="flex items-start gap-3">
                             <span className="text-2xl animate-pulse" aria-hidden="true">📱</span>
-                            <div>
+                            <div className="flex-1">
                               <p className="text-cyan-200 font-medium">Paiement en cours…</p>
                               <p className="text-cyan-100/80 text-sm mt-1">{paymentState.message}</p>
                               <p className="text-cyan-100/60 text-xs mt-2">
                                 Cette page se met à jour automatiquement. Cela peut prendre jusqu'à 3 minutes.
                               </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (pollRef.current.timer) {
+                                    clearTimeout(pollRef.current.timer)
+                                    pollRef.current.timer = null
+                                  }
+                                  setPolling(false)
+                                  setPaymentState({
+                                    status: 'failed',
+                                    message: 'Paiement signalé comme non abouti par vous-même. Vous pouvez réessayer ou annuler la commande.',
+                                  })
+                                }}
+                                className="mt-3 text-xs text-cyan-100/70 hover:text-white underline underline-offset-2"
+                              >
+                                Le paiement n'a pas marché sur mon téléphone ?
+                              </button>
                             </div>
                           </div>
                         </div>
