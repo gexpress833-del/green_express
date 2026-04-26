@@ -2,8 +2,8 @@
 import ClientSubpageHeader from '@/components/ClientSubpageHeader'
 import SubscriptionPlanShowcase from '@/components/SubscriptionPlanShowcase'
 import ReadOnlyGuard from '@/components/ReadOnlyGuard'
-import { useEffect, useState, useCallback, useMemo } from 'react'
-import { apiRequest } from '@/lib/api'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { apiRequest, getApiErrorMessage, getCsrfCookie } from '@/lib/api'
 import { formatCurrencyCDF } from '@/lib/helpers'
 import GoldButton from '@/components/GoldButton'
 import ClientOngoingSubscriptionCard from '@/components/ClientOngoingSubscriptionCard'
@@ -11,6 +11,11 @@ import { pushToast } from '@/components/Toaster'
 import PaymentMethodsBanner from '@/components/PaymentMethodsBanner'
 import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders'
 import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc'
+
+const PAYMENT_POLL_INTERVAL_MS = 3000
+const PAYMENT_POLL_MAX_ATTEMPTS = 60
+const PAYMENT_PENDING_FALLBACK_MS = 15000
+const PAYMENT_STATUS_REQUEST_TIMEOUT_MS = 7000
 
 function getDefaultProvider(country) {
   const options = PROVIDER_OPTIONS[country] || []
@@ -32,6 +37,10 @@ export default function ClientSubscriptions() {
   const [payPhone, setPayPhone] = useState('')
   const [payCountry, setPayCountry] = useState('DRC')
   const [payProvider, setPayProvider] = useState('')
+  const [polling, setPolling] = useState(false)
+  const [payCancelling, setPayCancelling] = useState(false)
+  const [paymentState, setPaymentState] = useState({ status: 'idle', message: '' })
+  const pollRef = useRef({ timer: null, attempts: 0, startedAt: 0, subscriptionId: null })
 
   function isValidPhoneForCountry(phone, country) {
     const digits = String(phone || '').replace(/\D/g, '')
@@ -78,6 +87,13 @@ export default function ClientSubscriptions() {
 
     setPayProvider((current) => current || getDefaultProvider(payCountry))
   }, [payCountry])
+
+  useEffect(() => () => {
+    if (pollRef.current.timer) {
+      clearTimeout(pollRef.current.timer)
+      pollRef.current.timer = null
+    }
+  }, [])
 
   const activeSubs = subs.filter((s) => s.status === 'active')
   const alertRenew = activeSubs.some((s) => s.days_until_expiry != null && s.days_until_expiry <= 2)
@@ -129,6 +145,102 @@ export default function ClientSubscriptions() {
     return cleaned
   }
 
+  const startPollingSubscriptionStatus = useCallback((subscriptionId) => {
+    if (!subscriptionId) return
+
+    if (pollRef.current.timer) {
+      clearTimeout(pollRef.current.timer)
+      pollRef.current.timer = null
+    }
+
+    pollRef.current.subscriptionId = subscriptionId
+    pollRef.current.attempts = 0
+    pollRef.current.startedAt = Date.now()
+    setPolling(true)
+
+    const tick = async () => {
+      pollRef.current.attempts += 1
+      const statusController = new AbortController()
+      const statusTimeoutId = setTimeout(() => statusController.abort(), PAYMENT_STATUS_REQUEST_TIMEOUT_MS)
+
+      try {
+        const status = await apiRequest(`/api/subscriptions/${subscriptionId}/payment-status`, {
+          method: 'GET',
+          signal: statusController.signal,
+        })
+        const s = String(status?.status || '').toLowerCase()
+
+        if (s === 'completed') {
+          await loadSubs()
+          setPaymentState({ status: 'completed', message: status.message || 'Paiement confirmé.' })
+          setPolling(false)
+          pushToast({ type: 'success', message: status.message || 'Paiement confirmé.' })
+          setTimeout(() => {
+            setShowPayModal(false)
+            setPaySubscription(null)
+            setPayPhone('')
+            setPayProvider('')
+            setPaymentState({ status: 'idle', message: '' })
+          }, 1000)
+          return
+        }
+
+        if (s === 'failed') {
+          await loadSubs()
+          setPaymentState({
+            status: 'failed',
+            message: status.message || 'Le paiement n\'a pas abouti.',
+            failureReason: status.failure_reason,
+          })
+          setPolling(false)
+          pushToast({ type: 'error', message: status.message || 'Paiement refusé.' })
+          return
+        }
+
+        if (s === 'cancelled') {
+          await loadSubs()
+          setPaymentState({ status: 'cancelled', message: status.message || 'Abonnement annulé.' })
+          setPolling(false)
+          return
+        }
+
+        if (s === 'pending') {
+          setPaymentState((prev) => ({
+            status: 'pending',
+            message: status.message || prev.message || 'Paiement en cours…',
+          }))
+        }
+      } catch {
+        /* erreurs réseau ignorées pendant le polling */
+      } finally {
+        clearTimeout(statusTimeoutId)
+      }
+
+      const elapsedMs = Date.now() - (pollRef.current.startedAt || Date.now())
+      if (elapsedMs >= PAYMENT_PENDING_FALLBACK_MS) {
+        setPolling(false)
+        setPaymentState({
+          status: 'timeout',
+          message: 'Aucune confirmation reçue après 15 secondes. Si vous avez annulé ou raté le menu USSD, réessayez le paiement ou annulez la demande d\'abonnement.',
+        })
+        return
+      }
+
+      if (pollRef.current.attempts >= PAYMENT_POLL_MAX_ATTEMPTS) {
+        setPolling(false)
+        setPaymentState({
+          status: 'timeout',
+          message: 'Pas de confirmation reçue après 3 minutes. Vérifiez votre téléphone (USSD Mobile Money) ou réessayez. Si le problème persiste, annulez la demande.',
+        })
+        return
+      }
+
+      pollRef.current.timer = setTimeout(tick, PAYMENT_POLL_INTERVAL_MS)
+    }
+
+    tick()
+  }, [loadSubs])
+
   async function handlePayWithMobileMoney() {
     if (!paySubscription) return
     const phone = normalizePhone(payPhone.trim())
@@ -138,7 +250,9 @@ export default function ClientSubscriptions() {
     }
     setPayError('')
     setPaySubmitting(true)
+    setPaymentState({ status: 'pending', message: 'Envoi de la demande à votre opérateur Mobile Money…' })
     try {
+      await getCsrfCookie()
       const payload = { client_phone_number: phone, country_code: payCountry }
       if (payProvider) payload.provider = payProvider
 
@@ -147,16 +261,77 @@ export default function ClientSubscriptions() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      setShowPayModal(false)
-      setPaySubscription(null)
-      setPayPhone('')
-      setPayProvider('')
-      loadSubs()
-      pushToast({ type: 'success', message: r?.message || (r?.payment_completed ? 'Abonnement activé.' : 'Paiement initié.') })
+
+      if (r?.payment_completed) {
+        await loadSubs()
+        setPaymentState({ status: 'completed', message: r?.message || 'Paiement confirmé.' })
+        pushToast({ type: 'success', message: r?.message || 'Abonnement activé.' })
+        setTimeout(() => {
+          setShowPayModal(false)
+          setPaySubscription(null)
+          setPayPhone('')
+          setPayProvider('')
+          setPaymentState({ status: 'idle', message: '' })
+        }, 1000)
+      } else {
+        setPaymentState({
+          status: 'pending',
+          message: r?.message || 'Paiement initié. Confirmez sur votre téléphone (Mobile Money).',
+        })
+        pushToast({ type: 'info', message: 'Paiement initié. Vérifiez votre téléphone.' })
+        startPollingSubscriptionStatus(paySubscription.id)
+      }
     } catch (err) {
-      setPayError(err?.data?.message || err?.message || 'Erreur lors du paiement.')
+      const msg = getApiErrorMessage(err) || err?.data?.message || err?.message || 'Erreur lors du paiement.'
+      setPayError(msg)
+      setPaymentState({ status: 'failed', message: msg })
     } finally {
       setPaySubmitting(false)
+    }
+  }
+
+  function handleRetryPayment() {
+    if (!paySubscription || paySubmitting) return
+    setPayError('')
+    setPaymentState({ status: 'idle', message: '' })
+    if (pollRef.current.timer) {
+      clearTimeout(pollRef.current.timer)
+      pollRef.current.timer = null
+    }
+    setPolling(false)
+    handlePayWithMobileMoney()
+  }
+
+  async function handleCancelOwnSubscription() {
+    if (!paySubscription || payCancelling) return
+    setPayCancelling(true)
+    setPayError('')
+    if (pollRef.current.timer) {
+      clearTimeout(pollRef.current.timer)
+      pollRef.current.timer = null
+    }
+    setPolling(false)
+    try {
+      await getCsrfCookie()
+      const res = await apiRequest(`/api/subscriptions/${paySubscription.id}/cancel-own`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      await loadSubs()
+      setPaymentState({ status: 'cancelled', message: res?.message || 'Abonnement annulé.' })
+      pushToast({ type: 'success', message: res?.message || 'Abonnement annulé.' })
+      setTimeout(() => {
+        setShowPayModal(false)
+        setPaySubscription(null)
+        setPayPhone('')
+        setPayProvider('')
+        setPaymentState({ status: 'idle', message: '' })
+      }, 1000)
+    } catch (err) {
+      const msg = getApiErrorMessage(err) || 'Impossible d\'annuler la demande.'
+      setPayError(msg)
+    } finally {
+      setPayCancelling(false)
     }
   }
 
@@ -287,7 +462,18 @@ export default function ClientSubscriptions() {
       {showPayModal && paySubscription && (
         <div
           className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-black/70"
-          onClick={() => !paySubmitting && (setShowPayModal(false), setPaySubscription(null), setPayError(''))}
+          onClick={() => {
+            if (paySubmitting || polling || payCancelling) return
+            if (pollRef.current.timer) {
+              clearTimeout(pollRef.current.timer)
+              pollRef.current.timer = null
+            }
+            setPolling(false)
+            setShowPayModal(false)
+            setPaySubscription(null)
+            setPayError('')
+            setPaymentState({ status: 'idle', message: '' })
+          }}
         >
           <div className="flex min-h-full items-center justify-center p-4 py-8 sm:py-10">
             <div
@@ -311,6 +497,70 @@ export default function ClientSubscriptions() {
             {payError && (
               <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">{payError}</div>
             )}
+
+            {paymentState.status === 'pending' && (
+              <div className="mb-4 p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/40">
+                <p className="text-cyan-200 font-medium">Paiement en cours…</p>
+                <p className="text-cyan-100/80 text-sm mt-1">{paymentState.message}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (pollRef.current.timer) {
+                      clearTimeout(pollRef.current.timer)
+                      pollRef.current.timer = null
+                    }
+                    setPolling(false)
+                    setPaymentState({
+                      status: 'failed',
+                      message: 'Paiement signalé comme non abouti par vous-même. Vous pouvez réessayer ou annuler la demande d\'abonnement.',
+                    })
+                  }}
+                  className="mt-3 text-xs text-cyan-100/70 hover:text-white underline underline-offset-2"
+                >
+                  Le paiement n&apos;a pas marché sur mon téléphone ?
+                </button>
+              </div>
+            )}
+
+            {(paymentState.status === 'failed' || paymentState.status === 'timeout') && (
+              <div className="mb-4 p-4 rounded-lg bg-red-500/15 border border-red-500/50">
+                <p className="text-red-200 font-semibold">
+                  {paymentState.status === 'timeout' ? 'Pas de confirmation reçue' : 'Le paiement n\'a pas abouti'}
+                </p>
+                <p className="text-red-100/90 text-sm mt-1">{paymentState.message}</p>
+                <div className="flex flex-wrap gap-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={handleRetryPayment}
+                    disabled={paySubmitting || payCancelling}
+                    className="min-h-[44px] px-4 py-2 rounded-lg bg-[#d4af37] text-[#0b1220] font-semibold hover:bg-[#e5c048] disabled:opacity-50"
+                  >
+                    Réessayer le paiement
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelOwnSubscription}
+                    disabled={paySubmitting || payCancelling}
+                    className="min-h-[44px] px-4 py-2 rounded-lg border border-red-500/60 text-red-100 hover:bg-red-500/20 disabled:opacity-50"
+                  >
+                    {payCancelling ? 'Annulation…' : 'Annuler la demande'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {paymentState.status === 'cancelled' && (
+              <div className="mb-4 p-3 rounded-lg bg-white/5 border border-white/15">
+                <p className="text-white/80 text-sm">✖ {paymentState.message}</p>
+              </div>
+            )}
+
+            {paymentState.status === 'completed' && (
+              <div className="mb-4 p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/40">
+                <p className="text-emerald-200 text-sm">✓ {paymentState.message}</p>
+              </div>
+            )}
+
             <div className="space-y-4 sm:space-y-5">
               <p className="text-white/60 text-sm">
                 Paiement sécurisé par <strong className="text-cyan-200/90">Mobile Money</strong> (RDC).
@@ -366,7 +616,18 @@ export default function ClientSubscriptions() {
               <div className="flex gap-2 justify-end pt-2 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => !paySubmitting && (setShowPayModal(false), setPaySubscription(null), setPayError(''))}
+                  onClick={() => {
+                    if (paySubmitting || polling || payCancelling) return
+                    if (pollRef.current.timer) {
+                      clearTimeout(pollRef.current.timer)
+                      pollRef.current.timer = null
+                    }
+                    setPolling(false)
+                    setShowPayModal(false)
+                    setPaySubscription(null)
+                    setPayError('')
+                    setPaymentState({ status: 'idle', message: '' })
+                  }}
                   className="min-h-[44px] px-4 py-2 rounded-lg border border-white/30 text-white/90 hover:bg-white/10"
                 >
                   Annuler
@@ -374,10 +635,10 @@ export default function ClientSubscriptions() {
                 <button
                   type="button"
                   onClick={handlePayWithMobileMoney}
-                  disabled={paySubmitting}
+                  disabled={paySubmitting || polling || payCancelling || paymentState.status === 'completed' || paymentState.status === 'cancelled'}
                   className="min-h-[44px] px-4 py-2 rounded-lg bg-[#d4af37] text-[#0b1220] font-semibold hover:bg-[#e5c048] disabled:opacity-50"
                 >
-                  {paySubmitting ? 'Envoi…' : 'Lancer le paiement'}
+                  {paySubmitting ? 'Envoi…' : polling ? 'Vérification en cours…' : 'Lancer le paiement'}
                 </button>
               </div>
               <p className="text-white/45 text-xs mt-2 text-center shrink-0">

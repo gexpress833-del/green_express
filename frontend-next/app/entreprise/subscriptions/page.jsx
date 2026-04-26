@@ -5,8 +5,13 @@ import { useCompany } from '@/lib/useCompany'
 import { apiRequest, getApiErrorMessage, getCsrfCookie } from '@/lib/api'
 import { pushToast } from '@/components/Toaster'
 import ConfirmModal from '@/components/ConfirmModal'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+
+const PAYMENT_POLL_INTERVAL_MS = 3000
+const PAYMENT_POLL_MAX_ATTEMPTS = 60
+const PAYMENT_PENDING_FALLBACK_MS = 15000
+const PAYMENT_STATUS_REQUEST_TIMEOUT_MS = 7000
 
 const STATUS_LABELS = {
   pending: 'En attente',
@@ -173,8 +178,12 @@ export default function EntrepriseSubscriptionsPage() {
   const [subscribing, setSubscribing] = useState(false)
   const [renewingId, setRenewingId] = useState(null)
   const [payingCard, setPayingCard] = useState(false)
+  const [cancellingSubId, setCancellingSubId] = useState(null)
+  const [pollingSubId, setPollingSubId] = useState(null)
+  const [paymentStates, setPaymentStates] = useState({})
   const [error, setError] = useState('')
   const [confirmModal, setConfirmModal] = useState(null)
+  const pollRef = useRef({ timer: null, attempts: 0, startedAt: 0, subscriptionId: null })
 
   const loadSubscriptions = useCallback(() => {
     if (!company?.id) return Promise.resolve()
@@ -189,12 +198,118 @@ export default function EntrepriseSubscriptionsPage() {
     loadSubscriptions()
   }, [loadSubscriptions])
 
+  useEffect(() => () => {
+    if (pollRef.current.timer) {
+      clearTimeout(pollRef.current.timer)
+      pollRef.current.timer = null
+    }
+  }, [])
+
+  const setSubPaymentState = useCallback((subId, state) => {
+    if (!subId) return
+    setPaymentStates((prev) => ({ ...prev, [subId]: state }))
+  }, [])
+
+  const startPollingCompanyPaymentStatus = useCallback((subId) => {
+    if (!company?.id || !subId) return
+
+    if (pollRef.current.timer) {
+      clearTimeout(pollRef.current.timer)
+      pollRef.current.timer = null
+    }
+
+    pollRef.current.subscriptionId = subId
+    pollRef.current.attempts = 0
+    pollRef.current.startedAt = Date.now()
+    setPollingSubId(subId)
+
+    const tick = async () => {
+      pollRef.current.attempts += 1
+      const statusController = new AbortController()
+      const statusTimeoutId = setTimeout(() => statusController.abort(), PAYMENT_STATUS_REQUEST_TIMEOUT_MS)
+
+      try {
+        const status = await apiRequest(`/api/companies/${company.id}/subscriptions/${subId}/payment-status`, {
+          method: 'GET',
+          signal: statusController.signal,
+        })
+        const s = String(status?.status || '').toLowerCase()
+
+        if (s === 'completed') {
+          await loadSubscriptions()
+          setSubPaymentState(subId, { status: 'completed', message: status.message || 'Paiement confirmé.' })
+          setPollingSubId(null)
+          pushToast({ type: 'success', message: status.message || 'Paiement confirmé.' })
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('company-subscription-payment-id')
+          }
+          return
+        }
+
+        if (s === 'failed') {
+          await loadSubscriptions()
+          setSubPaymentState(subId, {
+            status: 'failed',
+            message: status.message || 'Le paiement n\'a pas abouti.',
+            failureReason: status.failure_reason,
+          })
+          setPollingSubId(null)
+          return
+        }
+
+        if (s === 'cancelled') {
+          await loadSubscriptions()
+          setSubPaymentState(subId, { status: 'cancelled', message: status.message || 'Abonnement annulé.' })
+          setPollingSubId(null)
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('company-subscription-payment-id')
+          }
+          return
+        }
+
+        if (s === 'pending') {
+          setSubPaymentState(subId, {
+            status: 'pending',
+            message: status.message || 'Paiement en attente de confirmation.',
+          })
+        }
+      } catch {
+        /* erreurs réseau ignorées pendant le polling */
+      } finally {
+        clearTimeout(statusTimeoutId)
+      }
+
+      const elapsedMs = Date.now() - (pollRef.current.startedAt || Date.now())
+      if (elapsedMs >= PAYMENT_PENDING_FALLBACK_MS) {
+        setPollingSubId(null)
+        setSubPaymentState(subId, {
+          status: 'timeout',
+          message: 'Aucune confirmation reçue après 15 secondes. Si vous avez interrompu le paiement, réessayez ou annulez la demande d\'abonnement.',
+        })
+        return
+      }
+
+      if (pollRef.current.attempts >= PAYMENT_POLL_MAX_ATTEMPTS) {
+        setPollingSubId(null)
+        setSubPaymentState(subId, {
+          status: 'timeout',
+          message: 'Pas de confirmation reçue après 3 minutes. Vérifiez votre paiement puis réessayez. Si le problème persiste, annulez la demande d\'abonnement.',
+        })
+        return
+      }
+
+      pollRef.current.timer = setTimeout(tick, PAYMENT_POLL_INTERVAL_MS)
+    }
+
+    tick()
+  }, [company?.id, loadSubscriptions, setSubPaymentState])
+
   useEffect(() => {
     const card = searchParams.get('card')
     if (!card) return
     const messages = {
       approved: "Paiement carte enregistré. L'administrateur peut activer votre abonnement après confirmation.",
-      mock: 'Flux carte (simulation). En production, le paiement serait traité par FlexPay.',
+      mock: 'Flux carte (simulation). En production, le paiement serait traité par le service de paiement.',
       cancelled: 'Paiement carte annulé.',
       declined: 'Paiement carte refusé.',
     }
@@ -208,6 +323,13 @@ export default function EntrepriseSubscriptionsPage() {
     router.replace('/entreprise/subscriptions', { scroll: false })
     loadSubscriptions()
   }, [searchParams, router, loadSubscriptions])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !company?.id) return
+    const subId = sessionStorage.getItem('company-subscription-payment-id')
+    if (!subId) return
+    startPollingCompanyPaymentStatus(subId)
+  }, [company?.id, startPollingCompanyPaymentStatus])
 
   const list = Array.isArray(subscriptions?.data) ? subscriptions.data : []
   const currentSub = list.find((s) => s.status === 'active' || s.status === 'pending')
@@ -312,6 +434,13 @@ export default function EntrepriseSubscriptionsPage() {
       if (!url || typeof url !== 'string') {
         throw new Error('Réponse serveur invalide (URL de paiement manquante).')
       }
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('company-subscription-payment-id', String(sub.id))
+      }
+      setSubPaymentState(sub.id, {
+        status: 'pending',
+        message: 'Redirection vers la page de paiement en cours. Revenez sur cette page après validation pour suivre l\'état.',
+      })
       window.location.assign(url)
     } catch (err) {
       const msg = getApiErrorMessage(err) || 'Impossible d\'ouvrir le paiement par carte.'
@@ -322,6 +451,31 @@ export default function EntrepriseSubscriptionsPage() {
     }
   }
 
+  async function handleCancelOwnSubscription(sub) {
+    if (!company?.id || !sub?.id || cancellingSubId) return
+    setCancellingSubId(sub.id)
+    setError('')
+    try {
+      await getCsrfCookie()
+      const res = await apiRequest(`/api/companies/${company.id}/subscriptions/${sub.id}/cancel-own`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      await loadSubscriptions()
+      setSubPaymentState(sub.id, { status: 'cancelled', message: res?.message || 'Abonnement annulé.' })
+      pushToast({ type: 'success', message: res?.message || 'Abonnement annulé.' })
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('company-subscription-payment-id')
+      }
+    } catch (err) {
+      const msg = getApiErrorMessage(err) || 'Impossible d\'annuler cette demande.'
+      setError(msg)
+      pushToast({ type: 'error', message: msg })
+    } finally {
+      setCancellingSubId(null)
+    }
+  }
+
   function handlePayByCard(sub) {
     if (!sub?.id || payingCard) return
     const amount = sub.total_monthly_price != null
@@ -329,7 +483,7 @@ export default function EntrepriseSubscriptionsPage() {
       : ''
     setConfirmModal({
       title: 'Payer par carte Visa / Mastercard',
-      message: `Vous allez être redirigé vers la page sécurisée FlexPay pour régler ${amount ? `le montant de ${amount}` : 'votre abonnement'}. Après paiement réussi, l’administrateur pourra activer l’abonnement.`,
+      message: `Vous allez être redirigé vers une page de paiement sécurisée pour régler ${amount ? `le montant de ${amount}` : 'votre abonnement'}. Après paiement réussi, l’administrateur pourra activer l’abonnement.`,
       variant: 'info',
       confirmLabel: 'Continuer vers le paiement',
       onConfirm: () => { setConfirmModal(null); doPayByCard(sub) },
@@ -534,14 +688,59 @@ export default function EntrepriseSubscriptionsPage() {
                                   Activation par l&apos;administrateur après réception du paiement (virement ou carte).
                                 </p>
                                 {sub.payment_status !== 'paid' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handlePayByCard(sub)}
-                                    disabled={payingCard || !!confirmModal}
-                                    className="px-4 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-cyan-600 to-cyan-500 text-white hover:from-cyan-500 hover:to-cyan-400 disabled:opacity-50 border border-cyan-400/30"
-                                  >
-                                    {payingCard ? 'Ouverture du paiement…' : 'Payer par carte Visa / Mastercard'}
-                                  </button>
+                                  <div className="flex flex-wrap gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePayByCard(sub)}
+                                      disabled={payingCard || !!confirmModal || pollingSubId === sub.id || cancellingSubId === sub.id}
+                                      className="px-4 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-cyan-600 to-cyan-500 text-white hover:from-cyan-500 hover:to-cyan-400 disabled:opacity-50 border border-cyan-400/30"
+                                    >
+                                      {payingCard ? 'Ouverture du paiement…' : 'Payer par carte Visa / Mastercard'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => startPollingCompanyPaymentStatus(sub.id)}
+                                      disabled={payingCard || pollingSubId === sub.id || cancellingSubId === sub.id}
+                                      className="px-4 py-2.5 rounded-lg text-sm font-semibold border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/15 disabled:opacity-50"
+                                    >
+                                      {pollingSubId === sub.id ? 'Vérification…' : 'Vérifier le paiement'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCancelOwnSubscription(sub)}
+                                      disabled={payingCard || pollingSubId === sub.id || cancellingSubId === sub.id}
+                                      className="px-4 py-2.5 rounded-lg text-sm font-semibold border border-red-500/60 text-red-100 hover:bg-red-500/20 disabled:opacity-50"
+                                    >
+                                      {cancellingSubId === sub.id ? 'Annulation…' : 'Annuler la demande'}
+                                    </button>
+                                  </div>
+                                )}
+
+                                {paymentStates[sub.id]?.status === 'pending' && (
+                                  <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30">
+                                    <p className="text-cyan-100 text-sm">{paymentStates[sub.id]?.message || 'Paiement en attente de confirmation.'}</p>
+                                  </div>
+                                )}
+
+                                {(paymentStates[sub.id]?.status === 'failed' || paymentStates[sub.id]?.status === 'timeout') && (
+                                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/35">
+                                    <p className="text-red-200 text-sm font-medium">
+                                      {paymentStates[sub.id]?.status === 'timeout' ? 'Pas de confirmation reçue' : 'Le paiement n\'a pas abouti'}
+                                    </p>
+                                    <p className="text-red-100/90 text-xs mt-1">{paymentStates[sub.id]?.message}</p>
+                                  </div>
+                                )}
+
+                                {paymentStates[sub.id]?.status === 'cancelled' && (
+                                  <div className="p-3 rounded-lg bg-white/5 border border-white/15">
+                                    <p className="text-white/80 text-sm">✖ {paymentStates[sub.id]?.message}</p>
+                                  </div>
+                                )}
+
+                                {paymentStates[sub.id]?.status === 'completed' && (
+                                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/35">
+                                    <p className="text-emerald-200 text-sm">✓ {paymentStates[sub.id]?.message}</p>
+                                  </div>
                                 )}
                               </div>
                             )}

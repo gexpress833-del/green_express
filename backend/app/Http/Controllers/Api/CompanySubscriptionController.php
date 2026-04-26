@@ -221,6 +221,156 @@ class CompanySubscriptionController extends Controller
     }
 
     /**
+     * Entreprise/admin : état consolidé du paiement carte pour un abonnement B2B.
+     */
+    public function paymentStatus(Request $request, Company $company, CompanySubscription $subscription)
+    {
+        if ($r = $this->requireAnyPermission($request, ['admin.company-subscriptions', 'entreprise.b2b.access'])) {
+            return $r;
+        }
+
+        if (! $this->canAccessCompany($company)) {
+            return response()->json(['success' => false, 'message' => 'Non autorisé'], 403);
+        }
+
+        if ((int) $subscription->company_id !== (int) $company->id) {
+            return response()->json(['success' => false, 'message' => 'Abonnement introuvable.'], 404);
+        }
+
+        $payment = Payment::where('company_subscription_id', $subscription->id)
+            ->orderByDesc('id')
+            ->first();
+
+        if (
+            $payment
+            && $payment->status === 'pending'
+            && $payment->provider_payment_id
+            && $payment->updated_at
+            && $payment->updated_at->lt(now()->subSeconds(15))
+        ) {
+            try {
+                $flexPay = app(FlexPayService::class);
+                $check = $flexPay->checkTransaction((string) $payment->provider_payment_id);
+                if (is_array($check)) {
+                    if ($check['paid'] ?? false) {
+                        $payment->update([
+                            'status' => 'completed',
+                            'failure_reason' => null,
+                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
+                        ]);
+                        if ($subscription->payment_status !== 'paid') {
+                            $subscription->update(['payment_status' => 'paid']);
+                        }
+                        $payment->refresh();
+                        $subscription->refresh();
+                    } elseif ($check['failed'] ?? false) {
+                        $payment->update([
+                            'status' => 'failed',
+                            'failure_reason' => $payment->failure_reason ?: 'Échec paiement carte',
+                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
+                        ]);
+                        if ($subscription->payment_status !== 'paid') {
+                            $subscription->update(['payment_status' => 'failed']);
+                        }
+                        $payment->refresh();
+                        $subscription->refresh();
+                    } else {
+                        $payment->touch();
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('FlexPay active check failed for company subscription', [
+                    'company_subscription_id' => $subscription->id,
+                    'msg' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $paymentStatus = $payment?->status ?? 'none';
+        $subStatus = (string) $subscription->status;
+        $subPaymentStatus = (string) ($subscription->payment_status ?? 'pending');
+
+        if ($subPaymentStatus === 'paid' || $paymentStatus === 'completed') {
+            $consolidated = 'completed';
+            $message = 'Paiement confirmé. L\'administrateur peut maintenant activer l\'abonnement.';
+        } elseif ($paymentStatus === 'failed' || $subPaymentStatus === 'failed') {
+            $consolidated = 'failed';
+            $message = 'Le paiement n\'a pas abouti. Vous pouvez réessayer ou annuler la demande d\'abonnement.';
+        } elseif ($paymentStatus === 'cancelled' || $subStatus === 'cancelled') {
+            $consolidated = 'cancelled';
+            $message = 'Abonnement annulé.';
+        } elseif ($paymentStatus === 'pending' || $subPaymentStatus === 'pending') {
+            $consolidated = 'pending';
+            $message = 'Paiement en attente de confirmation.';
+        } else {
+            $consolidated = 'no_payment';
+            $message = 'Aucun paiement n\'a encore été initié pour cet abonnement.';
+        }
+
+        return response()->json([
+            'success' => true,
+            'company_subscription_id' => $subscription->id,
+            'subscription_status' => $subStatus,
+            'payment_status' => $paymentStatus,
+            'company_payment_status' => $subPaymentStatus,
+            'status' => $consolidated,
+            'failure_reason' => $payment?->failure_reason,
+            'message' => $message,
+            'updated_at' => optional($payment?->updated_at)->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Entreprise : annuler sa demande d'abonnement en attente.
+     */
+    public function cancelOwn(Request $request, Company $company, CompanySubscription $subscription)
+    {
+        if ($r = $this->requireAnyPermission($request, ['admin.company-subscriptions', 'entreprise.b2b.access'])) {
+            return $r;
+        }
+
+        if (! $this->canAccessCompany($company)) {
+            return response()->json(['success' => false, 'message' => 'Non autorisé'], 403);
+        }
+
+        if ((int) $subscription->company_id !== (int) $company->id) {
+            return response()->json(['success' => false, 'message' => 'Abonnement introuvable.'], 404);
+        }
+
+        if ($subscription->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cet abonnement ne peut plus être annulé (statut avancé).',
+            ], 400);
+        }
+
+        if ($subscription->payment_status === 'paid') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Paiement déjà confirmé : annulation impossible depuis cet écran.',
+            ], 400);
+        }
+
+        $subscription->update([
+            'status' => 'cancelled',
+            'payment_status' => 'failed',
+        ]);
+
+        Payment::where('company_subscription_id', $subscription->id)
+            ->where('status', 'pending')
+            ->update([
+                'status' => 'cancelled',
+                'failure_reason' => 'Annulée par le client entreprise',
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Abonnement annulé.',
+            'data' => $subscription->fresh()->load('pricingTier'),
+        ]);
+    }
+
+    /**
      * Entreprise ou admin : initier un paiement par carte (Visa/Mastercard via FlexPay) pour un abonnement B2B en attente.
      */
     public function initiateCardPayment(Request $request, Company $company, CompanySubscription $subscription)

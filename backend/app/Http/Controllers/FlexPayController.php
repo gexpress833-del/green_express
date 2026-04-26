@@ -145,6 +145,13 @@ class FlexPayController extends Controller
                         $payment->update(['raw_response' => $raw]);
                     }
 
+                    if ($payment->company_subscription_id) {
+                        $companySub = CompanySubscription::query()->lockForUpdate()->find($payment->company_subscription_id);
+                        if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
+                            $companySub->update(['payment_status' => 'failed']);
+                        }
+                    }
+
                     // Important : on NE marque PAS la commande comme 'cancelled' ici.
                     // On garde Order.status='pending_payment' pour permettre au client
                     // de reessayer le paiement (solde, USSD non confirme...) ou d'annuler

@@ -15,6 +15,10 @@ import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders'
 import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc'
 
 const CREATE_PAY_TIMEOUT_MS = 120000
+const PAYMENT_POLL_INTERVAL_MS = 3000
+const PAYMENT_POLL_MAX_ATTEMPTS = 60
+const PAYMENT_PENDING_FALLBACK_MS = 15000
+const PAYMENT_STATUS_REQUEST_TIMEOUT_MS = 7000
 
 function getStatusLabel(status) {
   const s = String(status || '').toLowerCase()
@@ -70,7 +74,7 @@ export default function ClientOrderPaymentPage() {
   // paymentState: { status: 'idle'|'pending'|'completed'|'failed'|'cancelled'|'timeout', message: string, failureReason?: string }
   const [paymentState, setPaymentState] = useState({ status: 'idle', message: '' })
   const [confirmModal, setConfirmModal] = useState(null)
-  const pollRef = useRef({ timer: null, attempts: 0 })
+  const pollRef = useRef({ timer: null, attempts: 0, startedAt: 0 })
 
   const loadOrders = useCallback(async (options = {}) => {
     const { updateOrderFromList = true } = options
@@ -194,13 +198,23 @@ export default function ClientOrderPaymentPage() {
 
   const startPollingOrderStatus = useCallback(() => {
     if (!orderId) return
+    if (pollRef.current.timer) {
+      clearTimeout(pollRef.current.timer)
+      pollRef.current.timer = null
+    }
     setPolling(true)
     pollRef.current.attempts = 0
+    pollRef.current.startedAt = Date.now()
 
     const tick = async () => {
       pollRef.current.attempts += 1
+      const statusController = new AbortController()
+      const statusTimeoutId = setTimeout(() => statusController.abort(), PAYMENT_STATUS_REQUEST_TIMEOUT_MS)
       try {
-        const status = await apiRequest(`/api/orders/${orderId}/payment-status`, { method: 'GET' })
+        const status = await apiRequest(`/api/orders/${orderId}/payment-status`, {
+          method: 'GET',
+          signal: statusController.signal,
+        })
         const s = String(status?.status || '').toLowerCase()
 
         if (s === 'completed') {
@@ -240,9 +254,22 @@ export default function ClientOrderPaymentPage() {
         }
       } catch {
         /* erreurs reseau ignorees pendant le polling */
+      } finally {
+        clearTimeout(statusTimeoutId)
       }
 
-      if (pollRef.current.attempts >= 60) {
+      const elapsedMs = Date.now() - (pollRef.current.startedAt || Date.now())
+
+      if (elapsedMs >= PAYMENT_PENDING_FALLBACK_MS) {
+        setPolling(false)
+        setPaymentState({
+          status: 'timeout',
+          message: 'Aucune confirmation reçue après 15 secondes. Si vous avez annulé ou raté le menu USSD, réessayez le paiement ou annulez la commande.',
+        })
+        return
+      }
+
+      if (pollRef.current.attempts >= PAYMENT_POLL_MAX_ATTEMPTS) {
         // Timeout : 60 essais x 3s = 3 minutes
         setPolling(false)
         setPaymentState({
@@ -252,7 +279,7 @@ export default function ClientOrderPaymentPage() {
         return
       }
 
-      pollRef.current.timer = setTimeout(tick, 3000)
+      pollRef.current.timer = setTimeout(tick, PAYMENT_POLL_INTERVAL_MS)
     }
 
     tick()

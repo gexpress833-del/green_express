@@ -166,6 +166,8 @@ Route::delete('admin/subscription-plans/{subscriptionPlan}', [SubscriptionPlanCo
 Route::get('subscriptions', [SubscriptionController::class, 'index'])->middleware('throttle:api');
 Route::post('subscriptions', [SubscriptionController::class, 'store'])->middleware('throttle:api');
 Route::post('subscriptions/{id}/initiate-payment', [SubscriptionController::class, 'initiatePayment'])->middleware('throttle:api');
+Route::get('subscriptions/{id}/payment-status', [SubscriptionController::class, 'paymentStatus'])->middleware('throttle:api');
+Route::post('subscriptions/{id}/cancel-own', [SubscriptionController::class, 'cancelOwn'])->middleware('throttle:api');
 // Client : supprimer son historique (abonnements terminés, pas les demandes en cours)
 Route::delete('subscriptions/my-history', [SubscriptionController::class, 'clearMyHistory'])->middleware('throttle:api');
 Route::delete('subscriptions/my-history/{id}', [SubscriptionController::class, 'destroyMyHistoryEntry'])->middleware('throttle:api');
@@ -245,6 +247,8 @@ Route::delete('companies/{company}', [\App\Http\Controllers\Api\CompanyControlle
 Route::get('companies/{company}/subscriptions', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'index'])->middleware('throttle:api');
 Route::post('companies/{company}/subscriptions', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'store'])->middleware('throttle:api');
 Route::post('companies/{company}/subscriptions/{subscription}/initiate-card-payment', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'initiateCardPayment'])->middleware('throttle:api');
+Route::get('companies/{company}/subscriptions/{subscription}/payment-status', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'paymentStatus'])->middleware('throttle:api');
+Route::post('companies/{company}/subscriptions/{subscription}/cancel-own', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'cancelOwn'])->middleware('throttle:api');
 Route::get('subscriptions/{subscription}', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'show'])->middleware('throttle:api');
 Route::post('subscriptions/{subscription}/activate', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'activate'])->middleware('throttle:api');
 Route::post('subscriptions/{subscription}/renew', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'renew'])->middleware('throttle:api');

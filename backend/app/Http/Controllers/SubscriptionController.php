@@ -397,6 +397,165 @@ class SubscriptionController extends Controller
         ], 200);
     }
 
+    private function humanizePaymentFailureReason(?string $reason): string
+    {
+        $r = trim((string) $reason);
+        if ($r === '') {
+            return 'Le paiement Mobile Money n\'a pas abouti. Aucun montant n\'a été débité.';
+        }
+
+        $lower = mb_strtolower($r);
+
+        if (preg_match('/^(echec|échec)\s+(flexpay|flexpaie|paiement)?\s*$/u', $lower)
+            || preg_match('/^(failed|payment\s*failed)$/u', $lower)
+            || $lower === 'flexpay'
+            || $lower === 'flexpaie'
+        ) {
+            return 'Le paiement Mobile Money a été refusé. Vérifiez votre solde, votre opérateur ou réessayez.';
+        }
+
+        if (preg_match('/insufficient|insuffisant|solde/iu', $r)) {
+            return 'Solde Mobile Money insuffisant. Rechargez votre compte ou utilisez un autre numéro, puis réessayez.';
+        }
+        if (preg_match('/timeout|timed?\s*out|expir|d.lai/iu', $r)) {
+            return 'Aucune confirmation reçue à temps sur votre téléphone (USSD). Réessayez et validez le code dans la minute.';
+        }
+        if (preg_match('/cancel|refus|denied|reject/iu', $r)) {
+            return 'Paiement refusé par votre opérateur Mobile Money ou annulé sur le téléphone. Réessayez si nécessaire.';
+        }
+        if (preg_match('/destination number|number you have entered is invalid/iu', $r)) {
+            return 'Numéro Mobile Money invalide pour votre opérateur. Vérifiez le numéro saisi.';
+        }
+
+        $clean = preg_replace('/\bFlex\s*Pa(?:y|ie)\b/ui', 'le service de paiement', $r);
+
+        return (string) $clean;
+    }
+
+    /**
+     * État consolidé du paiement pour un abonnement client (polling UI).
+     */
+    public function paymentStatus(Request $request, int $id)
+    {
+        $subscription = Subscription::findOrFail($id);
+        $user = $request->user();
+
+        if (! $user || ($subscription->user_id !== (int) $user->id && ! $user->canAsAdmin('admin.subscriptions'))) {
+            return response()->json(['message' => 'Non autorisé.'], 403);
+        }
+
+        $payment = Payment::where('subscription_id', $subscription->id)
+            ->orderByDesc('id')
+            ->first();
+
+        if (
+            $payment
+            && $payment->status === 'pending'
+            && $payment->provider_payment_id
+            && $payment->updated_at
+            && $payment->updated_at->lt(now()->subSeconds(15))
+        ) {
+            try {
+                $flexPay = app(FlexPayService::class);
+                $check = $flexPay->checkTransaction((string) $payment->provider_payment_id);
+                if (is_array($check)) {
+                    if ($check['paid'] ?? false) {
+                        $payment->update([
+                            'status' => 'completed',
+                            'failure_reason' => null,
+                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
+                        ]);
+                        if ($subscription->isPending()) {
+                            Subscription::applyPaymentConfirmedScheduling($subscription, now());
+                            $this->appNotifications->notifyClientAndAdminsAfterSubscriptionPayment($subscription->fresh());
+                        }
+                        $payment->refresh();
+                        $subscription->refresh();
+                    } elseif ($check['failed'] ?? false) {
+                        $payment->update([
+                            'status' => 'failed',
+                            'failure_reason' => $payment->failure_reason ?: 'Échec FlexPay',
+                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
+                        ]);
+                        $payment->refresh();
+                    } else {
+                        $payment->touch();
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('FlexPay active check failed for subscription', [
+                    'subscription_id' => $subscription->id,
+                    'msg' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $paymentStatus = $payment?->status ?? 'none';
+        $subscriptionStatus = (string) $subscription->status;
+
+        if (in_array($subscriptionStatus, [Subscription::STATUS_SCHEDULED, Subscription::STATUS_ACTIVE], true)) {
+            $consolidated = 'completed';
+            $message = $this->subscriptionPaidMessage($subscription);
+        } elseif ($paymentStatus === 'failed') {
+            $consolidated = 'failed';
+            $message = $this->humanizePaymentFailureReason($payment?->failure_reason);
+        } elseif ($paymentStatus === 'cancelled' || $subscriptionStatus === Subscription::STATUS_CANCELLED) {
+            $consolidated = 'cancelled';
+            $message = 'Abonnement annulé.';
+        } elseif ($paymentStatus === 'pending') {
+            $consolidated = 'pending';
+            $message = 'Paiement en attente : confirmez l\'opération sur votre téléphone (Mobile Money).';
+        } else {
+            $consolidated = 'no_payment';
+            $message = 'Aucun paiement n\'a encore été initié pour cet abonnement.';
+        }
+
+        return response()->json([
+            'subscription_id' => $subscription->id,
+            'subscription_status' => $subscriptionStatus,
+            'payment_status' => $paymentStatus,
+            'status' => $consolidated,
+            'failure_reason' => $payment?->failure_reason,
+            'message' => $message,
+            'updated_at' => optional($payment?->updated_at)->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Client : annuler sa propre demande d'abonnement tant qu'elle est en attente.
+     */
+    public function cancelOwn(Request $request, int $id)
+    {
+        $subscription = Subscription::findOrFail($id);
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json(['message' => 'Non authentifié.'], 401);
+        }
+        if ((int) $subscription->user_id !== (int) $user->id) {
+            return response()->json(['message' => 'Cet abonnement ne vous appartient pas.'], 403);
+        }
+        if (! $subscription->isPending()) {
+            return response()->json([
+                'message' => 'Cet abonnement ne peut plus être annulé (paiement confirmé ou statut avancé).',
+            ], 400);
+        }
+
+        $subscription->update(['status' => Subscription::STATUS_CANCELLED]);
+
+        Payment::where('subscription_id', $subscription->id)
+            ->where('status', 'pending')
+            ->update([
+                'status' => 'cancelled',
+                'failure_reason' => 'Annulée par le client',
+            ]);
+
+        return response()->json([
+            'message' => 'Abonnement annulé.',
+            'subscription' => $subscription->fresh()->load('subscriptionPlan'),
+        ]);
+    }
+
     private function subscriptionPaidMessage(Subscription $sub): string
     {
         if (! $sub->started_at) {
