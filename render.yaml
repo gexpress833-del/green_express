@@ -1,0 +1,61 @@
+services:
+  - type: web
+    name: greenexpress-api
+    runtime: php
+    branch: main
+    buildCommand: |
+      cd backend
+      composer install --no-interaction --prefer-dist --optimize-autoloader
+      php artisan config:cache
+      php artisan route:cache
+      php artisan view:cache
+      php artisan migrate --force || true
+    startCommand: |
+      cd backend
+      php artisan serve --host 0.0.0.0 --port 10000
+    envVars:
+      - key: APP_NAME
+        value: "Green Express"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_URL
+        value: https://greenexpress-api.onrender.com
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: debug
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_SSLMODE
+        value: require
+      - key: BROADCAST_CONNECTION
+        value: pusher
+      - key: PUSHER_APP_ID
+        sync: false
+      - key: PUSHER_APP_KEY
+        sync: false
+      - key: PUSHER_APP_SECRET
+        sync: false
+      - key: PUSHER_APP_CLUSTER
+        value: eu
+      - key: PUSHER_BEAMS_INSTANCE_ID
+        sync: false
+      - key: PUSHER_BEAMS_SECRET_KEY
+        sync: false
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: SESSION_DRIVER
+        value: cookie
+      - key: SESSION_LIFETIME
+        value: 120
+      - key: SANCTUM_STATEFUL_DOMAINS
+        value: "localhost:3000,localhost:3001,greenexpress.onrender.com"
+      - key: FRONTEND_URL
+        value: https://greenexpress.onrender.com
+      - key: FILESYSTEM_DISK
+        value: local
+    healthCheckPath: /api/health

@@ -29,6 +29,8 @@ use App\Http\Controllers\SecretaireController;
 |
 */
 
+Route::get('/health', fn () => response()->json(['status' => 'ok', 'time' => now()->toIso8601String()]));
+
 // Racine API (GET /api ou /api/) — pour vérifier que l'API répond
 Route::get('/', function () {
     return response()->json([
