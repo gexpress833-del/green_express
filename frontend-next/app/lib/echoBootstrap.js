@@ -106,24 +106,36 @@ export async function ensureEchoClient() {
     window.Pusher = PusherCtor
 
     const apiUrl = new URL(API_BASE)
-    const forceTLS = envFlag('NEXT_PUBLIC_NOTIFICATIONS_WS_FORCE_TLS', apiUrl.protocol === 'https:')
-    const wsHost = process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_HOST || apiUrl.hostname
-    const wsPort = parsePort(process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_PORT, forceTLS ? 443 : 80)
-    const wssPort = parsePort(process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_WSS_PORT, forceTLS ? 443 : 80)
+    const broadcaster = process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_BROADCASTER || 'pusher'
+    const cluster = process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_CLUSTER || 'mt1'
+    const explicitHost = process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_HOST
+    const usePusherCloud = !explicitHost
+    const forceTLS = envFlag(
+      'NEXT_PUBLIC_NOTIFICATIONS_WS_FORCE_TLS',
+      usePusherCloud ? true : apiUrl.protocol === 'https:'
+    )
 
-    const echo = new EchoCtor({
-      broadcaster: process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_BROADCASTER || 'pusher',
+    const config = {
+      broadcaster,
       key: process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_KEY || 'green-express',
-      cluster: process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_CLUSTER || 'mt1',
-      wsHost,
-      wsPort,
-      wssPort,
+      cluster,
       forceTLS,
       enabledTransports: ['ws', 'wss'],
       authEndpoint: `${API_BASE}/api/broadcasting/auth`,
       withCredentials: true,
       disableStats: true,
-    })
+    }
+
+    // Mode self-hosted (Reverb / soketi / Pusher compatible derrière notre domaine) :
+    // un host explicite est fourni, on configure les ports WS/WSS.
+    if (!usePusherCloud) {
+      config.wsHost = explicitHost
+      config.wsPort = parsePort(process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_PORT, forceTLS ? 443 : 80)
+      config.wssPort = parsePort(process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_WSS_PORT, forceTLS ? 443 : 80)
+    }
+    // Sinon (Pusher cloud officiel) : le SDK route automatiquement via le cluster.
+
+    const echo = new EchoCtor(config)
 
     window.__GE_ECHO = echo
     return echo

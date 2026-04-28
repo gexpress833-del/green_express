@@ -32,6 +32,32 @@ NEXT_PUBLIC_NOTIFICATIONS_WS_WSS_PORT=443
 NEXT_PUBLIC_NOTIFICATIONS_WS_FORCE_TLS=false
 ```
 
+## Production : Pusher cloud (recommandé, zéro infra)
+
+Sur Vercel / Netlify, définissez :
+
+```env
+NEXT_PUBLIC_NOTIFICATIONS_WS_ENABLED=true
+NEXT_PUBLIC_NOTIFICATIONS_WS_BROADCASTER=pusher
+NEXT_PUBLIC_NOTIFICATIONS_WS_KEY=<PUSHER_APP_KEY>
+NEXT_PUBLIC_NOTIFICATIONS_WS_CLUSTER=eu
+NEXT_PUBLIC_NOTIFICATIONS_WS_FORCE_TLS=true
+# Laisser HOST/PORT/WSS_PORT VIDES → le SDK Pusher utilise le cluster cloud automatiquement.
+```
+
+Côté backend (Render / VPS) :
+
+```env
+BROADCAST_CONNECTION=pusher
+PUSHER_APP_ID=...
+PUSHER_APP_KEY=...
+PUSHER_APP_SECRET=...
+PUSHER_APP_CLUSTER=eu
+```
+
+> ⚠️ `PUSHER_APP_KEY` (backend) doit correspondre à `NEXT_PUBLIC_NOTIFICATIONS_WS_KEY` (frontend).
+
+
 ## Variables importantes
 
 ### NEXT_PUBLIC_API_BASE
