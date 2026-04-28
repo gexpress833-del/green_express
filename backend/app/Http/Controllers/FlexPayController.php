@@ -10,6 +10,7 @@ use App\Models\Subscription;
 use App\Services\FlexPayService;
 use App\Services\NotificationOrchestratorService;
 use App\Services\OrderNotificationService;
+use App\Services\BeamsService;
 use App\Support\PaymentMessageBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,8 @@ class FlexPayController extends Controller
     public function __construct(
         protected FlexPayService $flexPayService,
         protected OrderNotificationService $orderNotifications,
-        protected NotificationOrchestratorService $notifications
+        protected NotificationOrchestratorService $notifications,
+        protected BeamsService $beams
     ) {}
 
     public function callback(Request $request)
@@ -182,6 +184,23 @@ class FlexPayController extends Controller
                 $clientMessage = PaymentMessageBuilder::forClient($fresh, $parsed);
                 $eventName = PaymentMessageBuilder::eventName($parsed);
                 PaymentRealtimeEvent::dispatch($fresh, $eventName, $clientMessage);
+
+                $userId = null;
+                if ($fresh->order) {
+                    $userId = $fresh->order->user_id;
+                } elseif ($fresh->subscription) {
+                    $userId = $fresh->subscription->user_id;
+                } elseif ($fresh->companySubscription && $fresh->companySubscription->company) {
+                    $userId = $fresh->companySubscription->company->contact_user_id;
+                }
+
+                if ($userId) {
+                    $this->beams->sendToUser($userId, [
+                        'title' => $eventName === 'succeeded' ? 'Paiement réussi' : ($eventName === 'failed' ? 'Paiement échoué' : 'Paiement en cours'),
+                        'body' => $clientMessage,
+                        'deep_link' => $fresh->order_id ? '/client/orders' : ($fresh->subscription_id ? '/client/subscriptions' : '/entreprise/subscriptions'),
+                    ]);
+                }
             }
 
             return response()->json(['message' => 'OK'], 200);

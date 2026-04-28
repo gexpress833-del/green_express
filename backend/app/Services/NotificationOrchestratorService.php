@@ -8,11 +8,14 @@ use App\Models\Promotion;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Notifications\CompanySubscriptionLifecycleNotification;
+use App\Services\BeamsService;
 
 class NotificationOrchestratorService
 {
-    public function __construct(private AppNotificationService $notifications)
-    {
+    public function __construct(
+        private AppNotificationService $notifications,
+        private BeamsService $beams
+    ) {
     }
 
     public function notifySubscription(Subscription $subscription, string $event, ?string $detail = null): void
@@ -90,6 +93,33 @@ class NotificationOrchestratorService
         $fresh = $subscription->fresh(['company.contactUser']) ?? $subscription->loadMissing('company.contactUser');
 
         CompanySubscriptionRealtimeEvent::dispatch($fresh, $event, $detail);
+
+        $messages = [
+            'payment_initiated' => 'Paiement initié',
+            'payment_confirmed' => 'Paiement confirmé',
+            'payment_failed' => 'Paiement échoué',
+            'cancelled' => 'Abonnement annulé',
+            'activated' => 'Abonnement activé',
+            'expired' => 'Abonnement expiré',
+        ];
+
+        if ($notifyCompany && $fresh->company->contactUser) {
+            $message = $messages[$event] ?? 'Mise à jour de votre abonnement entreprise';
+            $this->beams->sendToUser($fresh->company->contactUser->id, [
+                'title' => 'Abonnement entreprise',
+                'body' => $message,
+                'deep_link' => '/entreprise/subscriptions',
+            ]);
+        }
+
+        if ($notifyAdmins) {
+            $message = $messages[$event] ?? 'Mise à jour abonnement B2B';
+            $this->beams->sendToAdmins([
+                'title' => 'Abonnement B2B',
+                'body' => $message,
+                'deep_link' => '/admin/company-subscriptions',
+            ]);
+        }
 
         if ($notifyCompany) {
             $contact = $fresh->company?->contactUser;

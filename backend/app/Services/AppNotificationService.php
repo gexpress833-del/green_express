@@ -10,9 +10,14 @@ use App\Notifications\AnnouncementNotification;
 use App\Notifications\OperationalRoleNotification;
 use App\Notifications\PromotionPublishedNotification;
 use App\Notifications\SubscriptionLifecycleNotification;
+use App\Services\BeamsService;
 
 class AppNotificationService
 {
+    public function __construct(private BeamsService $beams)
+    {
+    }
+
     public function notifySubscription(Subscription $subscription, string $event, ?string $detail = null): void
     {
         $subscription->loadMissing('user');
@@ -22,6 +27,23 @@ class AppNotificationService
         $subscription->user->notify(new SubscriptionLifecycleNotification($subscription, $event, $detail));
 
         SubscriptionRealtimeEvent::dispatch($subscription, $event, $detail);
+
+        $messages = [
+            'scheduled' => 'Abonnement programmé',
+            'starts_tomorrow' => 'Votre abonnement démarre demain',
+            'activated' => 'Abonnement activé',
+            'rejected' => 'Demande d\'abonnement rejetée',
+            'admin_scheduled' => 'Abonnement validé par l\'admin',
+            'expired' => 'Abonnement expiré',
+            'expires_tomorrow' => 'Votre abonnement expire demain',
+        ];
+
+        $message = $messages[$event] ?? 'Mise à jour de votre abonnement';
+        $this->beams->sendToUser($subscription->user->id, [
+            'title' => 'Abonnement',
+            'body' => $message,
+            'deep_link' => '/client/subscriptions',
+        ]);
     }
 
     /**

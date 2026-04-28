@@ -10,6 +10,7 @@ use App\Models\Subscription;
 use App\Services\FlexPayService;
 use App\Services\NotificationOrchestratorService;
 use App\Services\OrderNotificationService;
+use App\Services\BeamsService;
 use App\Support\PaymentMessageBuilder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -26,7 +27,12 @@ class CheckPendingPaymentsJob implements ShouldQueue
 
     public $timeout = 120;
 
-    public function handle(FlexPayService $flexPayService, OrderNotificationService $orderNotifications, NotificationOrchestratorService $notifications): void
+    public function handle(
+        FlexPayService $flexPayService,
+        OrderNotificationService $orderNotifications,
+        NotificationOrchestratorService $notifications,
+        BeamsService $beams
+    ): void
     {
         $maxRetries = 5;
         $maxAge = now()->subMinutes(10);
@@ -47,7 +53,7 @@ class CheckPendingPaymentsJob implements ShouldQueue
                 'retry_count' => $payment->retry_count + 1,
             ]);
 
-            $this->pollFlexPay($payment, $flexPayService, $orderNotifications, $notifications);
+            $this->pollFlexPay($payment, $flexPayService, $orderNotifications, $notifications, $beams);
         }
     }
 
@@ -55,7 +61,8 @@ class CheckPendingPaymentsJob implements ShouldQueue
         Payment $payment,
         FlexPayService $flexPayService,
         OrderNotificationService $orderNotifications,
-        NotificationOrchestratorService $notifications
+        NotificationOrchestratorService $notifications,
+        BeamsService $beams
     ): void {
         if (config('flexpay.mock')) {
             return;
@@ -132,5 +139,24 @@ class CheckPendingPaymentsJob implements ShouldQueue
             PaymentMessageBuilder::eventName($parsed),
             PaymentMessageBuilder::forClient($fresh, $parsed)
         );
+
+        $userId = null;
+        if ($fresh->order) {
+            $userId = $fresh->order->user_id;
+        } elseif ($fresh->subscription) {
+            $userId = $fresh->subscription->user_id;
+        } elseif ($fresh->companySubscription && $fresh->companySubscription->company) {
+            $userId = $fresh->companySubscription->company->contact_user_id;
+        }
+
+        if ($userId) {
+            $eventName = PaymentMessageBuilder::eventName($parsed);
+            $clientMessage = PaymentMessageBuilder::forClient($fresh, $parsed);
+            $beams->sendToUser($userId, [
+                'title' => $eventName === 'succeeded' ? 'Paiement réussi' : ($eventName === 'failed' ? 'Paiement échoué' : 'Paiement en cours'),
+                'body' => $clientMessage,
+                'deep_link' => $fresh->order_id ? '/client/orders' : ($fresh->subscription_id ? '/client/subscriptions' : '/entreprise/subscriptions'),
+            ]);
+        }
     }
 }
