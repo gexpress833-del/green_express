@@ -35,6 +35,13 @@ class BeamsService
 
         try {
             $this->client->publishToInterests($interests, [
+                'web' => [
+                    'notification' => [
+                        'title' => $notification['title'],
+                        'body' => $notification['body'],
+                        'deep_link' => $notification['deep_link'] ?? null,
+                    ],
+                ],
                 'apns' => [
                     'aps' => [
                         'alert' => [
