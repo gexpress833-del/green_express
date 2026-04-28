@@ -79,8 +79,10 @@ export default function BeamsClient() {
           interests.push('livreurs')
         }
 
+        for (const interest of interests) {
+          await client.addDeviceInterest(interest)
+        }
         if (interests.length > 0) {
-          await client.addDeviceInterest(interests)
           console.log('[Beams] Subscribed to interests:', interests)
         }
 
