@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Services\CompanyPricingService;
 use App\Services\FlexPayService;
 use App\Services\DeliveryService;
+use App\Services\NotificationOrchestratorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -26,13 +27,16 @@ class CompanySubscriptionController extends Controller
 
     private CompanyPricingService $pricingService;
     private DeliveryService $deliveryService;
+    private NotificationOrchestratorService $notifications;
 
     public function __construct(
         CompanyPricingService $pricingService,
-        DeliveryService $deliveryService
+        DeliveryService $deliveryService,
+        NotificationOrchestratorService $notifications
     ) {
         $this->pricingService = $pricingService;
         $this->deliveryService = $deliveryService;
+        $this->notifications = $notifications;
     }
 
     /**
@@ -260,6 +264,7 @@ class CompanySubscriptionController extends Controller
                         ]);
                         if ($subscription->payment_status !== 'paid') {
                             $subscription->update(['payment_status' => 'paid']);
+                            $this->notifications->notifyCompanySubscriptionPaymentConfirmed($subscription->fresh());
                         }
                         $payment->refresh();
                         $subscription->refresh();
@@ -271,6 +276,10 @@ class CompanySubscriptionController extends Controller
                         ]);
                         if ($subscription->payment_status !== 'paid') {
                             $subscription->update(['payment_status' => 'failed']);
+                            $this->notifications->notifyCompanySubscriptionPaymentFailed(
+                                $subscription->fresh(),
+                                $payment->failure_reason
+                            );
                         }
                         $payment->refresh();
                         $subscription->refresh();
@@ -355,6 +364,8 @@ class CompanySubscriptionController extends Controller
             'status' => 'cancelled',
             'payment_status' => 'failed',
         ]);
+
+        $this->notifications->notifyCompanySubscriptionCancelled($subscription->fresh());
 
         Payment::where('company_subscription_id', $subscription->id)
             ->where('status', 'pending')
@@ -449,6 +460,8 @@ class CompanySubscriptionController extends Controller
                 ),
             ]);
 
+            $this->notifications->notifyCompanySubscriptionPaymentInitiated($subscription->fresh());
+
             return response()->json([
                 'success' => true,
                 'payment' => $payment,
@@ -506,6 +519,8 @@ class CompanySubscriptionController extends Controller
 
             $this->pricingService->activateSubscription($locked);
 
+            $this->notifications->notifyCompanySubscriptionActivated($locked->fresh());
+
             $locked->employeeMealPlans()->each(function ($mealPlan) {
                 $this->deliveryService->createDeliveryLogs($mealPlan);
             });
@@ -532,6 +547,10 @@ class CompanySubscriptionController extends Controller
                 'success' => false,
                 'message' => 'Non autorisé',
             ], 403);
+        }
+
+        if ($subscription->status === 'expired') {
+            $this->notifications->notifyCompanySubscriptionExpired($subscription->fresh());
         }
 
         try {

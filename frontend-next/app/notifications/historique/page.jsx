@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { deleteAllNotifications, deleteNotification, fetchNotifications } from '@/lib/notifications'
 import { getNotificationType, NOTIFICATION_TABS } from '@/lib/notificationCategories'
-import { useAuth } from '@/contexts/AuthContext'
+import { getNotificationDeepLink, getNotificationField } from '@/lib/notificationPayload'
 import {
   getEventRequestDeepLink,
   getOrderDeepLink,
@@ -94,7 +94,7 @@ export default function NotificationsHistoriquePage() {
         const data = await fetchNotifications(50)
         if (cancelled) return
         const all = Array.isArray(data?.notifications) ? data.notifications : []
-        setNotifications(all.filter(n => n.read_at))
+        setNotifications(all.filter((notification) => notification.read_at))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -103,43 +103,50 @@ export default function NotificationsHistoriquePage() {
     return () => { cancelled = true }
   }, [])
 
-  function goToOrder(n) {
-    const href = getOrderDeepLink(user?.role, n?.data?.order_id)
+  function goToOrder(notification) {
+    const fallbackHref = getOrderDeepLink(user?.role, getNotificationField(notification, 'order_id'))
+    const href = getNotificationDeepLink(notification, fallbackHref)
     if (href) router.push(href)
   }
 
-  function goToEventRequest() {
-    router.push(getEventRequestDeepLink(user?.role))
+  function goToEventRequest(notification) {
+    const fallbackHref = getEventRequestDeepLink(user?.role)
+    const href = getNotificationDeepLink(notification, fallbackHref)
+    if (href) router.push(href)
   }
 
-  function goToSubscriptions() {
-    router.push(getSubscriptionsDeepLink(user?.role))
+  function goToSubscriptions(notification) {
+    const fallbackHref = getSubscriptionsDeepLink(user?.role)
+    const href = getNotificationDeepLink(notification, fallbackHref)
+    if (href) router.push(href)
   }
 
-  function goToPromotions(n) {
-    router.push(getPromotionsDeepLink(user?.role, n?.data?.promotion_id))
+  function goToPromotions(notification) {
+    const fallbackHref = getPromotionsDeepLink(user?.role, getNotificationField(notification, 'promotion_id'))
+    const href = getNotificationDeepLink(notification, fallbackHref)
+    if (href) router.push(href)
   }
 
   const filtered =
     activeTab === 'all'
       ? notifications
-      : notifications.filter(n => getNotificationType(n) === activeTab)
+      : notifications.filter((notification) => getNotificationType(notification) === activeTab)
 
-  async function doDelete(n) {
+  async function doDelete(notification) {
     try {
-      await deleteNotification(n.id)
-      setNotifications((current) => current.filter((entry) => entry.id !== n.id))
+      await deleteNotification(notification.id)
+      setNotifications((current) => current.filter((entry) => entry.id !== notification.id))
     } catch {}
   }
 
-  function handleDelete(n) {
-    const title = n?.data?.title || 'cette notification'
+  function handleDelete(notification) {
+    const title = getNotificationField(notification, 'title') || 'cette notification'
     setConfirmModal({
       title: 'Supprimer la notification',
       message: `Voulez-vous supprimer définitivement « ${title} » ?`,
       variant: 'danger',
       confirmLabel: 'Supprimer',
-      onConfirm: () => { setConfirmModal(null); doDelete(n) },
+      onConfirm: () => { setConfirmModal(null); doDelete(notification) },
     })
   }
 
@@ -206,7 +213,7 @@ export default function NotificationsHistoriquePage() {
             const count =
               tab.id === 'all'
                 ? notifications.length
-                : notifications.filter(n => getNotificationType(n) === tab.id).length
+                : notifications.filter((notification) => getNotificationType(notification) === tab.id).length
             const isActive = activeTab === tab.id
             return (
               <button
@@ -247,16 +254,44 @@ export default function NotificationsHistoriquePage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {filtered.map((n) => {
-              const type = getNotificationType(n)
+            {filtered.map((notification) => {
+              const type = getNotificationType(notification)
               const theme = NOTIFICATION_THEMES[type] || NOTIFICATION_THEMES.announcements
-              const title = n?.data?.title || 'Notification'
-              const message = n?.data?.message || ''
-              const originLabel = n?.data?.origin_label
+              const title = getNotificationField(notification, 'title') || 'Notification'
+              const message = getNotificationField(notification, 'message') || ''
+              const originLabel = getNotificationField(notification, 'origin_label')
+              const hasOrderAction = Boolean(getNotificationField(notification, 'order_id'))
+              const hasEventAction = Boolean(getNotificationField(notification, 'event_request_id'))
+              const hasSubscriptionAction = Boolean(getNotificationField(notification, 'subscription_id') || getNotificationField(notification, 'company_subscription_id'))
+              const hasPromotionAction = Boolean(getNotificationField(notification, 'promotion_id'))
+              const hasSpecificAction = hasOrderAction || hasEventAction || hasSubscriptionAction || hasPromotionAction
+              const explicitDeepLink = getNotificationDeepLink(notification, null)
+              const cardDeepLink = explicitDeepLink && !hasSpecificAction ? explicitDeepLink : null
               return (
                 <article
-                  key={n.id}
+                  key={notification.id}
                   className={`relative overflow-hidden rounded-[28px] border p-5 sm:p-6 bg-[#101827]/88 ${theme.accent} ${theme.glow}`}
+                  style={cardDeepLink ? { cursor: 'pointer' } : undefined}
+                  role={cardDeepLink ? 'button' : undefined}
+                  tabIndex={cardDeepLink ? 0 : undefined}
+                  onClick={cardDeepLink
+                    ? (event) => {
+                      const target = event.target
+                      if (target instanceof Element && target.closest('button,a,input,textarea,select')) {
+                        return
+                      }
+                      router.push(cardDeepLink)
+                    }
+                    : undefined}
+                  onKeyDown={cardDeepLink
+                    ? (event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') {
+                        return
+                      }
+                      event.preventDefault()
+                      router.push(cardDeepLink)
+                    }
+                    : undefined}
                 >
                   <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.10),transparent_35%)]" />
                   <div className="relative flex gap-4">
@@ -279,45 +314,54 @@ export default function NotificationsHistoriquePage() {
                       )}
                       {message && <p className="text-white/70 text-sm sm:text-base mt-3 leading-relaxed">{message}</p>}
                       <div className="flex flex-wrap gap-2 mt-5">
-                        {n?.data?.order_id && (
+                        {hasOrderAction && (
                           <button
                             type="button"
-                            onClick={() => goToOrder(n)}
+                            onClick={() => goToOrder(notification)}
                             className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition ${theme.actionClass}`}
                           >
                             Voir la commande
                           </button>
                         )}
-                        {n?.data?.event_request_id && (
+                        {hasEventAction && (
                           <button
                             type="button"
-                            onClick={goToEventRequest}
+                            onClick={() => goToEventRequest(notification)}
                             className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition ${theme.actionClass}`}
                           >
                             Voir la demande
                           </button>
                         )}
-                        {n?.data?.subscription_id && (
+                        {hasSubscriptionAction && (
                           <button
                             type="button"
-                            onClick={goToSubscriptions}
+                            onClick={() => goToSubscriptions(notification)}
                             className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition ${theme.actionClass}`}
                           >
                             Voir mes abonnements
                           </button>
                         )}
-                        {n?.data?.promotion_id && (
+                        {hasPromotionAction && (
                           <button
                             type="button"
-                            onClick={() => goToPromotions(n)}
+                            onClick={() => goToPromotions(notification)}
                             className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition ${theme.actionClass}`}
                           >
                             Voir les promotions
                           </button>
                         )}
+                        {explicitDeepLink && !hasSpecificAction && (
+                          <button
+                            type="button"
+                            onClick={() => router.push(explicitDeepLink)}
+                            className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition ${theme.actionClass}`}
+                          >
+                            Ouvrir
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => handleDelete(n)}
+                          onClick={() => handleDelete(notification)}
                           className="px-4 py-2.5 rounded-xl text-sm font-semibold text-red-200 border border-red-400/20 hover:bg-red-500/10 transition"
                         >
                           Supprimer

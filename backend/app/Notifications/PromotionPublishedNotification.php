@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Promotion;
+use App\Support\NotificationDeepLink;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -21,7 +22,7 @@ class PromotionPublishedNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast'];
     }
 
     public function toArray(object $notifiable): array
@@ -46,6 +47,7 @@ class PromotionPublishedNotification extends Notification
             'kind' => 'promotion_'.$kind,
             'promotion_id' => $p->id,
             'promotion_kind' => $kind,
+            'deep_link' => NotificationDeepLink::forPromotion($notifiable, $p->id),
             'title' => $this->featured ? '⭐ '.$title : $title,
             'message' => $message,
             'image' => $p->image,

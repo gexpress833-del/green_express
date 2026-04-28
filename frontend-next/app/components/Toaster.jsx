@@ -35,11 +35,21 @@ export default function Toaster(){
 
   return (
     <div style={{ position: 'fixed', right: 16, top: 16, zIndex: 9999 }}>
-      {toasts.map(t => (
-        <div key={t.id} className={`mb-3 max-w-sm rounded-lg px-4 py-3 shadow-lg ${t.type === 'error' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`}>
-          <div className="text-sm">{t.message}</div>
-        </div>
-      ))}
+      {toasts.map(t => {
+        const variant = t.type === 'error'
+          ? 'bg-red-600 text-white'
+          : t.type === 'info'
+            ? 'bg-cyan-500/90 text-white border border-cyan-200/30 backdrop-blur'
+            : 'bg-green-600 text-white'
+        const sizing = t.subtle
+          ? 'max-w-xs px-3 py-2 text-xs opacity-95'
+          : 'max-w-sm px-4 py-3 text-sm'
+        return (
+          <div key={t.id} className={`mb-3 rounded-lg shadow-lg ${variant} ${sizing}`}>
+            <div className={t.subtle ? 'leading-snug' : 'text-sm'}>{t.message}</div>
+          </div>
+        )
+      })}
     </div>
   )
 }

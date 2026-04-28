@@ -6,6 +6,9 @@ import { apiRequest } from '@/lib/api'
 import GoldButton from '@/components/GoldButton'
 import { formatDate, formatCurrencyCDF } from '@/lib/helpers'
 import { getOrderStatusLabel } from '@/lib/orderStatus'
+import { useAuth } from '@/contexts/AuthContext'
+import { useEchoChannel } from '@/lib/useEchoChannel'
+import { pushRealtimePing } from '@/lib/realtimePing'
 
 export default function LivreurAssignments(){
   const [orders, setOrders] = useState([])
@@ -13,10 +16,25 @@ export default function LivreurAssignments(){
   const [validatingCode, setValidatingCode] = useState(false)
   const [codeInput, setCodeInput] = useState('')
   const [validationResult, setValidationResult] = useState(null)
+  const { user } = useAuth()
 
   useEffect(() => {
     loadAssignments()
   }, [])
+
+  useEchoChannel({
+    enabled: !!user?.id,
+    channel: user?.id ? `orders.livreur.${user.id}` : null,
+    event: '.order.updated',
+    onEvent: (payload) => {
+      const orderRef = payload?.order_id ? `#${payload.order_id}` : ''
+      const message = payload?.action === 'livreur_assigned'
+        ? `Nouvelle mission ${orderRef}`.trim()
+        : `Mission ${orderRef} mise à jour`.trim()
+      pushRealtimePing(message)
+      loadAssignments()
+    },
+  })
 
   function loadAssignments(){
     setLoading(true)

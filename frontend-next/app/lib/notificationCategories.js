@@ -2,6 +2,13 @@
  * Catégories alignées sur `data.category` / clés métier renvoyées par l’API Laravel.
  */
 export function getNotificationType(notification) {
+  const category = notification?.category
+  if (category === 'order') return 'orders'
+  if (category === 'event') return 'events'
+  if (category === 'subscription') return 'subscriptions'
+  if (category === 'promotion') return 'promotions'
+  if (category === 'announcement') return 'announcements'
+
   const d = notification?.data || {}
   if (d.category === 'order' || d.order_id != null) return 'orders'
   if (d.category === 'event' || d.event_request_id != null) return 'events'

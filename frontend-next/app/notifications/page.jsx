@@ -12,6 +12,7 @@ import {
   markNotificationRead,
 } from '@/lib/notifications'
 import { getNotificationType, NOTIFICATION_TABS } from '@/lib/notificationCategories'
+import { getNotificationDeepLink, getNotificationField } from '@/lib/notificationPayload'
 import {
   getEventRequestDeepLink,
   getOrderDeepLink,
@@ -95,6 +96,7 @@ function formatRelative(date) {
 
 function getPreviewImage(notification) {
   return (
+    notification?.image_url ||
     notification?.data?.image ||
     notification?.data?.image_url ||
     notification?.data?.thumbnail ||
@@ -266,7 +268,7 @@ export default function NotificationsPage() {
   }
 
   function handleDelete(notification) {
-    const title = notification?.data?.title || 'cette notification'
+    const title = getNotificationField(notification, 'title') || 'cette notification'
     setConfirmModal({
       title: 'Supprimer la notification',
       message: `Voulez-vous supprimer définitivement « ${title} » ?`,
@@ -277,37 +279,55 @@ export default function NotificationsPage() {
   }
 
   function goToOrder(notification) {
-    const href = getOrderDeepLink(user?.role, notification?.data?.order_id)
+    const fallbackHref = getOrderDeepLink(user?.role, getNotificationField(notification, 'order_id'))
+    const href = getNotificationDeepLink(notification, fallbackHref)
     if (href) router.push(href)
   }
 
-  function goToEventRequest() {
-    router.push(getEventRequestDeepLink(user?.role))
+  function goToEventRequest(notification) {
+    const fallbackHref = getEventRequestDeepLink(user?.role)
+    const href = getNotificationDeepLink(notification, fallbackHref)
+    if (href) router.push(href)
   }
 
-  function goToSubscriptions() {
-    router.push(getSubscriptionsDeepLink(user?.role))
+  function goToSubscriptions(notification) {
+    const fallbackHref = getSubscriptionsDeepLink(user?.role)
+    const href = getNotificationDeepLink(notification, fallbackHref)
+    if (href) router.push(href)
   }
 
-  function goToPromotions(n) {
-    router.push(getPromotionsDeepLink(user?.role, n?.data?.promotion_id))
+  function goToPromotions(notification) {
+    const fallbackHref = getPromotionsDeepLink(user?.role, getNotificationField(notification, 'promotion_id'))
+    const href = getNotificationDeepLink(notification, fallbackHref)
+    if (href) router.push(href)
   }
 
   function renderCard(notification) {
     const type = getNotificationType(notification)
     const theme = NOTIFICATION_THEMES[type] || NOTIFICATION_THEMES.announcements
-    const title = notification?.data?.title || theme.label
-    const message = notification?.data?.message || 'Vous avez une nouvelle notification.'
+    const title = getNotificationField(notification, 'title') || theme.label
+    const message = getNotificationField(notification, 'message') || 'Vous avez une nouvelle notification.'
     const isAnnouncementCard = type === 'announcements'
     const previewImage = getPreviewImage(notification)
-    const orderId = notification?.data?.order_id
+    const orderId = getNotificationField(notification, 'order_id')
     const subtitleParts = []
 
     if (orderId) subtitleParts.push(`Commande #${orderId}`)
     if (type === 'events') subtitleParts.push('Nouvelle demande')
-    if (type === 'subscriptions' && notification?.data?.plan_name) subtitleParts.push(notification.data.plan_name)
-    if (type === 'promotions' && notification?.data?.promotion_kind === 'special') subtitleParts.push('Mise en avant')
-    if (notification?.data?.category === 'announcement' || notification?.data?.kind === 'announcement') {
+    const planName = getNotificationField(notification, 'plan_name')
+    const promotionKind = getNotificationField(notification, 'promotion_kind')
+    const category = getNotificationField(notification, 'category')
+    const kind = getNotificationField(notification, 'kind')
+    const hasOrderAction = Boolean(getNotificationField(notification, 'order_id'))
+    const hasEventAction = Boolean(getNotificationField(notification, 'event_request_id'))
+    const hasSubscriptionAction = Boolean(getNotificationField(notification, 'subscription_id') || getNotificationField(notification, 'company_subscription_id'))
+    const hasPromotionAction = Boolean(getNotificationField(notification, 'promotion_id'))
+    const hasSpecificAction = hasOrderAction || hasEventAction || hasSubscriptionAction || hasPromotionAction
+    const explicitDeepLink = getNotificationDeepLink(notification, null)
+    const cardDeepLink = explicitDeepLink && !hasSpecificAction ? explicitDeepLink : null
+    if (type === 'subscriptions' && planName) subtitleParts.push(planName)
+    if (type === 'promotions' && promotionKind === 'special') subtitleParts.push('Mise en avant')
+    if (category === 'announcement' || kind === 'announcement') {
       subtitleParts.push('Green Express')
     }
     subtitleParts.push(formatRelative(notification.created_at))
@@ -316,6 +336,27 @@ export default function NotificationsPage() {
       <article
         key={notification.id}
         className={`${styles.card} ${theme.cardClass}`}
+        style={cardDeepLink ? { cursor: 'pointer' } : undefined}
+        role={cardDeepLink ? 'button' : undefined}
+        tabIndex={cardDeepLink ? 0 : undefined}
+        onClick={cardDeepLink
+          ? (event) => {
+            const target = event.target
+            if (target instanceof Element && target.closest('button,a,input,textarea,select')) {
+              return
+            }
+            router.push(cardDeepLink)
+          }
+          : undefined}
+        onKeyDown={cardDeepLink
+          ? (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') {
+              return
+            }
+            event.preventDefault()
+            router.push(cardDeepLink)
+          }
+          : undefined}
       >
         <span className={`${styles.dot} ${theme.dotClass}`} />
 
@@ -366,7 +407,7 @@ export default function NotificationsPage() {
             </div>
 
             <div className={styles.actions}>
-              {notification?.data?.order_id && (
+              {hasOrderAction && (
                 <button
                   type="button"
                   onClick={() => goToOrder(notification)}
@@ -376,33 +417,43 @@ export default function NotificationsPage() {
                 </button>
               )}
 
-              {notification?.data?.event_request_id && (
+              {hasEventAction && (
                 <button
                   type="button"
-                  onClick={goToEventRequest}
+                  onClick={() => goToEventRequest(notification)}
                   className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
                 >
                   Voir la demande
                 </button>
               )}
 
-              {notification?.data?.subscription_id && (
+              {hasSubscriptionAction && (
                 <button
                   type="button"
-                  onClick={goToSubscriptions}
+                  onClick={() => goToSubscriptions(notification)}
                   className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
                 >
                   Voir mes abonnements
                 </button>
               )}
 
-              {notification?.data?.promotion_id && (
+              {hasPromotionAction && (
                 <button
                   type="button"
                   onClick={() => goToPromotions(notification)}
                   className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
                 >
                   Voir les promotions
+                </button>
+              )}
+
+              {explicitDeepLink && !hasSpecificAction && (
+                <button
+                  type="button"
+                  onClick={() => router.push(explicitDeepLink)}
+                  className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
+                >
+                  Ouvrir
                 </button>
               )}
 

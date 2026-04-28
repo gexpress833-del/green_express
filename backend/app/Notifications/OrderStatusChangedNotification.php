@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Support\NotificationDeepLink;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -21,7 +22,7 @@ class OrderStatusChangedNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast'];
     }
 
     public function toArray(object $notifiable): array
@@ -66,6 +67,7 @@ class OrderStatusChangedNotification extends Notification
             'kind' => 'order_status_changed',
             'order_id' => $order->id,
             'order_uuid' => $order->uuid,
+            'deep_link' => NotificationDeepLink::forOrder($notifiable, $order->id),
             'delivery_code' => $order->delivery_code,
             'from' => $this->from,
             'to' => $this->to,

@@ -7,6 +7,8 @@ import Toaster, { pushToast } from '@/components/Toaster'
 import { apiRequest } from '@/lib/api'
 import { formatCurrencyCDF, formatDate } from '@/lib/helpers'
 import ConfirmModal from '@/components/ConfirmModal'
+import { useEchoChannel } from '@/lib/useEchoChannel'
+import { pushRealtimePing } from '@/lib/realtimePing'
 
 function formatAmount(amount, currency) {
   const cur = String(currency || 'CDF').toUpperCase()
@@ -63,6 +65,21 @@ export default function AdminPaymentsPage() {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  useEchoChannel({
+    channel: 'payments.admin',
+    event: '.payment.updated',
+    onEvent: (payload) => {
+      const ref = payload?.payment_id ? `#${payload.payment_id}` : ''
+      const evt = payload?.event === 'succeeded'
+        ? 'paiement confirmé'
+        : payload?.event === 'failed'
+          ? 'paiement échoué'
+          : 'paiement en attente'
+      pushRealtimePing(`Paiement ${ref} : ${evt}`.trim())
+      loadData()
+    },
+  })
 
   async function doReconcile() {
     setReconciling(true)

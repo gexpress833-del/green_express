@@ -11,6 +11,7 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Point;
 use App\Models\PointLedger;
+use App\Events\OrderRealtimeEvent;
 use App\Services\FlexPayService;
 use App\Services\OrderNotificationService;
 use App\Services\PhoneRDCService;
@@ -177,6 +178,9 @@ class OrderController extends Controller
         }
 
         $order->update(['livreur_id' => $data['livreur_id']]);
+
+        OrderRealtimeEvent::dispatch($order->fresh(), 'livreur_assigned');
+
         return response()->json($order->load(['items.menu', 'user', 'deliveryDriver']));
     }
 

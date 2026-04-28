@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Traits\AdminRequiresPermission;
 use App\Models\User;
-use App\Services\AppNotificationService;
+use App\Services\NotificationOrchestratorService;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Log;
@@ -12,6 +12,70 @@ use Illuminate\Support\Facades\Log;
 class NotificationController extends Controller
 {
     use AdminRequiresPermission;
+
+    private function normalizeCategory(array $data): string
+    {
+        $category = trim((string) ($data['category'] ?? ''));
+        if ($category !== '') {
+            return $category;
+        }
+
+        if (! empty($data['order_id'])) {
+            return 'order';
+        }
+        if (! empty($data['event_request_id'])) {
+            return 'event';
+        }
+        if (! empty($data['subscription_id']) || ! empty($data['company_subscription_id'])) {
+            return 'subscription';
+        }
+        if (! empty($data['promotion_id'])) {
+            return 'promotion';
+        }
+
+        return 'announcement';
+    }
+
+    private function normalizeNotificationPayload(array $data, array $roleLabels): array
+    {
+        $originType = $data['origin_type'] ?? null;
+        $originName = $data['origin_user_name'] ?? null;
+        $originLabel = null;
+
+        if ($originName) {
+            $roleLabel = $roleLabels[$originType] ?? $originType;
+            $originLabel = "{$originName} ({$roleLabel})";
+        } elseif ($originType) {
+            $originLabel = $roleLabels[$originType] ?? $originType;
+        }
+
+        $data['origin_label'] = $originLabel;
+
+        $title = trim((string) ($data['title'] ?? ''));
+        $message = trim((string) ($data['message'] ?? ''));
+        if ($title === '') {
+            $title = $message !== '' ? mb_strimwidth($message, 0, 120, '…') : 'Notification';
+        }
+
+        return [
+            'category' => $this->normalizeCategory($data),
+            'kind' => (string) ($data['kind'] ?? 'info'),
+            'severity' => (string) ($data['severity'] ?? 'info'),
+            'title' => $title,
+            'message' => $message,
+            'origin_label' => $originLabel,
+            'origin_type' => $originType,
+            'order_id' => $data['order_id'] ?? null,
+            'subscription_id' => $data['subscription_id'] ?? null,
+            'company_subscription_id' => $data['company_subscription_id'] ?? null,
+            'promotion_id' => $data['promotion_id'] ?? null,
+            'event_request_id' => $data['event_request_id'] ?? null,
+            'plan_name' => $data['plan_name'] ?? null,
+            'deep_link' => $data['deep_link'] ?? null,
+            'image_url' => $data['image_url'] ?? ($data['image'] ?? ($data['thumbnail'] ?? null)),
+            'data' => $data,
+        ];
+    }
 
     /**
      * Résout une notification par clé primaire et vérifie qu’elle appartient à l’utilisateur.
@@ -88,20 +152,26 @@ class NotificationController extends Controller
                     if (! is_array($data)) {
                         $data = [];
                     }
-                    $originType = $data['origin_type'] ?? null;
-                    $originName = $data['origin_user_name'] ?? null;
-                    $originLabel = null;
-                    if ($originName) {
-                        $roleLabel = $roleLabels[$originType] ?? $originType;
-                        $originLabel = "{$originName} ({$roleLabel})";
-                    } elseif ($originType) {
-                        $originLabel = $roleLabels[$originType] ?? $originType;
-                    }
-                    $data['origin_label'] = $originLabel;
+                    $normalized = $this->normalizeNotificationPayload($data, $roleLabels);
                     return [
                         'id' => (string) $n->id,
                         'type' => $n->type,
-                        'data' => $data,
+                        'category' => $normalized['category'],
+                        'kind' => $normalized['kind'],
+                        'severity' => $normalized['severity'],
+                        'title' => $normalized['title'],
+                        'message' => $normalized['message'],
+                        'origin_label' => $normalized['origin_label'],
+                        'origin_type' => $normalized['origin_type'],
+                        'order_id' => $normalized['order_id'],
+                        'subscription_id' => $normalized['subscription_id'],
+                        'company_subscription_id' => $normalized['company_subscription_id'],
+                        'promotion_id' => $normalized['promotion_id'],
+                        'event_request_id' => $normalized['event_request_id'],
+                        'plan_name' => $normalized['plan_name'],
+                        'deep_link' => $normalized['deep_link'],
+                        'image_url' => $normalized['image_url'],
+                        'data' => $normalized['data'],
                         'read_at' => $n->read_at ? $n->read_at->toIso8601String() : null,
                         'created_at' => $n->created_at ? $n->created_at->toIso8601String() : null,
                     ];
@@ -200,7 +270,7 @@ class NotificationController extends Controller
     /**
      * Admin : diffuser une annonce à tous les utilisateurs (Green Express).
      */
-    public function broadcastAnnouncement(Request $request, AppNotificationService $appNotifications)
+    public function broadcastAnnouncement(Request $request, NotificationOrchestratorService $notifications)
     {
         if ($r = $this->adminRequires($request, 'admin.notifications.broadcast')) {
             return $r;
@@ -212,7 +282,7 @@ class NotificationController extends Controller
             'message' => 'required|string|max:5000',
         ]);
 
-        $count = $appNotifications->broadcastAnnouncement($data['title'], $data['message'], $user);
+        $count = $notifications->broadcastAnnouncement($data['title'], $data['message'], $user);
 
         return response()->json([
             'message' => 'Annonce envoyée à tous les utilisateurs.',

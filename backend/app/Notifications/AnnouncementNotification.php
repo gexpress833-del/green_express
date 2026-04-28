@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\User;
+use App\Support\NotificationDeepLink;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -22,7 +23,7 @@ class AnnouncementNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast'];
     }
 
     public function toArray(object $notifiable): array
@@ -40,6 +41,7 @@ class AnnouncementNotification extends Notification
             'kind' => 'announcement',
             'title' => $this->title,
             'message' => $this->message,
+            'deep_link' => NotificationDeepLink::forAnnouncement(),
             'origin_type' => $originType,
             'origin_user_id' => $originUserId,
             'origin_user_name' => $originUserName,

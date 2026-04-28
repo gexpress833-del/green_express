@@ -6,8 +6,8 @@ use App\Models\Promotion;
 use App\Models\Point;
 use App\Models\PointLedger;
 use App\Models\PromotionClaim;
-use App\Services\AppNotificationService;
 use App\Services\CloudinaryService;
+use App\Services\NotificationOrchestratorService;
 use App\Http\Requests\StorePromotionRequest;
 use App\Http\Requests\UpdatePromotionRequest;
 use App\Http\Traits\AdminRequiresPermission;
@@ -23,7 +23,7 @@ class PromotionController extends Controller
     use AdminRequiresPermission;
     use RoleAccess;
 
-    public function __construct(private AppNotificationService $appNotifications)
+    public function __construct(private NotificationOrchestratorService $notifications)
     {
     }
     public function index(Request $request)
@@ -126,7 +126,7 @@ class PromotionController extends Controller
             $data['admin_id'] = $user->id;
             $promo = Promotion::create($data);
 
-            $this->appNotifications->notifyPromotionPublished($promo, $notifyFeatured);
+            $this->notifications->notifyPromotionPublished($promo, $notifyFeatured);
 
             $this->bumpPromotionsCacheVersion();
 

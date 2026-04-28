@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCart } from '@/contexts/CartContext'
-import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/notifications'
 import { PRIMARY_LOGO, nextLogoSrc } from '@/lib/landingMedia'
 import { canPerform } from '@/lib/permissions'
+import { useUnreadNotifications } from '@/lib/useUnreadNotifications'
 
 const badgeStyle = {
   position: 'absolute',
@@ -28,9 +28,14 @@ export default function Navbar(){
   const { itemCount: cartCount } = useCart()
   const [menuOpen, setMenuOpen] = useState(false)
   const [brandLogoSrc, setBrandLogoSrc] = useState(PRIMARY_LOGO)
-  const [unreadCount, setUnreadCount] = useState(0)
   const pathname = usePathname()
   const isClient = user?.role === 'client'
+  const notificationsEnabled = initialised && !!user && pathname !== '/login' && pathname !== '/register'
+  const { unreadCount } = useUnreadNotifications({
+    enabled: notificationsEnabled,
+    userId: user?.id,
+    intervalMs: 30000,
+  })
 
   useEffect(() => {
     setMenuOpen(false)
@@ -41,30 +46,6 @@ export default function Navbar(){
     else document.body.classList.remove('nav-open')
     return () => document.body.classList.remove('nav-open')
   }, [menuOpen])
-
-  // Poll notifications uniquement quand l'utilisateur est connecté, auth initialisée, et pas sur login/register (évite 401 juste après connexion)
-  useEffect(() => {
-    if (!initialised || !user || pathname === '/login' || pathname === '/register') return
-    let cancelled = false
-    let intervalId
-
-    async function load() {
-      try {
-        const data = await fetchNotifications(15)
-        if (cancelled) return
-        setUnreadCount(Number(data?.unread_count || 0))
-      } catch {
-        if (!cancelled) setUnreadCount(0)
-      }
-    }
-
-    load()
-    intervalId = setInterval(load, 15000)
-    return () => {
-      cancelled = true
-      if (intervalId) clearInterval(intervalId)
-    }
-  }, [initialised, user, pathname])
 
   async function handleLogout(e){
     e.preventDefault()

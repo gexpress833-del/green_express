@@ -6,8 +6,8 @@ use App\Http\Traits\AdminRequiresPermission;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
-use App\Services\AppNotificationService;
 use App\Services\FlexPayService;
+use App\Services\NotificationOrchestratorService;
 use App\Services\PhoneRDCService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -17,7 +17,7 @@ class SubscriptionController extends Controller
 {
     use AdminRequiresPermission;
 
-    public function __construct(private AppNotificationService $appNotifications)
+    public function __construct(private NotificationOrchestratorService $notifications)
     {
     }
 
@@ -222,7 +222,7 @@ class SubscriptionController extends Controller
         }
 
         Subscription::applyPaymentConfirmedScheduling($subscription, now());
-        $this->appNotifications->notifyClientAfterAdminScheduling($subscription->fresh());
+        $this->notifications->notifyClientAfterAdminScheduling($subscription->fresh());
 
         return response()->json($subscription->fresh()->load(['user', 'subscriptionPlan']));
     }
@@ -251,7 +251,7 @@ class SubscriptionController extends Controller
             'rejected_reason' => $reason,
         ]);
 
-        $this->appNotifications->notifySubscription($subscription->fresh(), 'rejected', $reason);
+        $this->notifications->notifySubscription($subscription->fresh(), 'rejected', $reason);
 
         return response()->json($subscription->fresh()->load(['user', 'subscriptionPlan']));
     }
@@ -289,7 +289,7 @@ class SubscriptionController extends Controller
         ]);
 
         Subscription::applyPaymentConfirmedScheduling($sub->fresh(), now());
-        $this->appNotifications->notifySubscription($sub->fresh(), 'admin_scheduled');
+        $this->notifications->notifySubscription($sub->fresh(), 'admin_scheduled');
 
         return response()->json($sub->fresh()->load('subscriptionPlan'), 201);
     }
@@ -467,7 +467,7 @@ class SubscriptionController extends Controller
                         ]);
                         if ($subscription->isPending()) {
                             Subscription::applyPaymentConfirmedScheduling($subscription, now());
-                            $this->appNotifications->notifyClientAndAdminsAfterSubscriptionPayment($subscription->fresh());
+                            $this->notifications->notifyClientAndAdminsAfterSubscriptionPayment($subscription->fresh());
                         }
                         $payment->refresh();
                         $subscription->refresh();

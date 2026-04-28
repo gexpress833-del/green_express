@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Promotion;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Events\SubscriptionRealtimeEvent;
 use App\Notifications\AnnouncementNotification;
 use App\Notifications\OperationalRoleNotification;
 use App\Notifications\PromotionPublishedNotification;
@@ -19,6 +20,8 @@ class AppNotificationService
             return;
         }
         $subscription->user->notify(new SubscriptionLifecycleNotification($subscription, $event, $detail));
+
+        SubscriptionRealtimeEvent::dispatch($subscription, $event, $detail);
     }
 
     /**

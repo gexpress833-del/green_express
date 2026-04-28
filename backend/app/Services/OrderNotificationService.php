@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\OrderRealtimeEvent;
 use App\Models\Order;
 use App\Models\User;
 use App\Notifications\OrderCreatedNotification;
@@ -13,6 +14,8 @@ class OrderNotificationService
     {
         // Admins uniquement — le client est notifié à la réception du code de livraison (statut payé + code GX-…)
         User::where('role', 'admin')->each(fn ($u) => $u->notify(new OrderCreatedNotification($order)));
+
+        OrderRealtimeEvent::dispatch($order, 'created');
     }
 
     /**
@@ -23,6 +26,8 @@ class OrderNotificationService
         $notification = new OrderStatusChangedNotification($order, $from, $to, $triggeredBy);
 
         User::where('role', 'admin')->each(fn ($u) => $u->notify($notification));
+
+        OrderRealtimeEvent::dispatch($order, 'status_changed', $from, $to);
 
         // Client : code de livraison (paid + GX-…), suivis intermédiaires, livraison terminée
         if ($order->user) {

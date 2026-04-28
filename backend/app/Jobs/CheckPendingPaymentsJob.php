@@ -2,12 +2,15 @@
 
 namespace App\Jobs;
 
+use App\Events\PaymentRealtimeEvent;
+use App\Models\CompanySubscription;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Subscription;
-use App\Services\AppNotificationService;
 use App\Services\FlexPayService;
+use App\Services\NotificationOrchestratorService;
 use App\Services\OrderNotificationService;
+use App\Support\PaymentMessageBuilder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -23,7 +26,7 @@ class CheckPendingPaymentsJob implements ShouldQueue
 
     public $timeout = 120;
 
-    public function handle(FlexPayService $flexPayService, OrderNotificationService $orderNotifications, AppNotificationService $appNotifications): void
+    public function handle(FlexPayService $flexPayService, OrderNotificationService $orderNotifications, NotificationOrchestratorService $notifications): void
     {
         $maxRetries = 5;
         $maxAge = now()->subMinutes(10);
@@ -44,7 +47,7 @@ class CheckPendingPaymentsJob implements ShouldQueue
                 'retry_count' => $payment->retry_count + 1,
             ]);
 
-            $this->pollFlexPay($payment, $flexPayService, $orderNotifications, $appNotifications);
+            $this->pollFlexPay($payment, $flexPayService, $orderNotifications, $notifications);
         }
     }
 
@@ -52,7 +55,7 @@ class CheckPendingPaymentsJob implements ShouldQueue
         Payment $payment,
         FlexPayService $flexPayService,
         OrderNotificationService $orderNotifications,
-        AppNotificationService $appNotifications
+        NotificationOrchestratorService $notifications
     ): void {
         if (config('flexpay.mock')) {
             return;
@@ -66,6 +69,7 @@ class CheckPendingPaymentsJob implements ShouldQueue
         if (! empty($data['paid'])) {
             $payment->update([
                 'status' => 'completed',
+                'failure_reason' => null,
                 'raw_response' => array_merge($payment->raw_response ?? [], ['last_poll' => $data['raw'] ?? $data]),
             ]);
             if ($payment->order && $payment->order->status === 'pending_payment') {
@@ -85,7 +89,14 @@ class CheckPendingPaymentsJob implements ShouldQueue
                 $sub = Subscription::find($payment->subscription_id);
                 if ($sub && $sub->isPending()) {
                     Subscription::applyPaymentConfirmedScheduling($sub, now());
-                    $appNotifications->notifyClientAndAdminsAfterSubscriptionPayment($sub->fresh());
+                    $notifications->notifyClientAndAdminsAfterSubscriptionPayment($sub->fresh());
+                }
+            }
+            if ($payment->company_subscription_id) {
+                $companySub = CompanySubscription::find($payment->company_subscription_id);
+                if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
+                    $companySub->update(['payment_status' => 'paid']);
+                    $notifications->notifyCompanySubscriptionPaymentConfirmed($companySub->fresh());
                 }
             }
         } elseif (! empty($data['failed'])) {
@@ -94,9 +105,32 @@ class CheckPendingPaymentsJob implements ShouldQueue
                 'failure_reason' => 'Échec (polling FlexPay)',
                 'raw_response' => array_merge($payment->raw_response ?? [], ['last_poll' => $data['raw'] ?? $data]),
             ]);
-            if ($payment->order) {
-                $payment->order->update(['status' => 'cancelled']);
+            if ($payment->company_subscription_id) {
+                $companySub = CompanySubscription::find($payment->company_subscription_id);
+                if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
+                    $companySub->update(['payment_status' => 'failed']);
+                    $notifications->notifyCompanySubscriptionPaymentFailed($companySub->fresh(), 'Échec (polling FlexPay)');
+                }
             }
+        } else {
+            return;
         }
+
+        $fresh = $payment->fresh();
+        if (! $fresh) {
+            return;
+        }
+
+        $parsed = [
+            'success' => ! empty($data['paid']),
+            'failure' => ! empty($data['failed']),
+            'message' => is_array($data['raw'] ?? null) ? (string) ($data['raw']['message'] ?? '') : '',
+        ];
+
+        PaymentRealtimeEvent::dispatch(
+            $fresh,
+            PaymentMessageBuilder::eventName($parsed),
+            PaymentMessageBuilder::forClient($fresh, $parsed)
+        );
     }
 }

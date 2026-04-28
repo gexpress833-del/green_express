@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\EventRequest;
+use App\Support\NotificationDeepLink;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -16,7 +17,7 @@ class EventRequestRespondedNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast'];
     }
 
     public function toArray(object $notifiable): array
@@ -28,6 +29,7 @@ class EventRequestRespondedNotification extends Notification
             'category' => 'event',
             'kind' => 'event_request_responded',
             'event_request_id' => $this->eventRequest->id,
+            'deep_link' => NotificationDeepLink::forEventRequest($notifiable),
             'event_type' => $this->eventRequest->event_type,
             'status' => $this->eventRequest->status,
             'admin_response' => $response,

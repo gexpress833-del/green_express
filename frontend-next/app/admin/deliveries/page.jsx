@@ -4,6 +4,8 @@ import Link from "next/link"
 import { useEffect, useState, useCallback } from "react"
 import { apiRequest, getApiErrorMessage } from "@/lib/api"
 import { pushToast } from "@/components/Toaster"
+import { useEchoChannel } from "@/lib/useEchoChannel"
+import { pushRealtimePing } from "@/lib/realtimePing"
 
 const STATUS_LABELS = { pending: "En attente", delivered: "Livré", failed: "Échec", cancelled: "Annulé" }
 
@@ -27,6 +29,17 @@ export default function AdminDeliveriesPage() {
   }, [statusFilter, dateFilter])
 
   useEffect(() => { load() }, [load])
+
+  useEchoChannel({
+    channel: 'deliveries.admin',
+    event: '.delivery.updated',
+    onEvent: (payload) => {
+      const ref = payload?.delivery_id ? `#${payload.delivery_id}` : ''
+      const label = STATUS_LABELS[payload?.status] || payload?.status || 'mise à jour'
+      pushRealtimePing(`Livraison ${ref} : ${label}`.trim())
+      load()
+    },
+  })
 
   async function handleMarkDelivered(delivery) {
     if (!delivery?.id) return

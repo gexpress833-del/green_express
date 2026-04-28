@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Subscription;
-use App\Services\AppNotificationService;
+use App\Services\NotificationOrchestratorService;
 use App\Services\SubscriptionOperationalService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
@@ -20,7 +20,7 @@ class SubscriptionDailyRemindersJob implements ShouldQueue
     public $tries = 1;
 
     public function handle(
-        AppNotificationService $appNotifications,
+        NotificationOrchestratorService $notifications,
         SubscriptionOperationalService $operational
     ): void {
         $tomorrow = Carbon::tomorrow()->toDateString();
@@ -29,14 +29,14 @@ class SubscriptionDailyRemindersJob implements ShouldQueue
             ->where('status', Subscription::STATUS_ACTIVE)
             ->whereNotNull('expires_at')
             ->orderBy('id')
-            ->chunk(100, function ($subs) use ($appNotifications) {
+            ->chunk(100, function ($subs) use ($notifications) {
                 foreach ($subs as $sub) {
                     if ($sub->daysUntilExpiry() !== 1) {
                         continue;
                     }
                     $key = 'sub_expires_tmr_reminder:'.$sub->id.':'.now()->toDateString();
                     if (Cache::add($key, 1, now()->endOfDay())) {
-                        $appNotifications->notifySubscription($sub->fresh(), 'expires_tomorrow');
+                        $notifications->notifySubscription($sub->fresh(), 'expires_tomorrow');
                     }
                 }
             });
@@ -53,11 +53,11 @@ class SubscriptionDailyRemindersJob implements ShouldQueue
 
         $digestKey = 'operational_digest:'.now()->toDateString();
         if (Cache::add($digestKey, 1, now()->endOfDay())) {
-            $appNotifications->notifyAdminsOperational(
+            $notifications->notifyAdminsOperational(
                 'Repas à livrer demain',
                 'Liste disponible dans l’exploitation. '.$detail
             );
-            $appNotifications->notifyCuisiniersOperational(
+            $notifications->notifyCuisiniersOperational(
                 'Préparation des plats pour demain',
                 $summary['is_weekend']
                     ? 'Jour non ouvré — pas de préparation standard.'
@@ -77,7 +77,7 @@ class SubscriptionDailyRemindersJob implements ShouldQueue
         if ($startingCount > 0) {
             $startKey = 'operational_starts_tomorrow:'.now()->toDateString();
             if (Cache::add($startKey, 1, now()->endOfDay())) {
-                $appNotifications->notifyAdminsOperational(
+                $notifications->notifyAdminsOperational(
                     'Un abonnement démarre demain',
                     sprintf('%d abonnement(s) passent en actif demain (premier jour ouvré).', $startingCount)
                 );

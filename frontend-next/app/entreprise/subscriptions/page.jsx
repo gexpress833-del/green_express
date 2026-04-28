@@ -7,6 +7,8 @@ import { pushToast } from '@/components/Toaster'
 import ConfirmModal from '@/components/ConfirmModal'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useEchoChannel } from '@/lib/useEchoChannel'
+import { pushRealtimePing } from '@/lib/realtimePing'
 
 const PAYMENT_POLL_INTERVAL_MS = 3000
 const PAYMENT_POLL_MAX_ATTEMPTS = 60
@@ -197,6 +199,25 @@ export default function EntrepriseSubscriptionsPage() {
   useEffect(() => {
     loadSubscriptions()
   }, [loadSubscriptions])
+
+  useEchoChannel({
+    enabled: !!company?.id,
+    channel: company?.id ? `subscriptions.company.${company.id}` : null,
+    event: '.subscription.updated',
+    onEvent: (payload) => {
+      const evt = payload?.event || 'mise à jour'
+      const labelMap = {
+        payment_initiated: 'Paiement initié',
+        payment_confirmed: 'Paiement confirmé',
+        payment_failed: 'Paiement échoué',
+        cancelled: 'Abonnement annulé',
+        activated: 'Abonnement activé',
+        expired: 'Abonnement expiré',
+      }
+      pushRealtimePing(`Abonnement : ${labelMap[evt] || evt}`)
+      loadSubscriptions()
+    },
+  })
 
   useEffect(() => () => {
     if (pollRef.current.timer) {

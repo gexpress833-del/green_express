@@ -4,6 +4,9 @@ import SubscriptionPlanShowcase from '@/components/SubscriptionPlanShowcase'
 import ReadOnlyGuard from '@/components/ReadOnlyGuard'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { apiRequest, getApiErrorMessage, getCsrfCookie } from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
+import { useEchoChannel } from '@/lib/useEchoChannel'
+import { pushRealtimePing } from '@/lib/realtimePing'
 import { formatCurrencyCDF } from '@/lib/helpers'
 import GoldButton from '@/components/GoldButton'
 import ClientOngoingSubscriptionCard from '@/components/ClientOngoingSubscriptionCard'
@@ -41,6 +44,7 @@ export default function ClientSubscriptions() {
   const [payCancelling, setPayCancelling] = useState(false)
   const [paymentState, setPaymentState] = useState({ status: 'idle', message: '' })
   const pollRef = useRef({ timer: null, attempts: 0, startedAt: 0, subscriptionId: null })
+  const { user } = useAuth()
 
   function isValidPhoneForCountry(phone, country) {
     const digits = String(phone || '').replace(/\D/g, '')
@@ -59,6 +63,25 @@ export default function ClientSubscriptions() {
   useEffect(() => {
     loadSubs()
   }, [loadSubs])
+
+  useEchoChannel({
+    enabled: !!user?.id,
+    channel: user?.id ? `subscriptions.user.${user.id}` : null,
+    event: '.subscription.updated',
+    onEvent: (payload) => {
+      const labelMap = {
+        scheduled: 'Abonnement programmé',
+        starts_tomorrow: 'Démarre demain',
+        activated: 'Abonnement activé',
+        rejected: 'Demande rejetée',
+        admin_scheduled: 'Validé par l’admin',
+        expired: 'Abonnement expiré',
+        expires_tomorrow: 'Expire demain',
+      }
+      pushRealtimePing(`Abonnement : ${labelMap[payload?.event] || payload?.event || 'mise à jour'}`)
+      loadSubs()
+    },
+  })
 
   useEffect(() => {
     if (typeof window === 'undefined') return

@@ -22,7 +22,8 @@ const adminLinks = [
   { href: '/admin/reports', label: 'Rapports', permission: 'admin.reports' },
   { href: '/admin/event-requests', label: 'Demandes événements', permission: 'admin.event-requests' },
   { href: '/admin/event-types', label: 'Types d\'événements', permission: 'admin.event-types' },
-  { href: '/admin/notifications', label: 'Notifications', permission: 'admin.notifications.broadcast' },
+  { href: '/notifications', label: 'Centre notifications', permission: null },
+  { href: '/admin/notifications', label: 'Diffusion annonces', permission: 'admin.notifications.broadcast' },
   { href: '/profile', label: 'Mon profil', permission: null },
 ]
 

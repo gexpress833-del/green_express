@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Subscription;
+use App\Support\NotificationDeepLink;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -19,7 +20,7 @@ class SubscriptionLifecycleNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast'];
     }
 
     public function toArray(object $notifiable): array
@@ -93,6 +94,7 @@ class SubscriptionLifecycleNotification extends Notification
             'kind' => 'subscription_'.$this->event,
             'subscription_id' => $sub->id,
             'subscription_uuid' => $sub->uuid,
+            'deep_link' => NotificationDeepLink::forSubscription($notifiable),
             'plan_name' => $plan,
             'status' => $sub->status,
             'title' => $title,

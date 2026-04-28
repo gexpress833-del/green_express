@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Support\NotificationDeepLink;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -18,7 +19,7 @@ class OperationalRoleNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast'];
     }
 
     public function toArray(object $notifiable): array
@@ -28,6 +29,7 @@ class OperationalRoleNotification extends Notification
             'kind' => 'operational_digest',
             'title' => $this->title,
             'message' => $this->message,
+            'deep_link' => NotificationDeepLink::forOperational($notifiable),
             'origin_type' => 'system',
         ];
     }

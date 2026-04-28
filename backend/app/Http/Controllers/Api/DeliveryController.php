@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\DeliveryRealtimeEvent;
 use App\Http\Controllers\Controller;
 use App\Http\Traits\RequireAuth;
 use App\Http\Traits\RoleAccess;
@@ -113,10 +114,15 @@ class DeliveryController extends Controller
 
         $this->deliveryService->markAsDelivered($delivery->id);
 
+        $fresh = $delivery->fresh(['mealPlan.employee', 'mealPlan.meal']);
+        if ($fresh) {
+            DeliveryRealtimeEvent::dispatch($fresh, 'delivered');
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Livraison marquée comme effectuée',
-            'data' => $delivery->fresh(['mealPlan.employee', 'mealPlan.meal']),
+            'data' => $fresh,
         ]);
     }
 
@@ -144,6 +150,8 @@ class DeliveryController extends Controller
             'status' => 'failed',
             'notes' => $validated['notes'],
         ]);
+
+        DeliveryRealtimeEvent::dispatch($delivery->fresh() ?: $delivery, 'failed');
 
         return response()->json([
             'success' => true,

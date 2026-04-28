@@ -1,12 +1,15 @@
 "use client"
 import ClientSubpageHeader from '@/components/ClientSubpageHeader'
 import ReadOnlyGuard from '@/components/ReadOnlyGuard'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
 import { formatDate, formatCurrencyCDF } from '@/lib/helpers'
 import { getOrderStatusLabel } from '@/lib/orderStatus'
 import Link from 'next/link'
+import { useAuth } from '@/contexts/AuthContext'
+import { useEchoChannel } from '@/lib/useEchoChannel'
+import { pushRealtimePing } from '@/lib/realtimePing'
 
 export default function ClientOrders(){
   const [orders, setOrders] = useState([])
@@ -14,18 +17,36 @@ export default function ClientOrders(){
   const searchParams = useSearchParams()
   const orderIdFromUrl = searchParams.get('order')
   const orderRefs = useRef({})
+  const { user } = useAuth()
 
-  useEffect(()=>{
-    apiRequest('/api/orders', { method:'GET' })
+  const refreshOrders = useCallback(() => {
+    return apiRequest('/api/orders', { method:'GET' })
       .then(r => {
         setOrders(Array.isArray(r) ? r : [])
-        setLoading(false)
       })
       .catch(() => {
         setOrders([])
-        setLoading(false)
       })
-  },[])
+  }, [])
+
+  useEffect(() => {
+    refreshOrders().finally(() => setLoading(false))
+  }, [refreshOrders])
+
+  useEchoChannel({
+    enabled: !!user?.id,
+    channel: user?.id ? `orders.user.${user.id}` : null,
+    event: '.order.updated',
+    onEvent: (payload) => {
+      const orderRef = payload?.order_id ? `#${payload.order_id}` : ''
+      const statusLabel = payload?.to ? getOrderStatusLabel(payload.to) : null
+      const message = statusLabel
+        ? `Commande ${orderRef} : ${statusLabel}`.trim()
+        : `Commande ${orderRef} mise à jour`.trim()
+      pushRealtimePing(message)
+      refreshOrders()
+    },
+  })
 
   useEffect(() => {
     if (loading || !orderIdFromUrl || orders.length === 0) return

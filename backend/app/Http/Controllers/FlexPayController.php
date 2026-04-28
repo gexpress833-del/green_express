@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\PaymentRealtimeEvent;
 use App\Models\CompanySubscription;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Subscription;
-use App\Services\AppNotificationService;
 use App\Services\FlexPayService;
+use App\Services\NotificationOrchestratorService;
 use App\Services\OrderNotificationService;
+use App\Support\PaymentMessageBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,7 +21,7 @@ class FlexPayController extends Controller
     public function __construct(
         protected FlexPayService $flexPayService,
         protected OrderNotificationService $orderNotifications,
-        protected AppNotificationService $appNotifications
+        protected NotificationOrchestratorService $notifications
     ) {}
 
     public function callback(Request $request)
@@ -120,7 +122,7 @@ class FlexPayController extends Controller
                         $sub = Subscription::query()->lockForUpdate()->find($payment->subscription_id);
                         if ($sub && $sub->isPending()) {
                             Subscription::applyPaymentConfirmedScheduling($sub, now());
-                            $this->appNotifications->notifyClientAndAdminsAfterSubscriptionPayment($sub->fresh());
+                            $this->notifications->notifyClientAndAdminsAfterSubscriptionPayment($sub->fresh());
                         }
                     }
 
@@ -128,6 +130,7 @@ class FlexPayController extends Controller
                         $companySub = CompanySubscription::query()->lockForUpdate()->find($payment->company_subscription_id);
                         if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
                             $companySub->update(['payment_status' => 'paid']);
+                            $this->notifications->notifyCompanySubscriptionPaymentConfirmed($companySub->fresh());
                         }
                     }
 
@@ -149,6 +152,10 @@ class FlexPayController extends Controller
                         $companySub = CompanySubscription::query()->lockForUpdate()->find($payment->company_subscription_id);
                         if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
                             $companySub->update(['payment_status' => 'failed']);
+                            $this->notifications->notifyCompanySubscriptionPaymentFailed(
+                                $companySub->fresh(),
+                                $parsed['message'] ?: $payment->failure_reason
+                            );
                         }
                     }
 
@@ -169,6 +176,13 @@ class FlexPayController extends Controller
                     $payment->update(['raw_response' => $raw]);
                 }
             });
+
+            $fresh = $payment->fresh();
+            if ($fresh) {
+                $clientMessage = PaymentMessageBuilder::forClient($fresh, $parsed);
+                $eventName = PaymentMessageBuilder::eventName($parsed);
+                PaymentRealtimeEvent::dispatch($fresh, $eventName, $clientMessage);
+            }
 
             return response()->json(['message' => 'OK'], 200);
         } catch (\Exception $e) {

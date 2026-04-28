@@ -3,6 +3,8 @@ import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { apiRequest } from '@/lib/api'
+import { useEchoChannel } from '@/lib/useEchoChannel'
+import { pushRealtimePing } from '@/lib/realtimePing'
 import { formatDate, formatCurrencyCDF } from '@/lib/helpers'
 import GoldButton from '@/components/GoldButton'
 import Toaster, { pushToast } from '@/components/Toaster'
@@ -56,6 +58,18 @@ export default function AdminSubscriptionsPage() {
   useEffect(() => {
     loadSubs()
   }, [loadSubs])
+
+  useEchoChannel({
+    channel: 'subscriptions.admin',
+    event: '.subscription.updated',
+    onEvent: (payload) => {
+      if (payload?.scope !== 'personal') return
+      const ref = payload?.subscription_id ? `#${payload.subscription_id}` : ''
+      const evt = payload?.event || 'updated'
+      pushRealtimePing(`Abonnement ${ref} : ${evt}`.trim())
+      loadSubs()
+    },
+  })
 
   const pending = pendingList
 

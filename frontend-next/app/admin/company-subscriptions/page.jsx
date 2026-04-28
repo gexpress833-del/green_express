@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import { apiRequest, getApiErrorMessage } from '@/lib/api'
 import { pushToast } from '@/components/Toaster'
+import { useEchoChannel } from '@/lib/useEchoChannel'
+import { pushRealtimePing } from '@/lib/realtimePing'
 
 const STATUS_LABELS = { pending: 'En attente', active: 'Actif', expired: 'Expiré', cancelled: 'Annulé' }
 
@@ -27,6 +29,18 @@ export default function AdminCompanySubscriptionsPage() {
   }, [statusFilter])
 
   useEffect(() => { load() }, [load])
+
+  useEchoChannel({
+    channel: 'subscriptions.admin',
+    event: '.subscription.updated',
+    onEvent: (payload) => {
+      if (payload?.scope !== 'b2b') return
+      const ref = payload?.subscription_id ? `#${payload.subscription_id}` : ''
+      const evt = payload?.event || 'updated'
+      pushRealtimePing(`Abonnement B2B ${ref} : ${evt}`.trim())
+      load()
+    },
+  })
 
   async function handleActivate(sub) {
     if (!sub?.id) return

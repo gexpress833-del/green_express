@@ -1,11 +1,10 @@
 "use client"
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
 import { useCart } from '@/contexts/CartContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { apiRequest } from '@/lib/api'
 import { filterNavByPermissions } from '@/lib/navPermissions'
+import { useUnreadNotifications } from '@/lib/useUnreadNotifications'
 
 const menuItemsDef = [
   { href: '/client', label: 'Accueil repas', icon: '📊', always: true },
@@ -16,7 +15,7 @@ const menuItemsDef = [
     anyOf: ['menus.list-approved', 'menus.view-approved'],
   },
   { href: '/client/cart', label: 'Panier', icon: '🛒', permission: 'orders.create' },
-  { href: '/client/notifications', label: 'Notifications', icon: '🔔', permission: null, badgeKey: 'notif' },
+  { href: '/notifications', label: 'Notifications', icon: '🔔', permission: null, badgeKey: 'notif' },
   { href: '/client/orders', label: 'Mes commandes', icon: '📦', anyOf: ['orders.view-own', 'orders.list-own'] },
   {
     href: '/client/subscriptions',
@@ -45,19 +44,11 @@ export default function ClientSidebar() {
   const pathname = usePathname()
   const { itemCount } = useCart()
   const { user } = useAuth()
-  const [unreadNotif, setUnreadNotif] = useState(0)
-
-  useEffect(() => {
-    let cancelled = false
-    apiRequest('/api/notifications?limit=1', { method: 'GET' })
-      .then((r) => {
-        if (!cancelled && typeof r?.unread_count === 'number') setUnreadNotif(r.unread_count)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [pathname])
+  const { unreadCount: unreadNotif } = useUnreadNotifications({
+    enabled: !!user,
+    userId: user?.id,
+    intervalMs: 30000,
+  })
 
   const menuItems = filterNavByPermissions(menuItemsDef, user, { requireRole: 'client' })
 

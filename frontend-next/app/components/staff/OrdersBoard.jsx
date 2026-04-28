@@ -2,11 +2,13 @@
 
 import '@/styles/admin-order-thumbs.css'
 import Link from 'next/link'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
 import { formatDate, formatOrderMoney } from '@/lib/helpers'
 import { getBlobImageUrl, resolveMediaUrl } from '@/lib/imageLoader'
+import { useEchoChannel } from '@/lib/useEchoChannel'
+import { pushRealtimePing } from '@/lib/realtimePing'
 
 function getStatusLabel(status) {
   const s = (status || '').toLowerCase()
@@ -71,20 +73,39 @@ export default function OrdersBoard({
     return orders.filter((o) => String(o.id) === orderFilterId)
   }, [orders, orderFilterId])
 
-  useEffect(() => {
-    apiRequest('/api/orders', { method: 'GET' })
+  const refreshOrders = useCallback(() => {
+    return apiRequest('/api/orders', { method: 'GET' })
       .then((r) => {
         setOrders(Array.isArray(r) ? r : [])
       })
       .catch(() => setOrders([]))
-      .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    refreshOrders().finally(() => setLoading(false))
+  }, [refreshOrders])
 
   useEffect(() => {
     apiRequest('/api/livreurs', { method: 'GET' })
       .then((r) => setLivreurs(Array.isArray(r) ? r : []))
       .catch(() => setLivreurs([]))
   }, [])
+
+  useEchoChannel({
+    channel: 'orders.admin',
+    event: '.order.updated',
+    onEvent: (payload) => {
+      const action = payload?.action
+      const orderRef = payload?.order_id ? `#${payload.order_id}` : ''
+      const message = action === 'created'
+        ? `Nouvelle commande ${orderRef}`.trim()
+        : action === 'livreur_assigned'
+          ? `Livreur attribué ${orderRef}`.trim()
+          : `Commande ${orderRef} mise à jour`.trim()
+      pushRealtimePing(message)
+      refreshOrders()
+    },
+  })
 
   return (
     <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220] text-white">

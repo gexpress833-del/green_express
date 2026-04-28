@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Subscription;
-use App\Services\AppNotificationService;
+use App\Services\NotificationOrchestratorService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -16,7 +16,7 @@ class ProcessSubscriptionLifecycleJob implements ShouldQueue
 
     public $tries = 1;
 
-    public function handle(AppNotificationService $appNotifications): void
+    public function handle(NotificationOrchestratorService $notifications): void
     {
         Subscription::query()
             ->where('status', Subscription::STATUS_SCHEDULED)
@@ -25,9 +25,9 @@ class ProcessSubscriptionLifecycleJob implements ShouldQueue
             ->orderBy('id')
             ->limit(200)
             ->get()
-            ->each(function (Subscription $sub) use ($appNotifications) {
+            ->each(function (Subscription $sub) use ($notifications) {
                 $sub->update(['status' => Subscription::STATUS_ACTIVE]);
-                $appNotifications->notifySubscription($sub->fresh(), 'activated');
+                $notifications->notifySubscription($sub->fresh(), 'activated');
             });
 
         Subscription::query()
@@ -37,9 +37,9 @@ class ProcessSubscriptionLifecycleJob implements ShouldQueue
             ->orderBy('id')
             ->limit(200)
             ->get()
-            ->each(function (Subscription $sub) use ($appNotifications) {
+            ->each(function (Subscription $sub) use ($notifications) {
                 $sub->update(['status' => Subscription::STATUS_EXPIRED]);
-                $appNotifications->notifySubscription($sub->fresh(), 'expired');
+                $notifications->notifySubscription($sub->fresh(), 'expired');
             });
     }
 }
