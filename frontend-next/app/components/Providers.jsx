@@ -5,6 +5,7 @@ import { CartProvider } from '@/contexts/CartContext';
 import EchoBootstrap from '@/components/EchoBootstrap';
 import PaymentLiveToaster from '@/components/PaymentLiveToaster';
 import BeamsClient from '@/components/BeamsClient';
+import PWAInstaller from '@/components/PWAInstaller';
 
 export default function Providers({ children }) {
   return (
@@ -13,6 +14,7 @@ export default function Providers({ children }) {
         <EchoBootstrap />
         <PaymentLiveToaster />
         <BeamsClient />
+        <PWAInstaller />
         {children}
       </CartProvider>
     </AuthProvider>
