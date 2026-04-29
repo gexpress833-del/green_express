@@ -4,9 +4,25 @@
 
 importScripts("https://js.pusher.com/beams/service-worker.js");
 
-const CACHE_VERSION = 'gx-v1';
+const CACHE_VERSION = 'gx-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
+const API_CACHE = `${CACHE_VERSION}-api`;
+
+// Endpoints API qui ne doivent JAMAIS être servis depuis le cache
+// (auth, csrf, logout, payements en cours, opérations sensibles)
+const API_NEVER_CACHE = [
+  '/api/auth',
+  '/api/login',
+  '/api/logout',
+  '/api/register',
+  '/api/csrf',
+  '/api/sanctum',
+  '/api/flexpay',
+  '/api/payments/initiate',
+  '/api/payments/check',
+  '/api/health',
+];
 
 const PRECACHE_URLS = [
   '/',
@@ -26,7 +42,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== STATIC_CACHE && k !== RUNTIME_CACHE && k.startsWith('gx-'))
+          .filter((k) => k !== STATIC_CACHE && k !== RUNTIME_CACHE && k !== API_CACHE && k.startsWith('gx-'))
           .map((k) => caches.delete(k))
       )
     ).then(() => self.clients.claim())
@@ -40,8 +56,45 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // API/auth: toujours réseau, pas de cache
-  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/sanctum')) return;
+  // /sanctum/csrf-cookie : toujours réseau, pas de cache
+  if (url.pathname.startsWith('/sanctum')) return;
+
+  // /api/* : GET seulement (les autres méthodes ont déjà été filtrées plus haut)
+  if (url.pathname.startsWith('/api')) {
+    // Endpoints sensibles : toujours réseau direct
+    if (API_NEVER_CACHE.some((p) => url.pathname.startsWith(p))) return;
+
+    // Network-first avec fallback cache (lecture offline)
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          // Ne cache que les réponses OK (pas les 401/403/500)
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(API_CACHE).then((c) => c.put(request, copy));
+          }
+          return res;
+        })
+        .catch(() =>
+          caches.match(request).then((cached) => {
+            if (cached) {
+              // Marquer la réponse comme provenant du cache (utile pour debug côté front)
+              const headers = new Headers(cached.headers);
+              headers.set('X-From-Cache', '1');
+              return cached.blob().then(
+                (b) => new Response(b, { status: cached.status, statusText: cached.statusText, headers })
+              );
+            }
+            // Aucune donnée en cache → renvoyer un 503 JSON propre
+            return new Response(
+              JSON.stringify({ error: 'offline', message: 'Aucune donnée hors-ligne disponible.' }),
+              { status: 503, headers: { 'Content-Type': 'application/json', 'X-From-Cache': '0' } }
+            );
+          })
+        )
+    );
+    return;
+  }
 
   // Navigations HTML : network-first, fallback cache puis /offline
   if (request.mode === 'navigate') {
