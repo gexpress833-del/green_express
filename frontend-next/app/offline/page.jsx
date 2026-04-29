@@ -22,6 +22,7 @@ export default function OfflinePage() {
         puis réessayez. Vos commandes en cours restent enregistrées dès que vous
         êtes reconnecté.
       </p>
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a
         href="/"
         style={{
