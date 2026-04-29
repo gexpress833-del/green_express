@@ -14,10 +14,17 @@ class BeamsService
         $secretKey = config('beams.secret_key');
 
         if ($instanceId && $secretKey) {
-            $this->client = new PushNotifications([
-                'instance_id' => $instanceId,
-                'secret_key' => $secretKey,
-            ]);
+            try {
+                $this->client = new PushNotifications([
+                    'instanceId' => $instanceId,
+                    'secretKey' => $secretKey,
+                ]);
+            } catch (\Throwable $e) {
+                \Log::warning('Pusher Beams init failed, push notifications disabled', [
+                    'error' => $e->getMessage(),
+                ]);
+                $this->client = null;
+            }
         }
     }
 
