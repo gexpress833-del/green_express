@@ -6,8 +6,11 @@ const API_PROXY_TARGET =
 
 const nextConfig = {
   /** Masque le badge « N » / overlay en bas à gauche (uniquement en `next dev`). */
-  devIndicators: false,
+  devIndicators: process.env.NODE_ENV === 'development' ? false : undefined,
   reactStrictMode: true,
+  compress: true,
+  poweredByHeader: false,
+  allowedDevOrigins: ['127.0.0.1', 'localhost', '*.local'],
   /** Les navigateurs demandent souvent /favicon.ico alors que le projet n’a que public/favicon.svg */
   async rewrites() {
     const backend = API_PROXY_TARGET.replace(/\/$/, '')

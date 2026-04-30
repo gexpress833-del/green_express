@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getApiErrorMessage } from '@/lib/api'
 import { isValidEmail, isValidPassword } from '@/lib/helpers'
 import { pushToast } from '@/components/Toaster'
+import PasswordInput from '@/components/PasswordInput'
 import styles from './register.module.css'
 
 export default function RegisterPage() {
@@ -69,7 +70,12 @@ export default function RegisterPage() {
     }
 
     if (!isValidPassword(password)) {
-      setError('Le mot de passe doit avoir au moins 6 caractères.')
+      setError('Le mot de passe doit contenir au moins 8 caractères.')
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError('Les mots de passe ne correspondent pas.')
       return
     }
 
@@ -81,10 +87,6 @@ export default function RegisterPage() {
     }
 
     if (accountType === 'entreprise') {
-      if (password !== confirmPassword) {
-        setError('Les mots de passe ne correspondent pas.')
-        return
-      }
       if (!companyName.trim()) {
         setError("Le nom de l'entreprise est requis.")
         return
@@ -167,7 +169,7 @@ export default function RegisterPage() {
         <div style={{ textAlign: 'center' }}>
           <p className={styles.badge}>Inscription</p>
           <h1 className={styles.titleGradient}>Green Express</h1>
-          <p className={styles.subtitle}>Créez votre accès — client ou demande entreprise.</p>
+          <p className={styles.subtitle}>Créez votre compte en moins d&apos;une minute.</p>
         </div>
 
         <h2 className={styles.introHeading}>Comment souhaitez-vous utiliser Green Express ?</h2>
@@ -190,14 +192,18 @@ export default function RegisterPage() {
             <div style={{ whiteSpace: 'pre-wrap' }}>{error}</div>
             {error.includes('Impossible de contacter le serveur') && (
               <div className={styles.hintBox}>
-                <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>À vérifier :</p>
                 <p style={{ margin: '0 0 0.35rem' }}>
-                  1. Démarrer l&apos;API : <code>cd backend</code> puis <code>php artisan serve</code>
+                  Le service est momentanément indisponible. Vérifiez votre connexion Internet et réessayez dans quelques instants.
                 </p>
-                <p style={{ margin: 0 }}>
-                  2. Vérifier <code>frontend-next/.env.local</code> : <code>NEXT_PUBLIC_API_URL</code> = origine du
-                  front (ex. http://localhost:3000) et <code>API_PROXY_TARGET</code> = Laravel (ex. :8000).
-                </p>
+                {process.env.NODE_ENV !== 'production' && (
+                  <>
+                    <p style={{ margin: '0.5rem 0 0.35rem', fontWeight: 600, fontSize: 12, opacity: 0.7 }}>Dev :</p>
+                    <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
+                      1. <code>cd backend</code> + <code>php artisan serve</code>
+                      <br />2. <code>frontend-next/.env.local</code> : <code>NEXT_PUBLIC_API_URL</code> + <code>API_PROXY_TARGET</code>.
+                    </p>
+                  </>
+                )}
                 <button type="button" className={styles.retryBtn} onClick={() => setError('')}>
                   Fermer ce message
                 </button>
@@ -302,13 +308,27 @@ export default function RegisterPage() {
                 <label htmlFor="reg-password" className={styles.label}>
                   Mot de passe
                 </label>
-                <input
+                <PasswordInput
                   id="reg-password"
-                  type="password"
                   autoComplete="new-password"
-                  placeholder="Au moins 6 caractères"
+                  placeholder="Au moins 8 caractères"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className={styles.fieldInput}
+                />
+                <p className={styles.hint}>Choisissez 8 caractères minimum, idéalement avec chiffres et lettres.</p>
+              </div>
+              <div>
+                <label htmlFor="reg-password2-client" className={styles.label}>
+                  Confirmer le mot de passe
+                </label>
+                <PasswordInput
+                  id="reg-password2-client"
+                  autoComplete="new-password"
+                  placeholder="Retapez votre mot de passe"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   className={styles.fieldInput}
                 />
@@ -393,11 +413,10 @@ export default function RegisterPage() {
                   <label htmlFor="reg-password" className={styles.label}>
                     Mot de passe
                   </label>
-                  <input
+                  <PasswordInput
                     id="reg-password"
-                    type="password"
                     autoComplete="new-password"
-                    placeholder="Au moins 6 caractères"
+                    placeholder="Au moins 8 caractères"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -408,11 +427,10 @@ export default function RegisterPage() {
                   <label htmlFor="reg-password2" className={styles.label}>
                     Confirmer le mot de passe
                   </label>
-                  <input
+                  <PasswordInput
                     id="reg-password2"
-                    type="password"
                     autoComplete="new-password"
-                    placeholder="••••••••"
+                    placeholder="Retapez votre mot de passe"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
@@ -547,7 +565,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <p className={styles.trustLine}>⚡ Inscription rapide — moins d&apos;une minute pour un compte repas.</p>
+          <p className={styles.trustLine}>⚡ Inscription rapide — moins d&apos;une minute pour commencer.</p>
           {accountType === 'entreprise' && (
             <p className={`${styles.trustLine} ${styles.trustLineEntreprise}`}>
               ✔ Idéal pour les entreprises avec plusieurs employés et la commande en volume.

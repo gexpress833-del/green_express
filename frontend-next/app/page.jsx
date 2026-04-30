@@ -1,8 +1,7 @@
 'use client'
 import Link from 'next/link'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import PromoCard from '@/components/PromoCard'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiRequest } from '@/lib/api'
 import { formatCurrencyCDF } from '@/lib/helpers'
@@ -13,7 +12,9 @@ import {
   VIDEO_SOURCES_MP4,
   nextLogoSrc,
 } from '@/lib/landingMedia'
-import PaymentMethodsBanner from '@/components/PaymentMethodsBanner'
+
+const PromoCard = lazy(() => import('@/components/PromoCard'))
+const PaymentMethodsBanner = lazy(() => import('@/components/PaymentMethodsBanner'))
 
 /** `/?from=brand` : accès volontaire à la landing (logo navbar) — sans redirection vers /{role}. */
 function HomePageInner() {
@@ -69,6 +70,9 @@ function HomePageInner() {
   useEffect(() => {
     const el = heroVideoRef.current
     if (!el) return
+    // Skip autoplay on mobile/slow connections to save battery and data
+    const isMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'connection' in navigator && navigator.connection?.saveData)
+    if (isMobile) return
     const enforceMutedAndPlay = () => {
       el.muted = true
       el.defaultMuted = true
@@ -130,17 +134,17 @@ function HomePageInner() {
                   className="mx-auto block h-auto w-auto max-h-[min(220px,36vh)] max-w-[min(240px,72vw)] object-contain"
                   style={{
                     borderRadius: 20,
-                    boxShadow: '0 0 30px rgba(0, 255, 255, 0.3)',
-                    border: '2px solid rgba(0, 255, 255, 0.3)',
+                    boxShadow: '0 0 12px rgba(0, 255, 255, 0.15)',
+                    border: '1px solid rgba(0, 255, 255, 0.2)',
                   }}
                   onError={() => setLogoSrc((s) => nextLogoSrc(s))}
                 />
               </div>
               <h1 className="title hero-anim-title">
-                Vos repas préférés, livrés en un clin d&apos;œil.
+                Cuisinés avec soin, livrés en un clin d&apos;œil.
               </h1>
               <p className="subtitle hero-anim-subtitle" style={{ maxWidth: 640, margin: '20px auto 0' }}>
-                Green Express, la plateforme de commande et livraison de repas en RDC.
+                Green Express prépare ses repas dans sa propre cuisine et les livre directement chez vous à Kolwezi (RDC).
                 Commandez en quelques secondes, suivez votre livreur en temps réel
                 et gagnez des points fidélité à chaque commande.
               </p>
@@ -166,9 +170,8 @@ function HomePageInner() {
                     fontWeight: 700,
                     fontSize: 15,
                     color: '#0b1220',
-                    background: 'linear-gradient(135deg, #39ff14 0%, #22d3ee 100%)',
-                    border: '1px solid rgba(57, 255, 20, 0.5)',
-                    boxShadow: '0 10px 30px rgba(34, 211, 238, 0.25)',
+                    background: '#2dd4bf',
+                    border: '1px solid rgba(45, 212, 191, 0.6)',
                   }}
                 >
                   {primaryCtaLabel}
@@ -227,7 +230,7 @@ function HomePageInner() {
                   muted
                   loop
                   playsInline
-                  preload="auto"
+                  preload="metadata"
                   poster={logoSrc}
                 >
                   {VIDEO_SOURCES_MP4.map((src) => (
@@ -265,22 +268,19 @@ function HomePageInner() {
               <p>&lt; 45 min</p>
             </div>
             <div className="stat-card">
-              <h4>Partenaires</h4>
-              <p>+30 restaurants</p>
+              <h4>Plats au menu</h4>
+              <p>+50 recettes maison</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Comment ça marche */}
-      <section className="py-16 px-6" style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(34, 211, 238, 0.04) 50%, transparent 100%)' }}>
+      <section className="py-16 px-6" style={{ background: 'rgba(34, 211, 238, 0.02)' }}>
         <div className="container" style={{ maxWidth: 1100 }}>
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4" style={{
-              background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
+              color: '#e0e7ff',
             }}>
               Comment ça marche
             </h2>
@@ -302,7 +302,7 @@ function HomePageInner() {
               <div className="step-icon">🍽️</div>
               <h3 className="step-title">Choisissez vos plats</h3>
               <p className="step-desc">
-                Parcourez les menus de nos restaurants partenaires et composez votre commande selon vos envies.
+                Parcourez notre carte préparée chaque jour par nos chefs et composez votre commande selon vos envies.
               </p>
             </div>
             <div className="step-card">
@@ -326,14 +326,11 @@ function HomePageInner() {
       </section>
 
       {/* Promotion Actuelle Section */}
-      <section className="py-20 px-6" style={{background: 'linear-gradient(180deg, transparent 0%, rgba(0, 255, 255, 0.03) 50%, transparent 100%)'}}>
+      <section className="py-20 px-6" style={{background: 'rgba(0, 255, 255, 0.015)'}}>
         <div className="container">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4" style={{
-              background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
+              color: '#e0e7ff',
             }}>
               Promotion du Moment
             </h2>
@@ -347,9 +344,11 @@ function HomePageInner() {
               <p className="text-white/60">Chargement de la promotion...</p>
             </div>
           ) : currentPromo ? (
-            <div className="max-w-5xl mx-auto">
-              <PromoCard promo={currentPromo} loginRequired={initialised && !user} />
-            </div>
+            <Suspense fallback={<div className="max-w-5xl mx-auto h-40 animate-pulse bg-white/5 rounded-2xl" />}>
+              <div className="max-w-5xl mx-auto">
+                <PromoCard promo={currentPromo} loginRequired={initialised && !user} />
+              </div>
+            </Suspense>
           ) : (
             <div className="card text-center py-16 max-w-4xl mx-auto">
               <div className="text-5xl mb-4">🎁</div>
@@ -361,14 +360,11 @@ function HomePageInner() {
       </section>
 
       {/* Types d'abonnement Green Express */}
-      <section className="py-20 px-6" style={{background: 'linear-gradient(180deg, transparent 0%, rgba(157, 78, 221, 0.04) 50%, transparent 100%)'}}>
+      <section className="py-20 px-6" style={{background: 'rgba(157, 78, 221, 0.02)'}}>
         <div className="container">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4" style={{
-              background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
+              color: '#e0e7ff',
             }}>
               Nos abonnements
             </h2>
@@ -409,14 +405,11 @@ function HomePageInner() {
       </section>
 
       {/* Entreprises — orientation B2B (mêmes routes login / register) */}
-      <section className="py-16 px-6" style={{ background: 'linear-gradient(180deg, rgba(57, 255, 20, 0.06) 0%, transparent 100%)' }}>
+      <section className="py-16 px-6" style={{ background: 'rgba(57, 255, 20, 0.03)' }}>
         <div className="container max-w-3xl mx-auto">
           <div className="card p-8 sm:p-10 text-center border border-white/10" style={{ background: 'rgba(15, 28, 46, 0.85)' }}>
             <h2 className="text-2xl sm:text-3xl font-bold mb-3" style={{
-              background: 'linear-gradient(135deg, #39ff14 0%, #00ffff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
+              color: '#a7f3d0',
             }}>
               Vous représentez une entreprise ?
             </h2>
@@ -437,7 +430,7 @@ function HomePageInner() {
                   <Link
                     href="/login"
                     className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border transition"
-                    style={{ color: '#0b1220', background: 'linear-gradient(135deg, #39ff14, #22d3ee)', borderColor: 'rgba(57, 255, 20, 0.5)' }}
+                    style={{ color: '#0b1220', background: '#2dd4bf', borderColor: 'rgba(45, 212, 191, 0.6)' }}
                   >
                     Connexion entreprise
                   </Link>
@@ -452,7 +445,7 @@ function HomePageInner() {
                 <Link
                   href="/entreprise"
                   className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border transition"
-                  style={{ color: '#0b1220', background: 'linear-gradient(135deg, #39ff14, #22d3ee)', borderColor: 'rgba(57, 255, 20, 0.5)' }}
+                  style={{ color: '#0b1220', background: '#2dd4bf', borderColor: 'rgba(45, 212, 191, 0.6)' }}
                 >
                   Mon espace entreprise
                 </Link>
@@ -473,12 +466,9 @@ function HomePageInner() {
       <section className="py-20 px-6 container">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold mb-4" style={{
-            background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
-          }}>
-            Nos Services
+              color: '#e0e7ff',
+            }}>
+              Nos services
           </h2>
           <p className="text-lg text-white/80 max-w-2xl mx-auto">
             Du repas du quotidien aux grandes occasions, Green Express
@@ -492,10 +482,7 @@ function HomePageInner() {
               <span className="text-5xl">👤</span>
             </div>
             <h3 className="service-title" style={{
-              background: 'linear-gradient(135deg, #00ffff 0%, #0096ff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
+              color: '#a5f3fc'
             }}>
               Pour les particuliers
             </h3>
@@ -516,10 +503,7 @@ function HomePageInner() {
               <span className="text-5xl">🎉</span>
             </div>
             <h3 className="service-title" style={{
-              background: 'linear-gradient(135deg, #9d4edd 0%, #ff00ff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
+              color: '#e9d5ff'
             }}>
               Service événementiel
             </h3>
@@ -549,18 +533,14 @@ function HomePageInner() {
       <section
         className="py-16 px-6"
         style={{
-          background:
-            'linear-gradient(180deg, rgba(15, 23, 42, 0.5) 0%, rgba(0, 255, 255, 0.04) 45%, rgba(15, 23, 42, 0.5) 100%)',
+          background: 'rgba(15, 23, 42, 0.4)',
         }}
       >
         <div className="container max-w-3xl mx-auto text-center">
           <h2
             className="text-2xl sm:text-3xl font-bold mb-3"
             style={{
-              background: 'linear-gradient(135deg, #22d3ee 0%, #a78bfa 55%, #fbbf24 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
+              color: '#c4b5fd',
             }}
           >
             Paiements en toute sécurité
@@ -569,20 +549,19 @@ function HomePageInner() {
             Réglez vos commandes et abonnements en toute confiance : cartes bancaires et Mobile Money (RDC) pris en charge
             pour un parcours de paiement clair et protégé.
           </p>
-          <div className="mx-auto max-w-2xl w-full payment-methods-banner--landing">
-            <PaymentMethodsBanner />
-          </div>
+          <Suspense fallback={<div className="mx-auto max-w-2xl w-full h-16 animate-pulse bg-white/5 rounded-xl" />}>
+            <div className="mx-auto max-w-2xl w-full payment-methods-banner--landing">
+              <PaymentMethodsBanner />
+            </div>
+          </Suspense>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6" style={{background: 'linear-gradient(135deg, rgba(0, 255, 255, 0.05) 0%, rgba(157, 78, 221, 0.05) 100%)'}}>
+      <section className="py-20 px-6" style={{background: 'rgba(0, 255, 255, 0.02)'}}>
         <div className="container text-center" style={{ maxWidth: 760 }}>
           <h2 className="text-4xl font-bold mb-4" style={{
-            background: 'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
+            color: '#e0e7ff',
           }}>
             Prêt à passer à table ?
           </h2>
@@ -608,9 +587,8 @@ function HomePageInner() {
                 fontWeight: 700,
                 fontSize: 15,
                 color: '#0b1220',
-                background: 'linear-gradient(135deg, #39ff14 0%, #22d3ee 100%)',
-                border: '1px solid rgba(57, 255, 20, 0.5)',
-                boxShadow: '0 10px 30px rgba(34, 211, 238, 0.25)',
+                background: '#2dd4bf',
+                border: '1px solid rgba(45, 212, 191, 0.6)',
               }}
             >
               {primaryCtaLabel}

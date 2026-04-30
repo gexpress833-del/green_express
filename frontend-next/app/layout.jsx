@@ -8,7 +8,7 @@ import Providers from './components/Providers'
 
 export const metadata = {
   title: 'Green Express',
-  description: 'Commandez vos repas, suivez vos livraisons et gérez votre abonnement Green Express en temps réel.',
+  description: 'Commandez vos repas à Kolwezi (RDC), suivez vos livraisons et gérez votre abonnement Green Express en temps réel.',
   applicationName: 'Green Express',
   manifest: '/manifest.webmanifest',
   appleWebApp: {

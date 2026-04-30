@@ -77,10 +77,10 @@ export function isValidEmail(email) {
 }
 
 /**
- * Validate password (min 6 chars)
+ * Validate password (min 8 chars)
  */
 export function isValidPassword(password) {
-  return password && password.length >= 6;
+  return password && password.length >= 8;
 }
 
 /**

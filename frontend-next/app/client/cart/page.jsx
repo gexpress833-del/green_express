@@ -39,7 +39,7 @@ function isValidDrcMobileMoney(phone) {
 export default function CartPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { items, updateQuantity, removeItem, clearCart, totalAmount } = useCart();
+  const { items, updateQuantity, removeItem, clearCart, totalsByCurrency } = useCart();
   const [delivery_address, setDelivery_address] = useState('');
   const [client_phone_number, setClient_phone_number] = useState('');
   const [error, setError] = useState('');
@@ -184,14 +184,26 @@ export default function CartPage() {
                   </div>
 
                   <div className="card mb-6">
-                    <h3 className="text-xl font-semibold mb-4" style={{
-                      background: 'linear-gradient(135deg, #9d4edd 0%, #00ffff 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                    }}>
-                      Total : {formatCurrency(totalAmount, items[0]?.currency || 'USD')}
-                    </h3>
+                    <h3 className="text-xl font-semibold mb-2 text-white">Total à payer</h3>
+                    <div className="flex flex-col gap-1">
+                      {Object.entries(totalsByCurrency).map(([cur, amount]) => (
+                        <div
+                          key={cur}
+                          className="flex items-baseline justify-between gap-3"
+                        >
+                          <span className="text-white/60 text-sm">{cur === 'USD' ? 'Dollars' : cur === 'CDF' ? 'Francs congolais' : cur}</span>
+                          <span className="text-2xl font-bold text-cyan-300">
+                            {formatCurrency(amount, cur)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {Object.keys(totalsByCurrency).length > 1 && (
+                      <p className="text-amber-200/80 text-xs mt-3">
+                        ⚠️ Votre panier contient des plats facturés dans plusieurs devises.
+                        Chaque montant sera débité séparément.
+                      </p>
+                    )}
                   </div>
 
                   <form onSubmit={handlePlaceOrder} className="card">

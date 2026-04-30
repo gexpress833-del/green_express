@@ -9,6 +9,7 @@ import { apiRequest } from '@/lib/api'
 import { formatDate } from '@/lib/helpers'
 import { useCart } from '@/contexts/CartContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { useUnreadNotifications } from '@/lib/useUnreadNotifications'
 import Link from 'next/link'
 
 function subscriptionBannerCopy(ongoing) {
@@ -62,26 +63,49 @@ function fmt(amount, currency) {
 /* ─── Carte menu mobile ──────────────────────────────────────── */
 function MobileMenuCard({ menu }) {
   const { addItem } = useCart()
+  const router = useRouter()
   const [added, setAdded] = useState(false)
   const [imgErr, setImgErr] = useState(false)
   const ok = menu.is_available !== false && menu.status === 'approved'
+  const detailHref = `/client/orders/create?menu_id=${menu.id}`
 
   const handleAdd = (e) => {
     e.preventDefault()
+    e.stopPropagation()
     if (!ok) return
     addItem(menu, 1)
     setAdded(true)
     setTimeout(() => setAdded(false), 1500)
   }
 
+  const handleCardClick = () => {
+    if (ok) router.push(detailHref)
+  }
+  const handleCardKey = (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && ok) {
+      e.preventDefault()
+      router.push(detailHref)
+    }
+  }
+
   return (
-    <div style={{
-      borderRadius: 16,
-      background: 'rgba(15,28,46,0.95)',
-      border: '1px solid rgba(255,255,255,0.08)',
-      overflow: 'hidden',
-      display: 'flex', flexDirection: 'column',
-    }}>
+    <div
+      role={ok ? 'button' : undefined}
+      tabIndex={ok ? 0 : undefined}
+      onClick={ok ? handleCardClick : undefined}
+      onKeyDown={ok ? handleCardKey : undefined}
+      aria-label={ok ? `Voir le détail de ${menu.name || menu.title}` : undefined}
+      style={{
+        borderRadius: 16,
+        background: 'rgba(15,28,46,0.95)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+        cursor: ok ? 'pointer' : 'default',
+        WebkitTapHighlightColor: 'transparent',
+        transition: 'transform 0.15s ease, border-color 0.15s ease',
+      }}
+    >
       {/* Image */}
       <div style={{ position: 'relative', height: 120, background: '#1a2e4a', flexShrink: 0 }}>
         {menu.image && !imgErr
@@ -89,7 +113,7 @@ function MobileMenuCard({ menu }) {
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>🍽️</div>
         }
-        {menu.is_popular && (
+        {Boolean(menu.is_popular) && (
           <span style={{ position: 'absolute', top: 7, left: 7, padding: '2px 7px', borderRadius: 99, background: 'rgba(245,158,11,0.9)', color: '#000', fontSize: 10, fontWeight: 800 }}>🔥</span>
         )}
         <span style={{ position: 'absolute', top: 7, right: 7, padding: '3px 8px', borderRadius: 8, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', color: 'white', fontSize: 11, fontWeight: 700 }}>
@@ -103,11 +127,38 @@ function MobileMenuCard({ menu }) {
       </div>
 
       {/* Infos */}
-      <div style={{ padding: '10px 10px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ padding: '10px 10px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div
+          title={menu.name || menu.title}
+          style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: 'white',
+            lineHeight: 1.25,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            wordBreak: 'break-word',
+            minHeight: 32,
+          }}
+        >
           {menu.name || menu.title}
         </div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+        <div
+          title={menu.description || ''}
+          style={{
+            fontSize: 11,
+            color: 'rgba(255,255,255,0.5)',
+            lineHeight: 1.35,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            wordBreak: 'break-word',
+            flex: 1,
+          }}
+        >
           {menu.description || '—'}
         </div>
         <button onClick={handleAdd} disabled={!ok} style={{
@@ -130,6 +181,24 @@ function MobileMenuCard({ menu }) {
 export default function ClientDashboard() {
   const router = useRouter()
   const { user, initialised, refreshUser } = useAuth()
+  const { itemCount: cartCount } = useCart()
+  const { unreadCount: unreadNotifications, refreshUnreadCount } = useUnreadNotifications({
+    enabled: !!initialised && !!user,
+    userId: user?.id,
+    intervalMs: 10000,
+  })
+
+  /* Refresh badge immediately when tab regains focus (real-time feel). */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onFocus = () => { refreshUnreadCount?.() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [refreshUnreadCount])
   const [stats, setStats]   = useState(null)
   const [loading, setLoading] = useState(true)
   const [menus, setMenus]   = useState([])
@@ -224,11 +293,30 @@ export default function ClientDashboard() {
     router.push('/client/menus')
   }
 
+  /* SVG bell icon — rendu garanti, pas d'emoji */
+  const BellIcon = (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={{ display: 'block' }}
+    >
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </svg>
+  )
+
   /* ── Catégories / raccourcis nav mobile ── */
   const NAV = [
     { icon: '🍽️', label: 'Menus',        href: '/client/menus' },
-    { icon: '🛒', label: 'Panier',        href: '/client/cart' },
-    { icon: '📦', label: 'Commandes',     href: '/client/orders' },
+    { icon: '🛒', label: 'Panier',        href: '/client/cart',                      badge: cartCount, badgeColor: '#fbbf24' },
+    { icon: BellIcon, label: 'Notifications', href: '/notifications/historique',     badge: unreadNotifications, badgeColor: '#22d3ee', isBell: true },
     { icon: '🎁', label: 'Promos',        href: '/client/promotions' },
     { icon: '💳', label: 'Abonnements',   href: '/client/subscriptions#renew' },
     { icon: '👤', label: 'Profil',        href: '/profile' },
@@ -330,14 +418,64 @@ export default function ClientDashboard() {
         {/* ── Navigation / catégories ── */}
         <div style={{ display: 'flex', gap: 10, padding: '16px 16px 0', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
           {NAV.map(n => (
-            <Link key={n.href} href={n.href} style={{
-              flexShrink: 0,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
-              padding: '10px 14px', borderRadius: 16, textDecoration: 'none',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}>
-              <span style={{ fontSize: 22 }}>{n.icon}</span>
+            <Link
+              key={n.href}
+              href={n.href}
+              style={{
+                position: 'relative',
+                flexShrink: 0,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+                padding: '10px 14px', borderRadius: 16, textDecoration: 'none',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+            >
+              <span
+                className={n.label === 'Notifications' && n.badge > 0 ? 'bell-ring' : undefined}
+                style={{
+                  fontSize: 22,
+                  lineHeight: 1,
+                  position: 'relative',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 26,
+                  height: 26,
+                  color: n.label === 'Notifications'
+                    ? (n.badge > 0 ? '#22d3ee' : 'rgba(255,255,255,0.85)')
+                    : 'inherit',
+                  filter: n.label === 'Notifications' && n.badge > 0
+                    ? 'drop-shadow(0 0 6px rgba(34,211,238,0.7))'
+                    : undefined,
+                }}
+              >
+                {n.icon}
+                {n.badge > 0 && (
+                  <span
+                    key={n.badge}
+                    className="cart-badge-bump"
+                    style={{
+                      position: 'absolute',
+                      top: -6,
+                      right: -10,
+                      minWidth: 18,
+                      height: 18,
+                      padding: '0 5px',
+                      borderRadius: 999,
+                      fontSize: 10,
+                      lineHeight: '18px',
+                      color: '#0b1220',
+                      fontWeight: 800,
+                      textAlign: 'center',
+                      background: n.badgeColor || '#fbbf24',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                      border: '2px solid #0b1220',
+                    }}
+                  >
+                    {n.badge > 99 ? '99+' : n.badge}
+                  </span>
+                )}
+              </span>
               <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 600, whiteSpace: 'nowrap' }}>{n.label}</span>
             </Link>
           ))}

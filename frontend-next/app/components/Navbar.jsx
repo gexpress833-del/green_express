@@ -12,15 +12,17 @@ const badgeStyle = {
   position: 'absolute',
   top: -6,
   right: -10,
-  minWidth: 18,
-  height: 18,
-  padding: '0 5px',
+  minWidth: 20,
+  height: 20,
+  padding: '0 6px',
   borderRadius: 999,
   fontSize: 11,
-  lineHeight: '18px',
+  lineHeight: '20px',
   color: 'white',
   fontWeight: 800,
   textAlign: 'center',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+  border: '2px solid rgba(11, 18, 32, 0.95)',
 }
 
 export default function Navbar(){
@@ -115,7 +117,11 @@ export default function Navbar(){
                 >
                   🛒 Panier
                   {cartCount > 0 && (
-                    <span style={{ ...badgeStyle, background: 'rgba(212, 175, 55, 0.95)' }}>
+                    <span
+                      key={cartCount}
+                      className="cart-badge-bump"
+                      style={{ ...badgeStyle, background: 'rgba(212, 175, 55, 0.95)' }}
+                    >
                       {cartCount}
                     </span>
                   )}
@@ -125,34 +131,43 @@ export default function Navbar(){
                 Mon profil
               </Link>
 
-              <Link
-                href="/notifications"
-                className={`${pathname === '/notifications' ? 'active' : ''} ${unreadCount > 0 ? 'nav-link-has-badge' : ''}`.trim()}
-                style={{ position: 'relative' }}
-              >
-                Notifications
-                {unreadCount > 0 && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: -6,
-                      right: -10,
-                      minWidth: 18,
-                      height: 18,
-                      padding: '0 5px',
-                      borderRadius: 999,
-                      fontSize: 11,
-                      lineHeight: '18px',
-                      background: 'rgba(255, 20, 147, 0.95)',
-                      color: 'white',
-                      fontWeight: 800,
-                      textAlign: 'center',
-                    }}
-                  >
-                    {unreadCount}
-                  </span>
-                )}
-              </Link>
+              {isClient ? (
+                <Link
+                  href="/client/orders"
+                  className={pathname === '/client/orders' || pathname?.startsWith('/client/orders/') ? 'active' : ''}
+                >
+                  Commandes
+                </Link>
+              ) : (
+                <Link
+                  href="/notifications"
+                  className={`${pathname === '/notifications' ? 'active' : ''} ${unreadCount > 0 ? 'nav-link-has-badge' : ''}`.trim()}
+                  style={{ position: 'relative' }}
+                >
+                  Notifications
+                  {unreadCount > 0 && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: -6,
+                        right: -10,
+                        minWidth: 18,
+                        height: 18,
+                        padding: '0 5px',
+                        borderRadius: 999,
+                        fontSize: 11,
+                        lineHeight: '18px',
+                        background: 'rgba(255, 20, 147, 0.95)',
+                        color: 'white',
+                        fontWeight: 800,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {unreadCount}
+                    </span>
+                  )}
+                </Link>
+              )}
 
               <button onClick={handleLogout} className="nav-link-button">
                 Se déconnecter

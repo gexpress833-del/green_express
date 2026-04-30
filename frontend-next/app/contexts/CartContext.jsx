@@ -86,7 +86,17 @@ export function CartProvider({ children }) {
   }, []);
 
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
-  const totalAmount = items.reduce((sum, i) => sum + (Number(i.price) || 0) * i.quantity, 0);
+  // Totaux groupés par devise (USD/CDF/...) — éviter d'additionner des devises différentes.
+  const totalsByCurrency = items.reduce((acc, i) => {
+    const cur = i.currency || 'USD';
+    const line = (Number(i.price) || 0) * i.quantity;
+    acc[cur] = (acc[cur] || 0) + line;
+    return acc;
+  }, {});
+  // Compatibilité ascendante : si une seule devise présente, on expose totalAmount.
+  const currencies = Object.keys(totalsByCurrency);
+  const totalAmount = currencies.length === 1 ? totalsByCurrency[currencies[0]] : 0;
+  const totalCurrency = currencies.length === 1 ? currencies[0] : null;
 
   const value = {
     items,
@@ -96,6 +106,8 @@ export function CartProvider({ children }) {
     clearCart,
     itemCount,
     totalAmount,
+    totalCurrency,
+    totalsByCurrency,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
@@ -103,6 +115,6 @@ export function CartProvider({ children }) {
 
 export function useCart() {
   const ctx = useContext(CartContext);
-  if (!ctx) return { items: [], addItem: () => {}, removeItem: () => {}, updateQuantity: () => {}, clearCart: () => {}, itemCount: 0, totalAmount: 0 };
+  if (!ctx) return { items: [], addItem: () => {}, removeItem: () => {}, updateQuantity: () => {}, clearCart: () => {}, itemCount: 0, totalAmount: 0, totalCurrency: null, totalsByCurrency: {} };
   return ctx;
 }

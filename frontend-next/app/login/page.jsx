@@ -138,6 +138,21 @@ function LoginForm() {
       <div className={styles.gridFloor} aria-hidden />
       <div className={styles.vignette} aria-hidden />
 
+      <div className={styles.layout}>
+        <aside className={styles.sidePanel} aria-hidden>
+          <h2>Bienvenue chez Green Express</h2>
+          <p>
+            Commandez vos repas préférés, suivez vos livraisons en temps réel et gérez
+            votre abonnement, le tout depuis un espace pensé pour vous.
+          </p>
+          <ul className={styles.sideFeatures}>
+            <li><span className={styles.featIcon}>🍽️</span> Menus du jour préparés avec soin</li>
+            <li><span className={styles.featIcon}>🚀</span> Livraison rapide à Kolwezi</li>
+            <li><span className={styles.featIcon}>💳</span> Paiement Mobile Money sécurisé</li>
+            <li><span className={styles.featIcon}>🔔</span> Notifications en temps réel</li>
+          </ul>
+        </aside>
+
       <div className={styles.card}>
         <div className={styles.cardGlow} aria-hidden />
         <div className={styles.neonTop} aria-hidden />
@@ -148,10 +163,7 @@ function LoginForm() {
             <span className={styles.titleGradient}>Green Express</span>
           </h1>
           <p className={styles.subtitle}>
-            Connectez-vous avec l&apos;e-mail ou le mobile enregistré — selon votre inscription : compte <strong>repas</strong> (parcours client) ou compte <strong>entreprise</strong> (gestion d&apos;équipe).
-          </p>
-          <p id="entreprise-help" className={`${styles.hint} max-w-md mx-auto mt-3 text-center`} style={{ lineHeight: 1.5 }}>
-            Repas pris en charge par votre structure : utilisez un compte <strong>repas</strong>. Responsable RH ou finance : compte <strong>entreprise</strong>.
+            Bon retour ! Connectez-vous avec votre e-mail ou votre numéro de mobile.
           </p>
         </div>
 
@@ -203,6 +215,12 @@ function LoginForm() {
             </div>
           </div>
 
+          <div style={{ textAlign: 'right', margin: '-4px 0 4px' }}>
+            <Link href="/login/forgot" className={styles.link} style={{ fontSize: 13 }}>
+              Mot de passe oublié ?
+            </Link>
+          </div>
+
           <button type="submit" disabled={loading} className={styles.submit}>
             {loading ? 'Connexion…' : 'Se connecter'}
           </button>
@@ -214,6 +232,7 @@ function LoginForm() {
             Créer un compte
           </Link>
         </div>
+      </div>
       </div>
     </div>
   )

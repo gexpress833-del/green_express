@@ -6,8 +6,107 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2.5rem 1rem 3rem;
+  /* Annule le padding horizontal du .container parent sur mobile (14-20px) */
+  margin-left: -14px;
+  margin-right: -14px;
+  padding: 0.5rem 0.5rem 1rem;
   overflow: hidden;
+}
+
+@media (min-width: 400px) {
+  .shell { margin-left: -16px; margin-right: -16px; }
+}
+@media (min-width: 640px) {
+  .shell {
+    margin-left: -20px;
+    margin-right: -20px;
+    padding: 2rem 1rem 2.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .shell {
+    margin-left: -24px;
+    margin-right: -24px;
+  }
+}
+
+/* Layout 2 colonnes desktop : panneau marketing + formulaire */
+.layout {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+@media (min-width: 1024px) {
+  .layout {
+    max-width: 980px;
+    gap: 2.5rem;
+    align-items: center;
+  }
+}
+
+.sidePanel {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .sidePanel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    padding: 2rem 1rem;
+    color: rgba(226, 232, 240, 0.85);
+  }
+  .sidePanel h2 {
+    font-size: 2.25rem;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+    background: linear-gradient(120deg, #e0f2fe 0%, #22d3ee 30%, #c4b5fd 60%, #fcd34d 90%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .sidePanel p {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: rgba(226, 232, 240, 0.65);
+    margin: 0 0 1.5rem;
+    max-width: 30rem;
+  }
+  .sideFeatures {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .sideFeatures li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: rgba(226, 232, 240, 0.75);
+    font-size: 0.95rem;
+  }
+  .sideFeatures .featIcon {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(34, 211, 238, 0.12);
+    border: 1px solid rgba(34, 211, 238, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
 }
 
 .ambient {
@@ -44,8 +143,8 @@
   z-index: 2;
   width: 100%;
   max-width: 440px;
-  border-radius: 28px;
-  padding: 2.5rem 1.75rem 2.25rem;
+  border-radius: 18px;
+  padding: 1.1rem 0.9rem 1.1rem;
   background: linear-gradient(
     165deg,
     rgba(15, 23, 42, 0.65) 0%,
@@ -64,7 +163,15 @@
 
 @media (min-width: 640px) {
   .card {
-    padding: 2.75rem 2.25rem 2.5rem;
+    padding: 2rem 1.75rem 2rem;
+    border-radius: 26px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .card {
+    flex: 0 0 440px;
+    padding: 2.25rem 2rem 2rem;
   }
 }
 
@@ -87,14 +194,14 @@
 .neonTop {
   height: 3px;
   border-radius: 999px;
-  margin: 0 auto 1.75rem;
-  max-width: 180px;
+  margin: 0 auto 1rem;
+  max-width: 160px;
   background: linear-gradient(90deg, transparent, #22d3ee, #a855f7, #fbbf24, transparent);
   box-shadow: 0 0 18px rgba(34, 211, 238, 0.7), 0 0 28px rgba(168, 85, 247, 0.35);
 }
 
 .titleGradient {
-  font-size: clamp(1.75rem, 5vw, 2.15rem);
+  font-size: clamp(1.4rem, 5.5vw, 2.15rem);
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.15;
@@ -106,9 +213,9 @@
 }
 
 .subtitle {
-  margin-top: 0.65rem;
-  font-size: 0.875rem;
-  line-height: 1.55;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
   color: rgba(226, 232, 240, 0.55);
   max-width: 26rem;
   margin-left: auto;
@@ -129,8 +236,8 @@
   width: 100%;
   border: none;
   background: transparent;
-  padding: 0.9rem 1rem;
-  font-size: 0.95rem;
+  padding: 0.75rem 0.85rem;
+  font-size: 0.9rem;
   color: #f1f5f9;
   transition:
     color 0.2s,
@@ -144,10 +251,14 @@
 
 /* Input d'identifiant (normal) */
 #login-identifier {
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(6, 10, 22, 0.55);
   box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+@media (min-width: 640px) {
+  #login-identifier { border-radius: 16px; }
 }
 
 #login-identifier:focus {
@@ -159,14 +270,21 @@
 }
 /* Mot de passe : place à droite pour l'œil. */
 #login-password {
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(6, 10, 22, 0.55);
   box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.25);
   box-sizing: border-box;
-  padding: 0.9rem 2.75rem 0.9rem 1rem;
+  padding: 0.75rem 2.5rem 0.75rem 0.85rem;
   margin: 0;
   appearance: auto;
+}
+
+@media (min-width: 640px) {
+  #login-password {
+    border-radius: 16px;
+    padding: 0.9rem 2.75rem 0.9rem 1rem;
+  }
 }
 
 #login-password:focus {
@@ -181,12 +299,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(6, 10, 22, 0.55);
   box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.25);
   gap: 0.2rem;
-  padding: 0.2rem;
+  padding: 0.15rem;
+}
+
+@media (min-width: 640px) {
+  .passwordInputWrapper { border-radius: 16px; padding: 0.2rem; }
 }
 
 .passwordInputWrapper #login-password {
@@ -248,10 +370,17 @@
 }
 
 .loginForm {
-  margin-top: 2rem;
+  margin-top: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .loginForm {
+    margin-top: 1.5rem;
+    gap: 1rem;
+  }
 }
 
 .passwordField {
@@ -266,12 +395,12 @@
 }
 
 .submit {
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
   width: 100%;
   border: none;
-  border-radius: 16px;
-  padding: 0.95rem 1.25rem;
-  font-size: 0.95rem;
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -308,11 +437,11 @@
 }
 
 .footer {
-  margin-top: 1.75rem;
-  padding-top: 1.5rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   text-align: center;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: rgba(203, 213, 225, 0.65);
 }
 
@@ -331,7 +460,7 @@
 
 .badge {
   display: inline-block;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   padding: 0.28rem 0.75rem;
   border-radius: 999px;
   font-size: 0.62rem;

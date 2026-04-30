@@ -358,7 +358,7 @@ export default function NotificationsPage() {
           }
           : undefined}
       >
-        <span className={`${styles.dot} ${theme.dotClass}`} />
+        {!notification.read_at && <span className={`${styles.dot} ${theme.dotClass}`} />}
 
         <div className={styles.cardTop}>
           <div className={`${styles.iconWrap} ${theme.iconClass}`}>

@@ -28,12 +28,13 @@ class AuthController extends Controller
             [
                 'name' => 'required|string',
                 'email' => 'required|email|unique:users',
-                'password' => 'required|min:6',
+                'password' => 'required|min:8',
                 'phone' => 'required|string|max:30',
             ],
             [
                 'email.unique' => 'Cette adresse e-mail est déjà utilisée.',
                 'email.email' => 'Veuillez entrer une adresse e-mail valide.',
+                'password.min' => 'Le mot de passe doit contenir au moins :min caractères.',
             ]
         );
 
@@ -77,7 +78,7 @@ class AuthController extends Controller
             [
                 'contact_name' => 'required|string',
                 'contact_email' => 'required|email|unique:users,email',
-                'contact_password' => 'required|min:6',
+                'contact_password' => 'required|min:8',
                 'company_name' => 'required|string|max:255',
                 'institution_type' => 'required|in:etat,hopital,ecole,universite,privee',
                 'company_phone' => 'required|string|max:20',

@@ -15,8 +15,8 @@ const menuItemsDef = [
     anyOf: ['menus.list-approved', 'menus.view-approved'],
   },
   { href: '/client/cart', label: 'Panier', icon: '🛒', permission: 'orders.create' },
-  { href: '/notifications', label: 'Notifications', icon: '🔔', permission: null, badgeKey: 'notif' },
-  { href: '/client/orders', label: 'Mes commandes', icon: '📦', anyOf: ['orders.view-own', 'orders.list-own'] },
+  { href: '/client/orders', label: 'Mes commandes', icon: '�', anyOf: ['orders.view-own', 'orders.list-own'] },
+  { href: '/notifications', label: 'Notifications', icon: '�', permission: null, badgeKey: 'notif' },
   {
     href: '/client/subscriptions',
     label: 'Abonnements',
@@ -74,6 +74,8 @@ export default function ClientSidebar() {
                   {item.label}
                   {badge != null && (
                     <span
+                      key={badge}
+                      className="cart-badge-bump"
                       style={{
                         marginLeft: 6,
                         background: 'rgba(212, 175, 55, 0.3)',
@@ -82,6 +84,7 @@ export default function ClientSidebar() {
                         padding: '2px 8px',
                         fontSize: 12,
                         fontWeight: 700,
+                        display: 'inline-block',
                       }}
                     >
                       {badge}

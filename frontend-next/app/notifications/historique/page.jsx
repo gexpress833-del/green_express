@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/contexts/AuthContext'
 import { deleteAllNotifications, deleteNotification, fetchNotifications } from '@/lib/notifications'
 import { getNotificationType, NOTIFICATION_TABS } from '@/lib/notificationCategories'
 import { getNotificationDeepLink, getNotificationField } from '@/lib/notificationPayload'

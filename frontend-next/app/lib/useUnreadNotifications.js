@@ -44,7 +44,7 @@ function setupEchoRefresh({ enabled, userId, onRefresh }) {
   return () => {
     disposed = true
     const echo = getEchoClient()
-    if (typeof channel.stopListening === 'function') {
+    if (channel && typeof channel.stopListening === 'function') {
       channel.stopListening(eventName)
     }
     if (echo && typeof echo.leave === 'function') {

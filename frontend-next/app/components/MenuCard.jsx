@@ -1,6 +1,7 @@
 "use client"
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCart } from '@/contexts/CartContext'
 
 function formatCurrency(amount, currency) {
@@ -28,6 +29,7 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
   const [imageError, setImageError] = useState(false)
   const [addedFeedback, setAddedFeedback] = useState(false)
   const { addItem } = useCart()
+  const router = useRouter()
 
   if (!menu) return null
 
@@ -37,10 +39,21 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
 
   const handleAddToCart = (e) => {
     e.preventDefault()
+    e.stopPropagation()
     if (!isAvailable) return
     addItem(menu, 1)
     setAddedFeedback(true)
     setTimeout(() => setAddedFeedback(false), 1500)
+  }
+
+  const handleCardClick = () => {
+    if (isAvailable) router.push(linkHref)
+  }
+  const handleCardKey = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleCardClick()
+    }
   }
 
   /* ─── Variante publique : visiteur non-connecte. Meme look que "client" mais
@@ -105,7 +118,15 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
   /* ─── Variante client : styles réels (globals.css .client-menu-card*) ─── */
   if (variant === 'client') {
     return (
-      <article className="client-menu-card">
+      <article
+        className="client-menu-card"
+        role={isAvailable ? 'button' : undefined}
+        tabIndex={isAvailable ? 0 : undefined}
+        onClick={isAvailable ? handleCardClick : undefined}
+        onKeyDown={isAvailable ? handleCardKey : undefined}
+        style={isAvailable ? { cursor: 'pointer' } : undefined}
+        aria-label={isAvailable ? `Voir le détail de ${menu.name || menu.title}` : undefined}
+      >
         <div className="card-image-fixed client-menu-card__media">
           {menu.image && !imageError ? (
             <img
@@ -154,7 +175,11 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
             {isAvailable && (
               <div className="client-menu-card__secondary">
                 <p className="client-menu-card__secondary-hint">Paiement direct</p>
-                <Link href={linkHref} className="client-menu-card__link">
+                <Link
+                  href={linkHref}
+                  className="client-menu-card__link"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   Commander ce plat seul
                   <span aria-hidden>→</span>
                 </Link>
