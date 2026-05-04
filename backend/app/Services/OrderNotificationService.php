@@ -42,7 +42,7 @@ class OrderNotificationService
             $order->user->notify($notification);
         }
 
-        OrderRealtimeEvent::dispatch($order, 'status_changed', ['from' => $from, 'to' => $to]);
+        OrderRealtimeEvent::dispatch($order, 'status_changed', $from, $to);
 
         if ($to === 'paid' && $order->user) {
             $this->beams->sendToUser($order->user->id, [
