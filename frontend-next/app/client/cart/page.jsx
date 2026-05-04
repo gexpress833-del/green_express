@@ -96,9 +96,13 @@ export default function CartPage() {
           menu_id: i.menu_id,
           quantity: i.quantity,
           price: i.price,
+          currency: i.currency,
+          original_price: i.original_price,
+          original_currency: i.original_currency,
         })),
         delivery_address: delivery_address.trim(),
         client_phone_number: np,
+        currency: Object.keys(totalsByCurrency)[0] || 'CDF',
       };
       const order = await apiRequest('/api/orders', {
         method: 'POST',
@@ -154,6 +158,11 @@ export default function CartPage() {
                           <p className="text-amber-400 font-bold mt-1">
                             {formatCurrency(item.price, item.currency)} × {item.quantity}
                           </p>
+                          {item.original_currency && item.original_currency !== item.currency && (
+                            <p className="text-white/45 text-xs mt-1">
+                              Converti depuis {formatCurrency(item.original_price, item.original_currency)}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <button

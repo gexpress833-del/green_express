@@ -6,7 +6,7 @@ import { pushToast } from '@/components/Toaster'
 
 /**
  * Écoute les events `payment.updated` du canal personnel et affiche
- * un toast clair (success/error/info) basé sur le retour webhook FlexPay.
+ * un toast clair (success/error/info) basé sur le retour webhook du prestataire de paiement.
  * Conçu pour être monté une fois au niveau Providers.
  */
 export default function PaymentLiveToaster() {

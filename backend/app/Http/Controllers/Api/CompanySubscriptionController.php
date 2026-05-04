@@ -10,6 +10,7 @@ use App\Models\Company;
 use App\Models\CompanySubscription;
 use App\Models\Payment;
 use App\Services\CompanyPricingService;
+use App\Support\ClientPaymentMessage;
 use App\Services\FlexPayService;
 use App\Services\DeliveryService;
 use App\Services\NotificationOrchestratorService;
@@ -271,14 +272,14 @@ class CompanySubscriptionController extends Controller
                     } elseif ($check['failed'] ?? false) {
                         $payment->update([
                             'status' => 'failed',
-                            'failure_reason' => $payment->failure_reason ?: 'Échec paiement carte',
+                            'failure_reason' => $payment->failure_reason ?: 'Échec du paiement par carte',
                             'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
                         ]);
                         if ($subscription->payment_status !== 'paid') {
                             $subscription->update(['payment_status' => 'failed']);
                             $this->notifications->notifyCompanySubscriptionPaymentFailed(
                                 $subscription->fresh(),
-                                $payment->failure_reason
+                                ClientPaymentMessage::sanitize((string) ($payment->fresh()->failure_reason ?? '')) ?: 'Échec du paiement par carte'
                             );
                         }
                         $payment->refresh();
@@ -323,7 +324,9 @@ class CompanySubscriptionController extends Controller
             'payment_status' => $paymentStatus,
             'company_payment_status' => $subPaymentStatus,
             'status' => $consolidated,
-            'failure_reason' => $payment?->failure_reason,
+            'failure_reason' => ($payment?->status === 'failed' && $payment?->failure_reason)
+                ? ClientPaymentMessage::sanitize((string) $payment->failure_reason)
+                : null,
             'message' => $message,
             'updated_at' => optional($payment?->updated_at)->toIso8601String(),
         ]);
@@ -476,7 +479,7 @@ class CompanySubscriptionController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage() ?: 'Impossible d\'initier le paiement par carte.',
+                'message' => ClientPaymentMessage::sanitize($e->getMessage()) ?: 'Impossible d\'initier le paiement par carte.',
             ], 400);
         }
     }

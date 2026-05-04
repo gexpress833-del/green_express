@@ -6,6 +6,7 @@ use App\Http\Traits\AdminRequiresPermission;
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
+use App\Support\ClientPaymentMessage;
 use App\Services\FlexPayService;
 use App\Services\NotificationOrchestratorService;
 use App\Services\PhoneRDCService;
@@ -192,8 +193,7 @@ class SubscriptionController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            $message = $e->getMessage();
-            $message = preg_replace('/\bFlexPay\b|\bFlexPaie\b/ui', 'le service de paiement', $message);
+            $message = ClientPaymentMessage::sanitize($e->getMessage());
             if (stripos($message, 'destination number') !== false || stripos($message, 'number you have entered is invalid') !== false) {
                 $message = 'Votre opérateur Mobile Money refuse le numéro. Utilisez 9 chiffres après +243 (ex: +243812345678 ou 0812345678).';
             } elseif (stripos($message, 'minimum') !== false && stripos($message, 'CDF') !== false) {
@@ -427,9 +427,7 @@ class SubscriptionController extends Controller
             return 'Numéro Mobile Money invalide pour votre opérateur. Vérifiez le numéro saisi.';
         }
 
-        $clean = preg_replace('/\bFlex\s*Pa(?:y|ie)\b/ui', 'le service de paiement', $r);
-
-        return (string) $clean;
+        return ClientPaymentMessage::sanitize($r);
     }
 
     /**
@@ -474,7 +472,7 @@ class SubscriptionController extends Controller
                     } elseif ($check['failed'] ?? false) {
                         $payment->update([
                             'status' => 'failed',
-                            'failure_reason' => $payment->failure_reason ?: 'Échec FlexPay',
+                            'failure_reason' => $payment->failure_reason ?: 'Échec du paiement Mobile Money',
                             'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
                         ]);
                         $payment->refresh();
@@ -515,7 +513,9 @@ class SubscriptionController extends Controller
             'subscription_status' => $subscriptionStatus,
             'payment_status' => $paymentStatus,
             'status' => $consolidated,
-            'failure_reason' => $payment?->failure_reason,
+            'failure_reason' => $paymentStatus === 'failed'
+                ? $this->humanizePaymentFailureReason($payment?->failure_reason)
+                : null,
             'message' => $message,
             'updated_at' => optional($payment?->updated_at)->toIso8601String(),
         ]);

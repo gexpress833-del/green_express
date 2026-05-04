@@ -109,14 +109,14 @@ class CheckPendingPaymentsJob implements ShouldQueue
         } elseif (! empty($data['failed'])) {
             $payment->update([
                 'status' => 'failed',
-                'failure_reason' => 'Échec (polling FlexPay)',
+                'failure_reason' => 'Échec du paiement (vérification automatique)',
                 'raw_response' => array_merge($payment->raw_response ?? [], ['last_poll' => $data['raw'] ?? $data]),
             ]);
             if ($payment->company_subscription_id) {
                 $companySub = CompanySubscription::find($payment->company_subscription_id);
                 if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
                     $companySub->update(['payment_status' => 'failed']);
-                    $notifications->notifyCompanySubscriptionPaymentFailed($companySub->fresh(), 'Échec (polling FlexPay)');
+                    $notifications->notifyCompanySubscriptionPaymentFailed($companySub->fresh(), 'Échec du paiement (vérification automatique)');
                 }
             }
         } else {

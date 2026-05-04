@@ -64,8 +64,10 @@ export default function OrdersBoard({
   const [livreurs, setLivreurs] = useState([])
   const [loading, setLoading] = useState(true)
   const [assigningId, setAssigningId] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
   const searchParams = useSearchParams()
   const orderIdFromUrl = searchParams.get('order')
+  const canDeleteOrders = basePath === '/admin/orders'
 
   const orderFilterId = orderIdFromUrl?.trim() || null
   const displayOrders = useMemo(() => {
@@ -106,6 +108,20 @@ export default function OrdersBoard({
       refreshOrders()
     },
   })
+
+  const deleteOrder = useCallback((order) => {
+    if (!canDeleteOrders || deletingId) return
+    if (!window.confirm(`Supprimer définitivement la commande n°${order.id} de l'historique ?`)) return
+    setDeletingId(order.id)
+    apiRequest(`/api/orders/${order.id}`, { method: 'DELETE' })
+      .then(() => {
+        setOrders((prev) => prev.filter((o) => o.id !== order.id))
+      })
+      .catch((error) => {
+        window.alert(error?.message || 'Suppression impossible.')
+      })
+      .finally(() => setDeletingId(null))
+  }, [canDeleteOrders, deletingId])
 
   return (
     <section className="page-section page-section--admin-tight min-h-screen bg-[#0b1220] text-white">
@@ -192,11 +208,23 @@ export default function OrdersBoard({
                           </p>
                         )}
                       </div>
-                      <span
-                        className={`badge shrink-0 self-start text-[11px] font-semibold uppercase tracking-wide ${getStatusBadge(order.status)}`}
-                      >
-                        {getStatusLabel(order.status)}
-                      </span>
+                      <div className="flex shrink-0 flex-wrap items-center gap-2 self-start">
+                        <span
+                          className={`badge text-[11px] font-semibold uppercase tracking-wide ${getStatusBadge(order.status)}`}
+                        >
+                          {getStatusLabel(order.status)}
+                        </span>
+                        {canDeleteOrders && (
+                          <button
+                            type="button"
+                            onClick={() => deleteOrder(order)}
+                            disabled={deletingId !== null}
+                            className="rounded-lg border border-red-400/35 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingId === order.id ? 'Suppression…' : 'Supprimer'}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {order.user && (

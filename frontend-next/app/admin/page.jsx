@@ -3,6 +3,7 @@ import GoldButton from '@/components/GoldButton'
 import Sidebar from '@/components/Sidebar'
 import DashboardGreeting from '@/components/DashboardGreeting'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
 import Link from 'next/link'
 import dashStyles from './admin-dashboard.module.css'
@@ -62,6 +63,7 @@ const OP_SUBSCRIPTION_TILES = [
 ]
 
 export default function AdminPage() {
+  const router = useRouter()
   const [stats, setStats] = useState(null)
   const [opStats, setOpStats] = useState(null)
   const [menus, setMenus] = useState([])

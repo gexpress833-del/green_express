@@ -32,12 +32,7 @@ export default function Navbar(){
   const [brandLogoSrc, setBrandLogoSrc] = useState(PRIMARY_LOGO)
   const pathname = usePathname()
   const isClient = user?.role === 'client'
-  const notificationsEnabled = initialised && !!user && pathname !== '/login' && pathname !== '/register'
-  const { unreadCount } = useUnreadNotifications({
-    enabled: notificationsEnabled,
-    userId: user?.id,
-    intervalMs: 30000,
-  })
+  const { unreadCount } = useUnreadNotifications()
 
   useEffect(() => {
     setMenuOpen(false)

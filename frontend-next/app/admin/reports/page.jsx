@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import GoldButton from '@/components/GoldButton';
-import { apiRequest, API_BASE, getApiErrorMessage } from '@/lib/api';
+import { apiRequest, fetchApiBlob, getApiErrorMessage } from '@/lib/api';
 
 const REPORT_TYPES = [
   { value: 'orders', label: 'Commandes' },
@@ -190,6 +190,24 @@ export default function ReportsPage() {
     }
   }
 
+  async function handleDownloadReport(report) {
+    setError('');
+    try {
+      const response = await fetchApiBlob(`/api/reports/${report.id}/download`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `green-express-rapport-${report.report_type || report.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    }
+  }
+
   return (
     <section className="page-section page-section--admin-tight bg-[#0b1220] text-white min-h-screen">
         <header className="mb-8">
@@ -267,14 +285,13 @@ export default function ReportsPage() {
                         <td className="px-4 py-3 text-white/80">{r.generated_by_user?.name ?? `#${r.generated_by}` ?? '—'}</td>
                         <td className="px-4 py-3">
                           {r.status === 'completed' && r.file_path ? (
-                            <a
-                              href={`${API_BASE}/api/reports/${r.id}/download`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadReport(r)}
                               className="text-[#d4af37] hover:text-amber-300 font-medium text-sm"
                             >
                               Télécharger
-                            </a>
+                            </button>
                           ) : (
                             <span className="text-white/40 text-sm">—</span>
                           )}

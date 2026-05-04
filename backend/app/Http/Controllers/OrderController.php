@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\Point;
 use App\Models\PointLedger;
 use App\Events\OrderRealtimeEvent;
+use App\Support\ClientPaymentMessage;
 use App\Services\FlexPayService;
 use App\Services\OrderNotificationService;
 use App\Services\PhoneRDCService;
@@ -192,13 +193,19 @@ class OrderController extends Controller
         }
 
         $data = $request->validated();
+        $orderCurrency = strtoupper($data['currency'] ?? 'CDF');
         $total = 0.0;
         $totalQuantity = 0;
 
         foreach ($data['items'] as $itemData) {
             $menu = Menu::findOrFail($itemData['menu_id']);
             $price = $itemData['price'] ?? $menu->price;
+            $itemCurrency = strtoupper($itemData['currency'] ?? $orderCurrency);
             $quantity = (int) $itemData['quantity'];
+
+            if ($itemCurrency !== $orderCurrency) {
+                return response()->json(['message' => 'Tous les plats doivent être commandés dans la même devise.'], 422);
+            }
 
             $total += $price * $quantity;
             $totalQuantity += $quantity;
@@ -221,6 +228,7 @@ class OrderController extends Controller
             'delivery_address' => $data['delivery_address'],
             'client_phone_number' => $phoneNorm,
             'total_amount' => $total,
+            'currency' => $orderCurrency,
             'points_earned' => $pointsEarned,
             'delivery_code' => null,
         ]);
@@ -228,12 +236,16 @@ class OrderController extends Controller
         foreach ($data['items'] as $itemData) {
             $menu = Menu::findOrFail($itemData['menu_id']);
             $price = $itemData['price'] ?? $menu->price;
+            $itemCurrency = strtoupper($itemData['currency'] ?? $orderCurrency);
 
             OrderItem::create([
                 'order_id' => $order->id,
                 'menu_id' => $itemData['menu_id'],
                 'quantity' => $itemData['quantity'],
                 'price' => $price,
+                'currency' => $itemCurrency,
+                'original_price' => $itemData['original_price'] ?? $menu->price,
+                'original_currency' => strtoupper($itemData['original_currency'] ?? ($menu->currency ?? $itemCurrency)),
             ]);
         }
 
@@ -302,7 +314,7 @@ class OrderController extends Controller
             $phone12 = $formatted;
 
             $order->load('items.menu');
-            $orderCurrency = $order->items->first()?->menu?->currency ?? 'USD';
+            $orderCurrency = $order->currency ?? $order->items->first()?->currency ?? $order->items->first()?->menu?->currency ?? 'CDF';
             $resolved = $flexPay->resolveAmountAndCurrency((float) $order->total_amount, (string) $orderCurrency);
 
             $reference = 'ORD-' . $order->id . '-' . Str::lower(Str::random(12));
@@ -371,9 +383,7 @@ class OrderController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            $message = $e->getMessage();
-            // Ne pas exposer le nom du prestataire technique dans les messages affichés au client
-            $message = preg_replace('/\bFlexPay\b|\bFlexPaie\b/ui', 'le service de paiement', $message);
+            $message = ClientPaymentMessage::sanitize($e->getMessage());
             if (stripos($message, 'destination number') !== false || stripos($message, 'number you have entered is invalid') !== false) {
                 $message = 'Votre opérateur Mobile Money refuse le numéro. Utilisez 9 chiffres après +243 (ex: +243812345678 ou 0812345678).';
             } elseif (stripos($message, 'minimum') !== false && stripos($message, 'CDF') !== false) {
@@ -470,9 +480,7 @@ class OrderController extends Controller
             return 'Numéro Mobile Money invalide pour votre opérateur. Vérifiez le numéro saisi.';
         }
 
-        // Sinon : on conserve le texte fourni mais on masque le nom du prestataire
-        $clean = preg_replace('/\bFlex\s*Pa(?:y|ie)\b/ui', 'le service de paiement', $r);
-        return (string) $clean;
+        return ClientPaymentMessage::sanitize($r);
     }
 
     /**
@@ -530,7 +538,7 @@ class OrderController extends Controller
                     } elseif ($check['failed'] ?? false) {
                         $payment->update([
                             'status' => 'failed',
-                            'failure_reason' => $payment->failure_reason ?: 'Échec FlexPay',
+                            'failure_reason' => $payment->failure_reason ?: 'Échec du paiement Mobile Money',
                             'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
                         ]);
                         $payment->refresh();
@@ -572,7 +580,9 @@ class OrderController extends Controller
             'payment_status' => $paymentStatus,
             'status' => $consolidated,
             'delivery_code' => $deliveryCode,
-            'failure_reason' => $payment?->failure_reason,
+            'failure_reason' => $paymentStatus === 'failed'
+                ? $this->humanizePaymentFailureReason($payment?->failure_reason)
+                : null,
             'message' => $message,
             'updated_at' => optional($payment?->updated_at)->toIso8601String(),
         ]);

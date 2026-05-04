@@ -3,6 +3,7 @@
 import { Suspense, lazy } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/contexts/CartContext';
+import { UnreadNotificationsProvider } from '@/contexts/UnreadNotificationsContext';
 import PWAInstaller from '@/components/PWAInstaller';
 import OfflineIndicator from '@/components/OfflineIndicator';
 
@@ -14,6 +15,7 @@ const BeamsClient = lazy(() => import('@/components/BeamsClient'));
 export default function Providers({ children }) {
   return (
     <AuthProvider>
+      <UnreadNotificationsProvider>
       <CartProvider>
         <Suspense fallback={null}>
           <EchoBootstrap />
@@ -24,6 +26,7 @@ export default function Providers({ children }) {
         <OfflineIndicator />
         {children}
       </CartProvider>
+      </UnreadNotificationsProvider>
     </AuthProvider>
   );
 }

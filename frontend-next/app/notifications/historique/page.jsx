@@ -304,7 +304,7 @@ export default function NotificationsHistoriquePage() {
                         <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${theme.chipClass}`}>
                           {theme.chip}
                         </span>
-                        <span className="text-white/40 text-xs">{formatRelative(n.created_at)}</span>
+                        <span className="text-white/40 text-xs">{formatRelative(notification.created_at)}</span>
                         <span className="ml-auto inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold border border-white/10 bg-white/5 text-white/55">
                           Lue
                         </span>

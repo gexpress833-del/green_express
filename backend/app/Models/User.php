@@ -15,6 +15,13 @@ class User extends Authenticatable implements HasMedia
 {
     use HasFactory, Notifiable, InteractsWithMedia, HasApiTokens, HasRoles;
 
+    /**
+     * Force Spatie Permission à résoudre les permissions sur le guard « web » (catalogue
+     * seedé dans RolesAndPermissionsSeeder). Sinon les routes auth:api utilisent le guard
+     * « api » et hasPermissionTo('…') lève PermissionDoesNotExist si les lignes guard api manquent.
+     */
+    protected string $guard_name = 'web';
+
     protected static function booted(): void
     {
         static::saved(function (User $user) {

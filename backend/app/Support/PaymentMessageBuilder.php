@@ -92,7 +92,10 @@ class PaymentMessageBuilder
             }
         }
 
-        $detail = $rawMessage !== '' ? $rawMessage : 'opérateur Mobile Money indisponible';
+        $detail = $rawMessage !== '' ? ClientPaymentMessage::sanitize($rawMessage) : 'opérateur Mobile Money indisponible';
+        if ($detail === '') {
+            $detail = 'opérateur Mobile Money indisponible';
+        }
 
         return 'Paiement échoué : '.$detail.'. Veuillez réessayer.';
     }

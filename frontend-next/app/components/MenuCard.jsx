@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/contexts/CartContext'
+import { convertMenuPrice } from '@/lib/currencyPreference'
 
 function formatCurrency(amount, currency) {
   const num = typeof amount === 'number' ? amount : parseFloat(amount)
@@ -28,7 +29,7 @@ function formatCurrency(amount, currency) {
 export default function MenuCard({ menu, onSelect, variant = 'default', onDelete, onCommand }) {
   const [imageError, setImageError] = useState(false)
   const [addedFeedback, setAddedFeedback] = useState(false)
-  const { addItem } = useCart()
+  const { addItem, preferredCurrency, usdCdfRate } = useCart()
   const router = useRouter()
 
   if (!menu) return null
@@ -36,6 +37,7 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
   const isAvailable = menu.is_available !== false && menu.status === 'approved'
   const isPopular = menu.is_popular === true
   const linkHref = `/client/orders/create?menu_id=${menu.id}`
+  const displayPrice = convertMenuPrice(menu, preferredCurrency, usdCdfRate)
 
   const handleAddToCart = (e) => {
     e.preventDefault()
@@ -87,7 +89,7 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
             </span>
           </div>
 
-          <div className="client-menu-card__price-float">{formatCurrency(menu.price, menu.currency)}</div>
+          <div className="client-menu-card__price-float">{formatCurrency(displayPrice.price, displayPrice.currency)}</div>
         </div>
 
         <div className="client-menu-card__body">
@@ -152,7 +154,7 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
             </span>
           </div>
 
-          <div className="client-menu-card__price-float">{formatCurrency(menu.price, menu.currency)}</div>
+          <div className="client-menu-card__price-float">{formatCurrency(displayPrice.price, displayPrice.currency)}</div>
         </div>
 
         <div className="client-menu-card__body">
@@ -224,7 +226,7 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
         </div>
 
         <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm text-white px-3 py-2 rounded-lg font-bold text-lg shadow-lg">
-          {formatCurrency(menu.price, menu.currency)}
+          {formatCurrency(displayPrice.price, displayPrice.currency)}
         </div>
       </div>
 

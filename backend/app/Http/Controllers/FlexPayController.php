@@ -11,6 +11,7 @@ use App\Services\FlexPayService;
 use App\Services\NotificationOrchestratorService;
 use App\Services\OrderNotificationService;
 use App\Services\BeamsService;
+use App\Support\ClientPaymentMessage;
 use App\Support\PaymentMessageBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -143,7 +144,7 @@ class FlexPayController extends Controller
                     if (! in_array($payment->status, ['completed', 'failed'], true)) {
                         $payment->update([
                             'status' => 'failed',
-                            'failure_reason' => $parsed['message'] ?: 'Échec FlexPay',
+                            'failure_reason' => ClientPaymentMessage::sanitize((string) ($parsed['message'] ?? '')) ?: 'Échec du paiement Mobile Money',
                             'raw_response' => $raw,
                         ]);
                     } else {
@@ -156,8 +157,15 @@ class FlexPayController extends Controller
                             $companySub->update(['payment_status' => 'failed']);
                             $this->notifications->notifyCompanySubscriptionPaymentFailed(
                                 $companySub->fresh(),
-                                $parsed['message'] ?: $payment->failure_reason
+                                ClientPaymentMessage::sanitize((string) ($parsed['message'] ?? '')) ?: ($payment->failure_reason ?: 'Échec du paiement')
                             );
+                        }
+                    }
+
+                    if ($payment->subscription_id) {
+                        $sub = Subscription::query()->lockForUpdate()->find($payment->subscription_id);
+                        if ($sub && $sub->isPending()) {
+                            $sub->delete();
                         }
                     }
 

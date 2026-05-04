@@ -182,11 +182,7 @@ export default function ClientDashboard() {
   const router = useRouter()
   const { user, initialised, refreshUser } = useAuth()
   const { itemCount: cartCount } = useCart()
-  const { unreadCount: unreadNotifications, refreshUnreadCount } = useUnreadNotifications({
-    enabled: !!initialised && !!user,
-    userId: user?.id,
-    intervalMs: 10000,
-  })
+  const { unreadCount: unreadNotifications, refreshUnreadCount } = useUnreadNotifications()
 
   /* Refresh badge immediately when tab regains focus (real-time feel). */
   useEffect(() => {

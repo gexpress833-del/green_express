@@ -13,6 +13,7 @@ import { formatCurrencyCDF, formatDate } from '@/lib/helpers'
 import PaymentMethodsBanner from '@/components/PaymentMethodsBanner'
 import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders'
 import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc'
+import { convertMenuPrice, getStoredCurrencyPreference, getStoredUsdCdfRate, syncUsdCdfRate } from '@/lib/currencyPreference'
 
 const CREATE_PAY_TIMEOUT_MS = 120000
 const PAYMENT_POLL_INTERVAL_MS = 3000
@@ -74,7 +75,16 @@ export default function ClientOrderPaymentPage() {
   // paymentState: { status: 'idle'|'pending'|'completed'|'failed'|'cancelled'|'timeout', message: string, failureReason?: string }
   const [paymentState, setPaymentState] = useState({ status: 'idle', message: '' })
   const [confirmModal, setConfirmModal] = useState(null)
+  const [preferredCurrency, setPreferredCurrency] = useState('CDF')
+  const [usdCdfRate, setUsdCdfRate] = useState(2800)
   const pollRef = useRef({ timer: null, attempts: 0, startedAt: 0 })
+  const singleMenuPrice = singleMenu ? convertMenuPrice(singleMenu, preferredCurrency, usdCdfRate) : null
+
+  useEffect(() => {
+    setPreferredCurrency(getStoredCurrencyPreference())
+    setUsdCdfRate(getStoredUsdCdfRate())
+    syncUsdCdfRate(apiRequest).then(setUsdCdfRate).catch(() => {})
+  }, [])
 
   const loadOrders = useCallback(async (options = {}) => {
     const { updateOrderFromList = true } = options
@@ -264,7 +274,7 @@ export default function ClientOrderPaymentPage() {
         setPolling(false)
         setPaymentState({
           status: 'timeout',
-          message: 'Aucune confirmation reçue après 15 secondes. Si vous avez annulé ou raté le menu USSD, réessayez le paiement ou annulez la commande.',
+          message: 'Nous n\'avons pas encore reçu la confirmation de votre opérateur Mobile Money. Acceptez la demande sur votre téléphone, puis actualisez le statut. Si le paiement échoue, vous pourrez annuler la commande et réessayer.',
         })
         return
       }
@@ -426,9 +436,17 @@ export default function ClientOrderPaymentPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: [{ menu_id: singleMenu.id, quantity: 1 }],
+          items: [{
+            menu_id: singleMenu.id,
+            quantity: 1,
+            price: singleMenuPrice.price,
+            currency: singleMenuPrice.currency,
+            original_price: singleMenuPrice.originalPrice,
+            original_currency: singleMenuPrice.originalCurrency,
+          }],
           delivery_address: deliveryAddress.trim(),
           client_phone_number: normalizePhone(phone.trim()),
+          currency: singleMenuPrice.currency,
         }),
         signal: controller.signal,
       })
@@ -500,8 +518,13 @@ export default function ClientOrderPaymentPage() {
                     <div className="mt-5 pt-5 border-t border-white/10">
                       <p className="text-white/70 text-sm mb-3">Montant estimé</p>
                       <p className="text-3xl font-bold text-cyan-300">
-                        {formatCurrency(singleMenu.price, singleMenu.currency || 'CDF')}
+                        {formatCurrency(singleMenuPrice.price, singleMenuPrice.currency)}
                       </p>
+                      {singleMenuPrice.converted && (
+                        <p className="text-white/45 text-xs mt-2">
+                          Converti depuis {formatCurrency(singleMenuPrice.originalPrice, singleMenuPrice.originalCurrency)}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -589,7 +612,7 @@ export default function ClientOrderPaymentPage() {
                     <div className="mt-5 pt-5 border-t border-white/10">
                       <p className="text-white/70 text-sm mb-3">Total à payer</p>
                       <p className="text-3xl font-bold text-cyan-300">
-                        {formatCurrency(order.total_amount, order.items?.[0]?.menu?.currency || order.currency || 'CDF')}
+                        {formatCurrency(order.total_amount, order.currency || order.items?.[0]?.currency || order.items?.[0]?.menu?.currency || 'CDF')}
                       </p>
                     </div>
                   </div>

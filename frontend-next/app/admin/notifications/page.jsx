@@ -1,63 +1,35 @@
 "use client"
 import Sidebar from '@/components/Sidebar'
-import GoldButton from '@/components/GoldButton'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { apiRequest } from '@/lib/api'
-import { broadcastAnnouncement } from '@/lib/notifications'
+import { broadcastAnnouncement, fetchNotifications } from '@/lib/notifications'
 import { formatDate } from '@/lib/helpers'
 import Link from 'next/link'
 import { pushToast } from '@/components/Toaster'
-
-function getStatusLabel(status) {
-  const s = (status || '').toLowerCase()
-  switch (s) {
-    case 'pending_payment': return 'En attente de paiement'
-    case 'pending': return 'En attente de livraison'
-    case 'out_for_delivery': return 'En cours de livraison'
-    case 'delivered': return 'Livrée'
-    default: return status || '—'
-  }
-}
-
-function getStatusBadge(status) {
-  const s = (status || '').toLowerCase()
-  switch (s) {
-    case 'pending_payment': return 'badge-error'
-    case 'pending': return 'badge-warning'
-    case 'out_for_delivery': return 'badge-warning'
-    case 'delivered': return 'badge-success'
-    default: return 'badge-error'
-  }
-}
+import { getNotificationType } from '@/lib/notificationCategories'
+import { getNotificationField } from '@/lib/notificationPayload'
 
 export default function AdminNotifications() {
-  const router = useRouter()
-  const [orders, setOrders] = useState([])
+  const [announcements, setAnnouncements] = useState([])
   const [loading, setLoading] = useState(true)
   const [announceTitle, setAnnounceTitle] = useState('')
   const [announceMessage, setAnnounceMessage] = useState('')
   const [sendingAnnounce, setSendingAnnounce] = useState(false)
 
-  const goToOrder = (orderId) => {
-    const url = `/admin/orders?order=${orderId}`
-    router.push(url)
-    // Fallback au cas où le routeur ne navigue pas (ex. auth)
-    setTimeout(() => {
-      if (typeof window !== 'undefined' && window.location.pathname === '/admin/notifications') {
-        window.location.href = url
-      }
-    }, 300)
+  async function loadAnnouncements() {
+    try {
+      setLoading(true)
+      const data = await fetchNotifications(50)
+      const list = Array.isArray(data?.notifications) ? data.notifications : []
+      setAnnouncements(list.filter((n) => getNotificationType(n) === 'announcements').slice(0, 15))
+    } catch {
+      setAnnouncements([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    apiRequest('/api/orders', { method: 'GET' })
-      .then((r) => {
-        const list = Array.isArray(r) ? r : []
-        setOrders(list.slice(0, 15))
-      })
-      .catch(() => setOrders([]))
-      .finally(() => setLoading(false))
+    loadAnnouncements()
   }, [])
 
   async function handleBroadcast(e) {
@@ -77,6 +49,7 @@ export default function AdminNotifications() {
       })
       setAnnounceTitle('')
       setAnnounceMessage('')
+      loadAnnouncements()
     } catch (err) {
       pushToast({ type: 'error', message: err?.message || 'Envoi impossible.' })
     } finally {
@@ -145,53 +118,38 @@ export default function AdminNotifications() {
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
               }}>
-                Commandes soumises
+                Historique des annonces
               </h2>
-              <p className="text-white/60 text-sm mb-6">Dernières commandes reçues.</p>
+              <p className="text-white/60 text-sm mb-6">Dernières annonces diffusées aux utilisateurs.</p>
               {loading ? (
                 <p className="text-white/60 py-8 text-center">Chargement...</p>
-              ) : orders.length === 0 ? (
-                <p className="text-white/50 py-8 text-center">Aucune commande pour le moment.</p>
+              ) : announcements.length === 0 ? (
+                <p className="text-white/50 py-8 text-center">Aucune annonce diffusée pour le moment.</p>
               ) : (
                 <>
                   <div className="rounded-xl border border-white/10 overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[640px]">
                       <thead>
                         <tr className="bg-white/5 text-white/80 text-sm font-semibold">
-                          <th className="py-3 px-4">Commande</th>
+                          <th className="py-3 px-4">Titre</th>
                           <th className="py-3 px-4">Date</th>
-                          <th className="py-3 px-4">Client</th>
-                          <th className="py-3 px-4 text-right">Montant</th>
-                          <th className="py-3 px-4">Statut</th>
-                          <th className="py-3 px-4 text-right min-w-[100px] w-28">Action</th>
+                          <th className="py-3 px-4">Message</th>
+                          <th className="py-3 px-4">État</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {orders.map((order) => (
+                        {announcements.map((notification) => (
                           <tr
-                            key={order.id}
+                            key={notification.id}
                             className="border-t border-white/10 bg-white/[0.02] hover:bg-white/[0.05] transition-colors"
                           >
-                            <td className="py-3 px-4 font-medium text-white">#{order.id}</td>
-                            <td className="py-3 px-4 text-white/60 text-sm whitespace-nowrap">{formatDate(order.created_at)}</td>
-                            <td className="py-3 px-4 text-white/80 text-sm">{order.user?.name || order.user?.email || '—'}</td>
-                            <td className="py-3 px-4 text-right text-white/90 tabular-nums text-sm">
-                              {order.total_amount != null ? Number(order.total_amount).toLocaleString('fr-FR') : '—'} {order.items?.[0]?.menu?.currency || 'USD'}
+                            <td className="py-3 px-4 font-medium text-white">{getNotificationField(notification, 'title') || 'Annonce'}</td>
+                            <td className="py-3 px-4 text-white/60 text-sm whitespace-nowrap">{formatDate(notification.created_at)}</td>
+                            <td className="py-3 px-4 text-white/80 text-sm max-w-md">
+                              <span className="line-clamp-2">{getNotificationField(notification, 'message') || notification.body || '—'}</span>
                             </td>
                             <td className="py-3 px-4">
-                              <span className={`badge ${getStatusBadge(order.status)}`}>
-                                {getStatusLabel(order.status)}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-right min-w-[100px] whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => goToOrder(order.id)}
-                                className="inline-flex items-center justify-center min-w-[100px] px-4 py-2 rounded-lg text-sm font-bold cursor-pointer border-0 transition hover:opacity-90"
-                                style={{ backgroundColor: '#06b6d4', color: '#0b1220' }}
-                              >
-                                Voir la commande
-                              </button>
+                              <span className={`badge ${notification.read_at ? 'badge-success' : 'badge-warning'}`}>{notification.read_at ? 'Lue' : 'Envoyée'}</span>
                             </td>
                           </tr>
                         ))}
@@ -199,7 +157,9 @@ export default function AdminNotifications() {
                     </table>
                   </div>
                   <div className="mt-4 flex justify-end">
-                    <GoldButton href="/admin/orders">Voir toutes les commandes</GoldButton>
+                    <Link href="/notifications?tab=announcements" className="text-[#d4af37] hover:text-amber-300 font-semibold text-sm">
+                      Voir toutes les annonces →
+                    </Link>
                   </div>
                 </>
               )}

@@ -18,8 +18,12 @@ class StoreOrderRequest extends FormRequest
             'items.*.menu_id' => 'required|integer|exists:menus,id',
             'items.*.quantity' => 'required|integer|min:1|max:100',
             'items.*.price' => 'nullable|numeric|min:0',
+            'items.*.currency' => 'nullable|string|in:CDF,USD',
+            'items.*.original_price' => 'nullable|numeric|min:0',
+            'items.*.original_currency' => 'nullable|string|in:CDF,USD',
             'delivery_address' => 'required|string|max:500',
             'client_phone_number' => 'required|string|max:30',
+            'currency' => 'nullable|string|in:CDF,USD',
             'company_id' => 'nullable|integer|exists:users,id',
         ];
     }

@@ -1,6 +1,8 @@
 'use client';
 
 import { createContext, useContext, useCallback, useState, useEffect } from 'react';
+import { apiRequest } from '@/lib/api';
+import { convertMenuPrice, getStoredCurrencyPreference, getStoredUsdCdfRate, setStoredCurrencyPreference, syncUsdCdfRate } from '@/lib/currencyPreference';
 
 const CART_STORAGE_KEY = 'green_express_cart';
 
@@ -28,6 +30,8 @@ function saveCart(items) {
 export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
   const [isClient, setIsClient] = useState(false);
+  const [preferredCurrency, setPreferredCurrencyState] = useState('CDF');
+  const [usdCdfRate, setUsdCdfRate] = useState(2800);
 
   useEffect(() => {
     setIsClient(true);
@@ -36,6 +40,27 @@ export function CartProvider({ children }) {
   useEffect(() => {
     if (!isClient) return;
     setItems(loadStoredCart());
+    setPreferredCurrencyState(getStoredCurrencyPreference());
+    setUsdCdfRate(getStoredUsdCdfRate());
+    syncUsdCdfRate(apiRequest).then(setUsdCdfRate).catch(() => {});
+  }, [isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    const onCurrencyChange = (event) => {
+      setPreferredCurrencyState(event?.detail?.currency || getStoredCurrencyPreference());
+    };
+    window.addEventListener('green-express:currency-change', onCurrencyChange);
+    return () => window.removeEventListener('green-express:currency-change', onCurrencyChange);
+  }, [isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    const onRateChange = (event) => {
+      setUsdCdfRate(event?.detail?.rate || getStoredUsdCdfRate());
+    };
+    window.addEventListener('green-express:currency-rate-change', onRateChange);
+    return () => window.removeEventListener('green-express:currency-rate-change', onRateChange);
   }, [isClient]);
 
   useEffect(() => {
@@ -45,6 +70,7 @@ export function CartProvider({ children }) {
   const addItem = useCallback((menu, quantity = 1) => {
     if (!menu?.id) return;
     const qty = Math.max(1, parseInt(quantity, 10) || 1);
+    const priced = convertMenuPrice(menu, preferredCurrency, usdCdfRate);
     setItems((prev) => {
       const existing = prev.find((i) => i.menu_id === menu.id);
       if (existing) {
@@ -57,13 +83,23 @@ export function CartProvider({ children }) {
         {
           menu_id: menu.id,
           quantity: qty,
-          price: menu.price,
-          currency: menu.currency || 'USD',
+          price: priced.price,
+          currency: priced.currency,
+          original_price: priced.originalPrice,
+          original_currency: priced.originalCurrency,
+          exchange_rate: priced.rate,
           title: menu.title || menu.name,
           image: menu.image,
         },
       ];
     });
+  }, [preferredCurrency, usdCdfRate]);
+
+  const setPreferredCurrency = useCallback((currency) => {
+    const next = setStoredCurrencyPreference(currency);
+    setPreferredCurrencyState(next);
+    setItems([]);
+    return next;
   }, []);
 
   const removeItem = useCallback((menuId) => {
@@ -108,6 +144,9 @@ export function CartProvider({ children }) {
     totalAmount,
     totalCurrency,
     totalsByCurrency,
+    preferredCurrency,
+    setPreferredCurrency,
+    usdCdfRate,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
@@ -115,6 +154,6 @@ export function CartProvider({ children }) {
 
 export function useCart() {
   const ctx = useContext(CartContext);
-  if (!ctx) return { items: [], addItem: () => {}, removeItem: () => {}, updateQuantity: () => {}, clearCart: () => {}, itemCount: 0, totalAmount: 0, totalCurrency: null, totalsByCurrency: {} };
+  if (!ctx) return { items: [], addItem: () => {}, removeItem: () => {}, updateQuantity: () => {}, clearCart: () => {}, itemCount: 0, totalAmount: 0, totalCurrency: null, totalsByCurrency: {}, preferredCurrency: 'CDF', setPreferredCurrency: () => 'CDF', usdCdfRate: 2800 };
   return ctx;
 }

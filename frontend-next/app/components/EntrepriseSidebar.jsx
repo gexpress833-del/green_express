@@ -46,11 +46,7 @@ export default function EntrepriseSidebar() {
   const { user } = useAuth()
   const { company, loading } = useCompany()
   const subscriptionUnlocked = !loading && company?.status === 'active'
-  const { unreadCount: unreadNotif } = useUnreadNotifications({
-    enabled: !!user,
-    userId: user?.id,
-    intervalMs: 30000,
-  })
+  const { unreadCount: unreadNotif } = useUnreadNotifications()
 
   const afterPerm = filterNavByPermissions(baseItems, user, { requireRole: 'entreprise' })
   const menuItems = afterPerm.filter((item) => !item.needsActiveCompany || subscriptionUnlocked)

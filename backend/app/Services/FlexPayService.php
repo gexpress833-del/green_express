@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\ClientPaymentMessage;
 use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -129,7 +130,8 @@ class FlexPayService
             if (! $response->successful()) {
                 Log::warning('FlexPay initiate HTTP error', ['status' => $response->status(), 'body' => $data]);
 
-                throw new Exception($data['message'] ?? 'Erreur du service de paiement (HTTP ' . $response->status() . ').');
+                $apiErr = ClientPaymentMessage::sanitize((string) ($data['message'] ?? ''));
+                throw new Exception($apiErr !== '' ? $apiErr : 'Erreur du service de paiement (HTTP ' . $response->status() . ').');
             }
 
             $rawCode = $data['code'] ?? null;
@@ -140,7 +142,8 @@ class FlexPayService
             if (! $codeOk) {
                 Log::warning('FlexPay initiate code non succès', ['code' => $rawCode, 'body' => $data]);
 
-                throw new Exception($data['message'] ?? 'Paiement refusé par l’opérateur Mobile Money.');
+                $apiErr = ClientPaymentMessage::sanitize((string) ($data['message'] ?? ''));
+                throw new Exception($apiErr !== '' ? $apiErr : 'Paiement refusé par l’opérateur Mobile Money.');
             }
 
             $orderNumber = $data['orderNumber'] ?? $reference;
@@ -350,17 +353,19 @@ class FlexPayService
             if (! $response->successful()) {
                 Log::warning('FlexPay card initiate HTTP error', ['status' => $response->status(), 'body' => $data]);
 
-                throw new Exception($data['message'] ?? 'Erreur du service de paiement carte (HTTP ' . $response->status() . ').');
+                $apiErr = ClientPaymentMessage::sanitize((string) ($data['message'] ?? ''));
+                throw new Exception($apiErr !== '' ? $apiErr : 'Erreur du service de paiement carte (HTTP ' . $response->status() . ').');
             }
 
             $code = isset($data['code']) ? (int) $data['code'] : 1;
             if ($code !== 0) {
-                throw new Exception($data['message'] ?? 'Paiement carte refusé ou indisponible.');
+                $apiErr = ClientPaymentMessage::sanitize((string) ($data['message'] ?? ''));
+                throw new Exception($apiErr !== '' ? $apiErr : 'Paiement carte refusé ou indisponible.');
             }
 
             $payUrl = $data['url'] ?? null;
             if (! is_string($payUrl) || $payUrl === '') {
-                throw new Exception('Réponse FlexPay carte sans URL de paiement.');
+                throw new Exception('Réponse du service de paiement sans URL de redirection pour le paiement par carte.');
             }
 
             $orderNumber = $data['orderNumber'] ?? $ref;

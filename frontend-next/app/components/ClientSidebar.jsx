@@ -44,11 +44,7 @@ export default function ClientSidebar() {
   const pathname = usePathname()
   const { itemCount } = useCart()
   const { user } = useAuth()
-  const { unreadCount: unreadNotif } = useUnreadNotifications({
-    enabled: !!user,
-    userId: user?.id,
-    intervalMs: 30000,
-  })
+  const { unreadCount: unreadNotif } = useUnreadNotifications()
 
   const menuItems = filterNavByPermissions(menuItemsDef, user, { requireRole: 'client' })
 

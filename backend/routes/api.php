@@ -17,6 +17,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\SecretaireController;
+use App\Http\Controllers\CurrencyController;
 
 /*
 |--------------------------------------------------------------------------
@@ -70,6 +71,7 @@ Route::get('subscription-plans/public', [SubscriptionPlanController::class, 'pub
 // Menus publics (sans auth - pour prévisualisation, page d'accueil, etc.)
 Route::get('menus/public/recent', [MenuController::class, 'publicRecent'])->middleware('throttle:api');
 Route::get('menus/public/browse', [MenuController::class, 'browse'])->middleware('throttle:api');
+Route::get('currency/rate', [CurrencyController::class, 'showRate'])->middleware('throttle:api');
 Route::post('promotions/{id}/claim', [PromotionController::class, 'claim'])->middleware('auth:api', 'throttle:api'); 
 Route::post('promotions', [PromotionController::class, 'store'])->middleware('auth:api', 'throttle:api');
 Route::get('my-promotion-claims', [PromotionController::class, 'myClaims'])->middleware('auth:api', 'throttle:api');
@@ -206,6 +208,7 @@ Route::get('admin/stats', [AdminController::class, 'stats'])->middleware('thrott
 Route::get('admin/stats/export-pdf', [AdminController::class, 'statsPdf'])->middleware('throttle:api');
 Route::get('admin/deliveries', [AdminController::class, 'deliveries'])->middleware('throttle:api');
 Route::get('admin/roles', [AdminController::class, 'roles'])->middleware('throttle:api');
+Route::put('admin/currency/rate', [CurrencyController::class, 'updateRate'])->middleware('auth:api', 'throttle:api');
 
 // Registre des permissions et édition par rôle (admin + roles.manage_permissions)
 Route::get('admin/permissions/registry', [\App\Http\Controllers\Api\RolePermissionController::class, 'registry'])->middleware('throttle:api');

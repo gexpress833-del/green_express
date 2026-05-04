@@ -305,7 +305,7 @@ export default function EntrepriseSubscriptionsPage() {
         setPollingSubId(null)
         setSubPaymentState(subId, {
           status: 'timeout',
-          message: 'Aucune confirmation reçue après 15 secondes. Si vous avez interrompu le paiement, réessayez ou annulez la demande d\'abonnement.',
+          message: 'Nous n\'avons pas encore reçu la confirmation de l\'opérateur Mobile Money. Acceptez la demande sur le téléphone, puis actualisez le statut. Si le paiement échoue, la demande pourra être annulée et relancée.',
         })
         return
       }

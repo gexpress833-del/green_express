@@ -244,7 +244,7 @@ export default function ClientSubscriptions() {
         setPolling(false)
         setPaymentState({
           status: 'timeout',
-          message: 'Aucune confirmation reçue après 15 secondes. Si vous avez annulé ou raté le menu USSD, réessayez le paiement ou annulez la demande d\'abonnement.',
+          message: 'Nous n\'avons pas encore reçu la confirmation de votre opérateur Mobile Money. Acceptez la demande sur votre téléphone, puis actualisez le statut. Si le paiement échoue, vous pourrez annuler la demande et réessayer.',
         })
         return
       }

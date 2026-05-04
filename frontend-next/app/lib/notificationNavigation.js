@@ -13,7 +13,7 @@ export function getOrderDeepLink(role, orderId) {
     case ROLES.ADMIN:
       return `/admin/orders?order=${enc}`
     case ROLES.CLIENT:
-      return `/client/orders?order=${enc}`
+      return `/client/orders/${enc}`
     case ROLES.LIVREUR:
       return `/livreur/order/${enc}`
     case ROLES.CUISINIER:
@@ -23,7 +23,7 @@ export function getOrderDeepLink(role, orderId) {
     case ROLES.VERIFICATEUR:
       return '/verificateur'
     default:
-      return `/client/orders?order=${enc}`
+      return `/client/orders/${enc}`
   }
 }
 

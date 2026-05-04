@@ -48,14 +48,21 @@ class RolesAndPermissionsSeeder extends Seeder
             foreach ($rolesConfig as $roleName => $meta) {
                 $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => $guard]);
                 if ($roleName === 'admin') {
-                    $role->syncPermissions(
-                        Permission::where('guard_name', $guard)->pluck('name')->all(),
-                    );
+                    // Évite les doublons (config / base) qui cassent l’INSERT pivot role_has_permissions.
+                    $perms = Permission::query()
+                        ->where('guard_name', $guard)
+                        ->orderBy('id')
+                        ->get()
+                        ->unique('name')
+                        ->values();
+                    $role->syncPermissions($perms);
                 } else {
-                    // Filtre uniquement les permissions existantes pour ce guard
+                    $names = collect($meta['permissions'] ?? [])->unique()->filter()->values()->all();
                     $perms = Permission::where('guard_name', $guard)
-                        ->whereIn('name', $meta['permissions'] ?? [])
-                        ->get();
+                        ->whereIn('name', $names)
+                        ->get()
+                        ->unique('name')
+                        ->values();
                     $role->syncPermissions($perms);
                 }
             }
@@ -73,13 +80,16 @@ class RolesAndPermissionsSeeder extends Seeder
 
         foreach (User::query()->cursor() as $user) {
             $roleName = $user->role ?? 'client';
-            // Recupere le role pour TOUS les guards definis (web + api)
-            $roles = Role::where('name', $roleName)->get();
-            if ($roles->isEmpty()) {
+            // Un seul guard côté User (App\Models\User::$guard_name = 'web') : n’attache pas
+            // les rôles « api » en parallèle, sinon Spatie lève GuardDoesNotMatch.
+            $role = Role::query()
+                ->where('name', $roleName)
+                ->where('guard_name', 'web')
+                ->first();
+            if (! $role) {
                 continue;
             }
-            // syncRoles($collection) accepte un mix de guards et remplace les anciens
-            $user->syncRoles($roles);
+            $user->syncRoles([$role]);
         }
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
