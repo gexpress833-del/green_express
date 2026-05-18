@@ -2,37 +2,40 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Traits\AdminRequiresPermission;
+use App\Events\OrderRealtimeEvent;
 use App\Http\Requests\StoreOrderRequest;
+use App\Http\Traits\AdminRequiresPermission;
 use App\Models\Company;
-use App\Models\Menu;
 use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Point;
 use App\Models\PointLedger;
-use App\Events\OrderRealtimeEvent;
-use App\Support\ClientPaymentMessage;
-use App\Services\FlexPayService;
 use App\Services\OrderNotificationService;
+use App\Services\Orders\CreateClientOrderService;
+use App\Services\Orders\FlexPayPendingPaymentSyncService;
+use App\Services\Orders\OrderFlexPayInitiationService;
+use App\Services\Orders\OrderManualPaymentConfirmationService;
 use App\Services\PhoneRDCService;
+use App\Support\OrderPaymentUserMessage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
     use AdminRequiresPermission;
 
-    public function __construct(private OrderNotificationService $orderNotifications)
-    {
-    }
+    public function __construct(
+        private OrderNotificationService $orderNotifications,
+        private CreateClientOrderService $createClientOrder,
+        private OrderFlexPayInitiationService $orderFlexPayInitiation,
+        private OrderManualPaymentConfirmationService $manualPaymentConfirmation,
+        private FlexPayPendingPaymentSyncService $flexPayPendingSync,
+    ) {}
 
     private function allowAdminOrCuisinier(Request $request): bool
     {
         $user = $request->user();
+
         return $user && (
             $user->hasPermissionTo('orders.change-status')
             || $user->canAsAdmin('orders.edit')
@@ -148,7 +151,7 @@ class OrderController extends Controller
         $html = view('orders.pdf', ['order' => $order])->render();
         $pdf = Pdf::loadHTML($html);
 
-        return $pdf->stream('commande-' . $order->id . '.pdf', ['Attachment' => true]);
+        return $pdf->stream('commande-'.$order->id.'.pdf', ['Attachment' => true]);
     }
 
     public function assignLivreur(Request $request, $id)
@@ -192,65 +195,9 @@ class OrderController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $data = $request->validated();
-        $orderCurrency = strtoupper($data['currency'] ?? 'CDF');
-        $total = 0.0;
-        $totalQuantity = 0;
+        $order = $this->createClientOrder->create($user, $request->validated());
 
-        foreach ($data['items'] as $itemData) {
-            $menu = Menu::findOrFail($itemData['menu_id']);
-            $price = $itemData['price'] ?? $menu->price;
-            $itemCurrency = strtoupper($itemData['currency'] ?? $orderCurrency);
-            $quantity = (int) $itemData['quantity'];
-
-            if ($itemCurrency !== $orderCurrency) {
-                return response()->json(['message' => 'Tous les plats doivent être commandés dans la même devise.'], 422);
-            }
-
-            $total += $price * $quantity;
-            $totalQuantity += $quantity;
-        }
-
-        $pointsEarned = $totalQuantity * 12;
-
-        $phoneNorm = PhoneRDCService::formatPhoneRDC($data['client_phone_number']);
-        if (! PhoneRDCService::isValidPhoneRDC($phoneNorm)) {
-            throw ValidationException::withMessages([
-                'client_phone_number' => ['Numéro Mobile Money invalide (RDC : 9 chiffres après l’indicatif 243).'],
-            ]);
-        }
-
-        $order = Order::create([
-            'uuid' => (string) Str::uuid(),
-            'user_id' => $user->id,
-            'company_id' => $data['company_id'] ?? null,
-            'status' => 'pending_payment',
-            'delivery_address' => $data['delivery_address'],
-            'client_phone_number' => $phoneNorm,
-            'total_amount' => $total,
-            'currency' => $orderCurrency,
-            'points_earned' => $pointsEarned,
-            'delivery_code' => null,
-        ]);
-
-        foreach ($data['items'] as $itemData) {
-            $menu = Menu::findOrFail($itemData['menu_id']);
-            $price = $itemData['price'] ?? $menu->price;
-            $itemCurrency = strtoupper($itemData['currency'] ?? $orderCurrency);
-
-            OrderItem::create([
-                'order_id' => $order->id,
-                'menu_id' => $itemData['menu_id'],
-                'quantity' => $itemData['quantity'],
-                'price' => $price,
-                'currency' => $itemCurrency,
-                'original_price' => $itemData['original_price'] ?? $menu->price,
-                'original_currency' => strtoupper($itemData['original_currency'] ?? ($menu->currency ?? $itemCurrency)),
-            ]);
-        }
-
-        $this->orderNotifications->notifyOrderCreated($order->load('user'));
-        return response()->json($order->load('items.menu'), 201);
+        return response()->json($order, 201);
     }
 
     /**
@@ -261,140 +208,22 @@ class OrderController extends Controller
         $order = Order::findOrFail($id);
         $user = $request->user();
 
-        if ($order->user_id !== $user->id && ! $user->canAsAdmin('orders.view')) {
-            return response()->json(['message' => 'Non autorisé'], 403);
-        }
-
-        if ($order->status !== 'pending_payment') {
-            // Cas retrocompatibilite : une version precedente du callback FlexPay
-            // mettait automatiquement Order.status='cancelled' sur echec de paiement,
-            // ce qui empechait toute re-tentative. On autorise une reactivation
-            // automatique tant que :
-            //  - aucun paiement n'a ete complete avec succes
-            //  - le client n'a PAS explicitement annule (cancelOwn marque le Payment en 'cancelled')
-            $hasCompleted = Payment::where('order_id', $order->id)->where('status', 'completed')->exists();
-            $hasExplicitCancel = Payment::where('order_id', $order->id)->where('status', 'cancelled')->exists();
-            if ($order->status === 'cancelled' && ! $hasCompleted && ! $hasExplicitCancel) {
-                $order->update(['status' => 'pending_payment']);
-            } else {
-                return response()->json(['message' => 'Cette commande a déjà été payée ou ne peut pas être payée'], 400);
-            }
-        }
-
         $data = $request->validate([
-            'client_phone_number' => 'required|string',
-            'country_code' => 'required|string|in:DRC',
+            'client_phone_number' => ['required', 'string'],
+            'country_code' => ['required', 'string', 'in:DRC'],
         ]);
 
-        try {
-            $flexPay = app(FlexPayService::class);
-
-            if (! $flexPay->isConfigured()) {
-                return response()->json([
-                    'message' => 'Paiement Mobile Money temporairement indisponible. Réessayez plus tard ou contactez le support.',
-                    'error' => 'payment_not_configured',
-                ], 503);
+        $result = $this->orderFlexPayInitiation->initiate($order, $user, $data);
+        if (! $result['ok']) {
+            $payload = ['message' => $result['message']];
+            if (! empty($result['error'])) {
+                $payload['error'] = $result['error'];
             }
 
-            $formatted = PhoneRDCService::formatPhoneRDC($data['client_phone_number']);
-            if (! PhoneRDCService::isValidPhoneRDC($formatted)) {
-                return response()->json([
-                    'message' => 'Numéro invalide. Utilisez un numéro à 9 chiffres (ex. 0812345678 ou 812345678).',
-                    'error' => 'Numéro invalide',
-                ], 400);
-            }
-            $operator = PhoneRDCService::detectOperatorRDC($formatted);
-            if ($operator === null) {
-                return response()->json([
-                    'message' => 'Opérateur non reconnu. Utilisez un numéro Vodacom (81–83), Airtel (97–99), Orange (84, 85, 89) ou Afrimoney / Africell (90–91).',
-                    'error' => 'Opérateur non reconnu',
-                ], 400);
-            }
-            $phoneNormalized = PhoneRDCService::toE164($formatted);
-            $phone12 = $formatted;
-
-            $order->load('items.menu');
-            $orderCurrency = $order->currency ?? $order->items->first()?->currency ?? $order->items->first()?->menu?->currency ?? 'CDF';
-            $resolved = $flexPay->resolveAmountAndCurrency((float) $order->total_amount, (string) $orderCurrency);
-
-            $reference = 'ORD-' . $order->id . '-' . Str::lower(Str::random(12));
-
-            $callbackUrl = config('flexpay.callback_url')
-                ?: (rtrim(config('app.url'), '/') . '/api/flexpay/callback');
-
-            $flexResponse = $flexPay->initiateMobilePayment(
-                $resolved['amount'],
-                $resolved['currency'],
-                $phone12,
-                $reference,
-                'Commande #' . $order->id,
-                $callbackUrl
-            );
-
-            $payment = Payment::create([
-                'order_id' => $order->id,
-                'provider' => 'flexpay',
-                'provider_payment_id' => $flexResponse['id'],
-                'reference_id' => $flexResponse['referenceId'] ?? $reference,
-                'amount' => $flexResponse['amount'] ?? $resolved['amount'],
-                'currency' => $flexResponse['currency'] ?? $resolved['currency'],
-                'phone' => $phoneNormalized,
-                'status' => 'pending',
-                'raw_response' => $flexResponse,
-            ]);
-
-            $paymentStatus = $flexResponse['status'] ?? 'pending';
-            if (strtolower((string) $paymentStatus) === 'completed') {
-                $payment->update(['status' => 'completed']);
-                if ($order->status === 'pending_payment') {
-                    $oldStatus = (string) $order->status;
-                    $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                    while (Order::where('delivery_code', $deliveryCode)->exists()) {
-                        $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                    }
-                    $order->update([
-                        'status' => 'paid',
-                        'delivery_code' => $deliveryCode,
-                    ]);
-                    $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
-                }
-            }
-
-            $deliveryCodeReturned = $order->fresh()->delivery_code;
-
-            return response()->json([
-                'order' => $order->load('items.menu'),
-                'payment' => $payment->fresh(),
-                'flexpay_transaction' => $flexResponse,
-                'amount_to_debit' => $resolved['amount'],
-                'currency_to_debit' => $resolved['currency'],
-                'message' => $payment->status === 'completed'
-                    ? 'Paiement complété. Code de livraison généré.'
-                    : 'Paiement initié. En attente de confirmation sur votre mobile.',
-                'delivery_code' => $deliveryCodeReturned,
-                'payment_completed' => (bool) $deliveryCodeReturned,
-                'operator' => $operator,
-                'operator_label' => PhoneRDCService::operatorLabel($operator),
-                'phone_formatted' => $phoneNormalized,
-            ]);
-        } catch (\Exception $e) {
-            Log::warning('FlexPay initiate payment failed', [
-                'order_id' => $id,
-                'error' => $e->getMessage(),
-            ]);
-
-            $message = ClientPaymentMessage::sanitize($e->getMessage());
-            if (stripos($message, 'destination number') !== false || stripos($message, 'number you have entered is invalid') !== false) {
-                $message = 'Votre opérateur Mobile Money refuse le numéro. Utilisez 9 chiffres après +243 (ex: +243812345678 ou 0812345678).';
-            } elseif (stripos($message, 'minimum') !== false && stripos($message, 'CDF') !== false) {
-                $message = 'Le montant minimum pour un paiement Mobile Money en CDF n’est pas atteint pour cette commande.';
-            }
-
-            return response()->json([
-                'message' => $message,
-                'error' => $message,
-            ], 400);
+            return response()->json($payload, $result['http_status']);
         }
+
+        return response()->json($result['data']);
     }
 
     /**
@@ -408,79 +237,30 @@ class OrderController extends Controller
         if ($order->user_id !== $user->id && ! $user->canAsAdmin('orders.view')) {
             return response()->json(['message' => 'Non autorisé'], 403);
         }
-        if ($order->status !== 'pending_payment') {
-            return response()->json(['message' => 'Cette commande a déjà été payée ou ne peut pas être payée'], 400);
+
+        try {
+            $paymentData = $request->input('payment_data');
+            $raw = is_array($paymentData) ? $paymentData : ($paymentData !== null ? ['payload' => $paymentData] : []);
+
+            $this->manualPaymentConfirmation->confirm(
+                $order,
+                $user,
+                $request->input('provider', 'manual'),
+                $request->input('provider_payment_id'),
+                $request->input('currency', 'USD'),
+                $raw,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 400);
         }
 
-        $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-        while (Order::where('delivery_code', $deliveryCode)->exists()) {
-            $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-        }
-
-        Payment::create([
-            'order_id' => $order->id,
-            'provider' => $request->input('provider', 'manual'),
-            'provider_payment_id' => $request->input('provider_payment_id'),
-            'amount' => $order->total_amount,
-            'currency' => $request->input('currency', 'USD'),
-            'status' => 'completed',
-            'raw_response' => $request->input('payment_data'),
-        ]);
-
-        $oldStatus = (string) $order->status;
-        $order->update([
-            'status' => 'paid',
-            'delivery_code' => $deliveryCode,
-        ]);
-
-        $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid', $request->user());
+        $order->refresh();
 
         return response()->json([
             'order' => $order->load('items.menu'),
-            'delivery_code' => $deliveryCode,
+            'delivery_code' => $order->delivery_code,
             'message' => 'Paiement confirmé. Code de livraison généré.',
         ]);
-    }
-
-    /**
-     * Convertit un failure_reason technique en message clair pour le client.
-     * - Masque le nom du prestataire (FlexPay/FlexPaie).
-     * - Remplace les valeurs generiques peu lisibles ("Echec FlexPay") par un texte explicite.
-     * - Detecte quelques motifs frequents (solde insuffisant, refus operateur, timeout USSD).
-     */
-    private function humanizePaymentFailureReason(?string $reason): string
-    {
-        $r = trim((string) $reason);
-        if ($r === '') {
-            return 'Le paiement Mobile Money n\'a pas abouti. Aucun montant n\'a été débité.';
-        }
-
-        $lower = mb_strtolower($r);
-
-        // Cas generiques sans info utile cote utilisateur
-        if (preg_match('/^(echec|échec)\s+(flexpay|flexpaie|paiement)?\s*$/u', $lower)
-            || preg_match('/^(failed|payment\s*failed)$/u', $lower)
-            || $lower === 'flexpay'
-            || $lower === 'flexpaie'
-        ) {
-            return 'Le paiement Mobile Money a été refusé. Vérifiez votre solde, votre opérateur ou réessayez.';
-        }
-
-        // Motifs frequents (solde, USSD, refus operateur)
-        if (preg_match('/insufficient|insuffisant|solde/iu', $r)) {
-            return 'Solde Mobile Money insuffisant. Rechargez votre compte ou utilisez un autre numéro, puis réessayez.';
-        }
-        if (preg_match('/timeout|timed?\s*out|expir|d.lai/iu', $r)) {
-            return 'Aucune confirmation reçue à temps sur votre téléphone (USSD). Réessayez et validez le code dans la minute.';
-        }
-        if (preg_match('/cancel|refus|denied|reject/iu', $r)) {
-            return 'Paiement refusé par votre opérateur Mobile Money ou annulé sur le téléphone. Réessayez si nécessaire.';
-        }
-        if (preg_match('/destination number|number you have entered is invalid/iu', $r)) {
-            return 'Numéro Mobile Money invalide pour votre opérateur. Vérifiez le numéro saisi.';
-        }
-
-        return ClientPaymentMessage::sanitize($r);
     }
 
     /**
@@ -497,60 +277,11 @@ class OrderController extends Controller
             return response()->json(['message' => 'Non autorisé'], 403);
         }
 
+        $this->flexPayPendingSync->trySyncOrderPayment($order);
+        $order->refresh();
         $payment = Payment::where('order_id', $order->id)
             ->orderByDesc('id')
             ->first();
-
-        // Check actif vers FlexPay : certains operateurs Mobile Money n'envoient
-        // PAS de callback quand l'utilisateur annule l'USSD ou quand il y a un
-        // refus silencieux. On interroge directement /check/{orderNumber} si le
-        // paiement est encore en pending depuis plus de 15s, au plus une fois
-        // toutes les 15s pour ne pas surcharger FlexPay.
-        if (
-            $payment
-            && $payment->status === 'pending'
-            && $payment->provider_payment_id
-            && $payment->updated_at
-            && $payment->updated_at->lt(now()->subSeconds(15))
-        ) {
-            try {
-                $flexPay = app(FlexPayService::class);
-                $check = $flexPay->checkTransaction((string) $payment->provider_payment_id);
-                if (is_array($check)) {
-                    if ($check['paid'] ?? false) {
-                        // Synchro vers completed + Order paid + delivery_code
-                        $payment->update([
-                            'status' => 'completed',
-                            'failure_reason' => null,
-                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
-                        ]);
-                        if ($order->status === 'pending_payment') {
-                            $oldStatus = (string) $order->status;
-                            $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                            while (Order::where('delivery_code', $deliveryCode)->exists()) {
-                                $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                            }
-                            $order->update(['status' => 'paid', 'delivery_code' => $deliveryCode]);
-                            $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
-                        }
-                        $payment->refresh();
-                        $order->refresh();
-                    } elseif ($check['failed'] ?? false) {
-                        $payment->update([
-                            'status' => 'failed',
-                            'failure_reason' => $payment->failure_reason ?: 'Échec du paiement Mobile Money',
-                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
-                        ]);
-                        $payment->refresh();
-                    } else {
-                        // Toujours pending : on touch updated_at pour eviter de re-checker tout de suite
-                        $payment->touch();
-                    }
-                }
-            } catch (\Throwable $e) {
-                Log::warning('FlexPay active check failed', ['order_id' => $order->id, 'msg' => $e->getMessage()]);
-            }
-        }
 
         $paymentStatus = $payment?->status ?? 'none';
         $orderStatus = (string) $order->status;
@@ -562,7 +293,7 @@ class OrderController extends Controller
             $message = 'Paiement confirmé. Code de livraison généré.';
         } elseif ($paymentStatus === 'failed') {
             $consolidated = 'failed';
-            $message = $this->humanizePaymentFailureReason($payment->failure_reason);
+            $message = OrderPaymentUserMessage::humanizeFailureReason($payment?->failure_reason);
         } elseif ($paymentStatus === 'cancelled' || $orderStatus === 'cancelled') {
             $consolidated = 'cancelled';
             $message = 'Commande annulée.';
@@ -581,7 +312,7 @@ class OrderController extends Controller
             'status' => $consolidated,
             'delivery_code' => $deliveryCode,
             'failure_reason' => $paymentStatus === 'failed'
-                ? $this->humanizePaymentFailureReason($payment?->failure_reason)
+                ? OrderPaymentUserMessage::humanizeFailureReason($payment?->failure_reason)
                 : null,
             'message' => $message,
             'updated_at' => optional($payment?->updated_at)->toIso8601String(),
@@ -703,6 +434,7 @@ class OrderController extends Controller
                 $order->update(['status' => 'delivered']);
                 $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'delivered', $currentUser);
                 \App\Models\Invoice::createForOrderIfMissing($order);
+
                 return response()->json([
                     'valid' => true,
                     'message' => 'Code valide. Commande déjà livrée.',
@@ -721,7 +453,7 @@ class OrderController extends Controller
                 'user_id' => $order->user_id,
                 'order_id' => $order->id,
                 'delta' => $pointsEarned,
-                'reason' => 'Points gagnés pour la commande #' . $order->uuid . ' (validation livraison)',
+                'reason' => 'Points gagnés pour la commande #'.$order->uuid.' (validation livraison)',
             ]);
 
             $oldStatus = (string) $order->status;
@@ -748,4 +480,3 @@ class OrderController extends Controller
         }
     }
 }
-

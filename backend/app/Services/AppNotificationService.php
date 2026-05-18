@@ -2,15 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\EventRequest;
 use App\Models\Promotion;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Events\SubscriptionRealtimeEvent;
 use App\Notifications\AnnouncementNotification;
+use App\Notifications\EventRequestCreatedNotification;
 use App\Notifications\OperationalRoleNotification;
 use App\Notifications\PromotionPublishedNotification;
 use App\Notifications\SubscriptionLifecycleNotification;
-use App\Services\BeamsService;
 
 class AppNotificationService
 {
@@ -74,6 +75,33 @@ class AppNotificationService
         });
 
         return $count;
+    }
+
+    /**
+     * Nouvelle demande de devis — admin, secrétariat et tout compte avec admin.event-requests.
+     */
+    public function notifyStaffOfNewEventRequest(EventRequest $eventRequest): void
+    {
+        $eventRequest->loadMissing('user');
+
+        User::permission('admin.event-requests')
+            ->orderBy('id')
+            ->chunk(50, function ($users) use ($eventRequest) {
+                foreach ($users as $user) {
+                    $user->notify(new EventRequestCreatedNotification($eventRequest));
+
+                    $deepLink = match (strtolower((string) ($user->role ?? ''))) {
+                        'secretaire' => '/secretaire/event-requests',
+                        default => '/admin/event-requests',
+                    };
+
+                    $this->beams->sendToUser($user->id, [
+                        'title' => 'Nouvelle demande événementielle',
+                        'body' => (string) ($eventRequest->event_type ?? 'Devis'),
+                        'deep_link' => $deepLink,
+                    ]);
+                }
+            });
     }
 
     public function notifyAdminsOperational(string $title, string $message): void

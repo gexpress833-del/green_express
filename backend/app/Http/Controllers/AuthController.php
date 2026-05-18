@@ -2,23 +2,29 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Profile;
-use App\Models\User;
-use App\Models\Company;
-use App\Services\PhoneRDCService;
+use App\Services\Auth\CredentialsAuthenticationService;
+use App\Services\Auth\RegisterClientUserService;
+use App\Services\Auth\RegisterCompanyApplicationService;
+use App\Services\Auth\UserPermissionPresenter;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Str;
 
 /**
  * Authentification SPA avec Laravel Sanctum (session + cookies httpOnly).
  * Pas de token en localStorage : la session est portée par les cookies.
+ * La logique métier partagée avec le front Blade/Livewire vit dans app/Services/Auth.
  */
 class AuthController extends Controller
 {
+    public function __construct(
+        private UserPermissionPresenter $userPermissionPresenter,
+        private CredentialsAuthenticationService $credentialsAuthentication,
+        private RegisterClientUserService $registerClientUser,
+        private RegisterCompanyApplicationService $registerCompanyApplication,
+    ) {}
+
     /**
      * Inscription : crée l'utilisateur (rôle client), le connecte en session, retourne l'utilisateur.
      */
@@ -38,25 +44,7 @@ class AuthController extends Controller
             ]
         );
 
-        $phoneNorm = PhoneRDCService::formatPhoneRDC($data['phone']);
-        if (! PhoneRDCService::isValidPhoneRDC($phoneNorm)) {
-            throw ValidationException::withMessages([
-                'phone' => ['Numéro de téléphone invalide (RDC : 9 chiffres après l’indicatif 243).'],
-            ]);
-        }
-        if (User::where('phone', $phoneNorm)->exists()) {
-            throw ValidationException::withMessages([
-                'phone' => ['Ce numéro est déjà associé à un compte.'],
-            ]);
-        }
-
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-            'role' => 'client',
-            'phone' => $phoneNorm,
-        ]);
+        $user = $this->registerClientUser->create($data);
 
         // Connexion automatique après inscription (session Sanctum + guard api)
         Auth::guard('api')->login($user);
@@ -64,7 +52,7 @@ class AuthController extends Controller
             $request->session()->regenerate();
         }
 
-        return response()->json(['user' => $this->withPermissions($user->fresh())], 201);
+        return response()->json(['user' => $this->userPermissionPresenter->toArray($user->fresh())], 201);
     }
 
     /**
@@ -105,40 +93,17 @@ class AuthController extends Controller
         }
 
         try {
-            $user = User::create([
-                'name' => $data['contact_name'],
-                'email' => $data['contact_email'],
-                'password' => Hash::make($data['contact_password']),
-                'role' => 'entreprise',
-            ]);
-
-            $slug = Str::slug($data['company_name']);
-            Company::create([
-                'name' => $data['company_name'],
-                'slug' => $slug,
-                'email' => $data['contact_email'],
-                'phone' => $data['company_phone'],
-                'address' => $data['company_address'],
-                'institution_type' => $data['institution_type'],
-                'employee_count' => $data['employee_count'],
-                'pending_employees' => $data['employees'],
-                'status' => 'pending',
-                'contact_user_id' => $user->id,
-            ]);
+            $user = $this->registerCompanyApplication->create($data);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Demande d\'accès B2B envoyée. Un administrateur examinera votre demande.',
-                'user' => $this->withPermissions($user->fresh()),
+                'user' => $this->userPermissionPresenter->toArray($user),
             ], 201);
-        } catch (\Exception $e) {
-            Log::error('❌ [registerCompany] ' . $e->getMessage(), ['exception' => $e]);
-            if (isset($user)) {
-                $user->delete();
-            }
+        } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l\'inscription: ' . $e->getMessage(),
+                'message' => 'Erreur lors de l\'inscription: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -160,10 +125,10 @@ class AuthController extends Controller
             ]);
         }
 
-        $user = $this->findUserForLogin($identifier);
         $password = (string) $request->input('password');
+        $user = $this->credentialsAuthentication->attempt($identifier, $password);
 
-        if (! $user || ! Hash::check($password, (string) $user->getAuthPassword())) {
+        if (! $user) {
             throw ValidationException::withMessages([
                 'login' => ['Identifiants incorrects. Vérifiez l’e-mail ou le numéro et le mot de passe.'],
             ]);
@@ -174,35 +139,7 @@ class AuthController extends Controller
             $request->session()->regenerate();
         }
 
-        return response()->json(['user' => $this->withPermissions($request->user('api'))]);
-    }
-
-    /**
-     * Recherche l’utilisateur par e-mail ou par téléphone (users.phone ou profile.phone historique).
-     */
-    private function findUserForLogin(string $identifier): ?User
-    {
-        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
-            return User::where('email', $identifier)->first();
-        }
-
-        $norm = PhoneRDCService::formatPhoneRDC($identifier);
-        if ($norm === '') {
-            return null;
-        }
-
-        $byUser = User::where('phone', $norm)->first();
-        if ($byUser) {
-            return $byUser;
-        }
-
-        foreach (Profile::query()->whereNotNull('phone')->cursor() as $profile) {
-            if (PhoneRDCService::formatPhoneRDC((string) $profile->phone) === $norm) {
-                return User::find($profile->user_id);
-            }
-        }
-
-        return null;
+        return response()->json(['user' => $this->userPermissionPresenter->toArray($request->user('api'))]);
     }
 
     /**
@@ -213,40 +150,14 @@ class AuthController extends Controller
     public function user(Request $request)
     {
         $user = $request->user('api');
-        if (! $user) {
-            return response()->json(null, 200);
-        }
 
-        return response()->json($this->withPermissions($user));
+        return response()->json($this->userPermissionPresenter->toNullableArray($user));
     }
 
     /** Alias pour compatibilité existante */
     public function me(Request $request)
     {
         return $this->user($request);
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function withPermissions(?User $user): ?array
-    {
-        if (! $user) {
-            return null;
-        }
-
-        $base = $user->toArray();
-        $perms = $user->getAllPermissions()->pluck('name')->values()->all();
-        // Repli si Spatie ne renvoie rien (rôle pas resynchronisé, cache, etc.) : aligné sur config/roles.php
-        if ($perms === [] && $user->role) {
-            $fromConfig = config('roles.roles.'.$user->role.'.permissions');
-            if (is_array($fromConfig) && $fromConfig !== []) {
-                $perms = $fromConfig;
-            }
-        }
-        $base['permissions'] = $perms;
-
-        return $base;
     }
 
     /**

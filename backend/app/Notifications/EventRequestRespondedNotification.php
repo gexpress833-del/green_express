@@ -24,21 +24,36 @@ class EventRequestRespondedNotification extends Notification
     {
         $this->eventRequest->loadMissing('respondedByUser');
         $admin = $this->eventRequest->respondedByUser;
-        $response = $this->eventRequest->admin_response ?? '';
+        $response = trim((string) ($this->eventRequest->admin_response ?? ''));
+        $status = (string) $this->eventRequest->status;
+        $eventType = (string) $this->eventRequest->event_type;
+        $contacted = $status === 'contacted';
+
+        $title = $contacted
+            ? 'Green Express vous a contacté'
+            : 'Mise à jour de votre demande événementielle';
+
+        $message = $response !== ''
+            ? (strlen($response) > 120 ? substr($response, 0, 120).'…' : $response)
+            : ($contacted
+                ? "Nous avons pris en charge votre demande{$eventType !== '' ? " ({$eventType})" : ''}. Consultez le détail dans vos demandes événementielles."
+                : 'Votre demande de devis a été clôturée. Consultez le détail dans vos demandes événementielles.');
+
         return [
             'category' => 'event',
             'kind' => 'event_request_responded',
             'event_request_id' => $this->eventRequest->id,
             'deep_link' => NotificationDeepLink::forEventRequest($notifiable),
-            'event_type' => $this->eventRequest->event_type,
-            'status' => $this->eventRequest->status,
+            'event_type' => $eventType,
+            'status' => $status,
             'admin_response' => $response,
             'responded_at' => optional($this->eventRequest->responded_at)?->toIso8601String(),
-            'title' => 'Réponse à votre demande événementielle',
-            'message' => strlen($response) > 80 ? substr($response, 0, 80) . '…' : $response,
+            'title' => $title,
+            'message' => $message,
+            'severity' => $contacted ? 'success' : 'info',
             'origin_type' => 'admin',
             'origin_user_id' => $admin?->id,
-            'origin_user_name' => $admin?->name ?? 'Administration',
+            'origin_user_name' => $admin?->name ?? 'Green Express',
         ];
     }
 }

@@ -10,6 +10,7 @@ import OfflineIndicator from '@/components/OfflineIndicator';
 // Lazy-load runtime-heavy components (not needed on landing/login pages)
 const EchoBootstrap = lazy(() => import('@/components/EchoBootstrap'));
 const PaymentLiveToaster = lazy(() => import('@/components/PaymentLiveToaster'));
+const NotificationLiveToaster = lazy(() => import('@/components/NotificationLiveToaster'));
 const BeamsClient = lazy(() => import('@/components/BeamsClient'));
 
 export default function Providers({ children }) {
@@ -20,6 +21,7 @@ export default function Providers({ children }) {
         <Suspense fallback={null}>
           <EchoBootstrap />
           <PaymentLiveToaster />
+          <NotificationLiveToaster />
           <BeamsClient />
         </Suspense>
         <PWAInstaller />

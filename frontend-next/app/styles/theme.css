@@ -26,6 +26,14 @@ h2 {
   color: var(--text-color);
 }
 
+/* La landing Next moderne définit ses tailles dans landing-modern.css */
+.landing-modern-page h1,
+.landing-modern-page h2,
+.landing-modern-page h3 {
+  font-size: unset;
+  color: unset;
+}
+
 /* Landing page */
 .landing {
   display: flex;
@@ -35,8 +43,9 @@ h2 {
   text-align: center;
 }
 
-.landing-inner h1 {
-  font-size: 4rem;
+/* Ancienne landing uniquement — la landing moderne gère son titre dans landing-modern.css */
+.landing:not(.landing-modern-hero) .landing-inner h1 {
+  font-size: clamp(1.75rem, 6vw, 4rem);
   margin-bottom: 20px;
 }
 

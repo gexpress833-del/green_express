@@ -3,10 +3,10 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { getGuestEntryHref } from '@/lib/guestEntry';
 
 /**
- * Protège les routes : redirige vers /login avec returnUrl si l'utilisateur n'est pas connecté.
- * Utilisé dans les layouts des zones protégées (client, admin, profile, notifications, evenements, etc.).
+ * Protège les routes : redirige vers la landing (/) si l'utilisateur n'est pas connecté.
  * Le middleware redirige aussi en amont quand le cookie de session est absent ; RequireAuth gère le cas session expirée ou invalide.
  */
 export default function RequireAuth({ children }) {
@@ -17,8 +17,7 @@ export default function RequireAuth({ children }) {
   useEffect(() => {
     if (!initialised) return;
     if (!user) {
-      const returnUrl = encodeURIComponent(pathname || '/');
-      router.replace(`/login?returnUrl=${returnUrl}`);
+      router.replace(getGuestEntryHref(pathname || '/'));
     }
   }, [initialised, user, pathname, router]);
 
@@ -34,7 +33,7 @@ export default function RequireAuth({ children }) {
     return (
       <div className="auth-gate-unauth">
         <p>Vous devez être connecté pour accéder à cette page.</p>
-        <p className="auth-gate-unauth-hint">Redirection vers la connexion…</p>
+        <p className="auth-gate-unauth-hint">Redirection vers l&apos;accueil…</p>
       </div>
     );
   }

@@ -2,17 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreMenuRequest;
+use App\Http\Requests\UpdateMenuRequest;
 use App\Http\Traits\RoleAccess;
 use App\Models\Menu;
 use App\Services\CloudinaryService;
-use App\Http\Requests\StoreMenuRequest;
-use App\Http\Requests\UpdateMenuRequest;
+use App\Services\Menus\ApprovedMenuCatalogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class MenuController extends Controller
 {
     use RoleAccess;
+
+    public function __construct(
+        private ApprovedMenuCatalogService $approvedMenuCatalog,
+    ) {}
 
     public function index(Request $request)
     {
@@ -34,7 +39,7 @@ class MenuController extends Controller
                 return response()->json(['message' => 'Accès refusé'], 403);
             }
 
-            $query = Menu::with(['creator' => function($q) {
+            $query = Menu::with(['creator' => function ($q) {
                 // Charger la relation creator même si l'utilisateur n'existe plus
                 $q->withDefault(['name' => 'Utilisateur supprimé']);
             }]);
@@ -66,14 +71,16 @@ class MenuController extends Controller
 
             // Pagination par défaut
             $perPage = min(max($request->input('per_page', 15), 1), 100);
+
             return $query->orderBy('created_at', 'desc')->paginate($perPage);
         } catch (\Exception $e) {
-            Log::error('Erreur MenuController@index: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+            Log::error('Erreur MenuController@index: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return response()->json([
                 'message' => 'Erreur lors de la récupération des menus',
-                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne'
+                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne',
             ], 500);
         }
     }
@@ -86,13 +93,15 @@ class MenuController extends Controller
     {
         try {
             $limit = min((int) ($request->query('limit', 10)), 50);
+
             return Menu::where('status', 'approved')
                 ->with(['creator' => fn ($q) => $q->withDefault(['name' => '—'])])
                 ->orderBy('created_at', 'desc')
                 ->take($limit)
                 ->get();
         } catch (\Exception $e) {
-            Log::error('MenuController@publicRecent: ' . $e->getMessage());
+            Log::error('MenuController@publicRecent: '.$e->getMessage());
+
             return response()->json([
                 'message' => 'Erreur lors de la récupération des menus',
                 'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne',
@@ -107,22 +116,16 @@ class MenuController extends Controller
     public function browse(Request $request)
     {
         try {
-            $query = Menu::where('status', 'approved');
-
-            if ($request->filled('search')) {
-                $query->where('title', 'like', '%' . $request->input('search') . '%');
-            }
-            if ($request->filled('status') && $request->input('status') !== 'all') {
-                $query->where('status', $request->input('status'));
-            }
-
+            $search = $request->filled('search') ? (string) $request->input('search') : null;
             $perPage = min(max((int) $request->input('per_page', 15), 1), 100);
-            return $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+            return $this->approvedMenuCatalog->paginate($search, $perPage);
         } catch (\Exception $e) {
-            Log::error('MenuController@browse: ' . $e->getMessage());
+            Log::error('MenuController@browse: '.$e->getMessage());
+
             return response()->json([
                 'message' => 'Erreur lors de la récupération des menus',
-                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne'
+                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne',
             ], 500);
         }
     }
@@ -131,7 +134,7 @@ class MenuController extends Controller
     {
         try {
             $user = $request->user();
-            if (!$user) {
+            if (! $user) {
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
@@ -180,13 +183,14 @@ class MenuController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'message' => 'Erreur de validation',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            Log::error('MenuController@store error: ' . $e->getMessage());
+            Log::error('MenuController@store error: '.$e->getMessage());
+
             return response()->json([
                 'message' => 'Erreur lors de la création du menu',
-                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne'
+                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne',
             ], 500);
         }
     }
@@ -195,7 +199,7 @@ class MenuController extends Controller
     {
         try {
             $user = $request->user();
-            if (!$user) {
+            if (! $user) {
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
@@ -212,6 +216,7 @@ class MenuController extends Controller
                 if ($menu->status !== 'approved') {
                     return response()->json(['message' => 'Menu non disponible.'], 403);
                 }
+
                 return response()->json($menu->load('creator'));
             }
 
@@ -225,10 +230,11 @@ class MenuController extends Controller
 
             return response()->json(['message' => 'Non autorisé à voir ce menu.'], 403);
         } catch (\Exception $e) {
-            Log::error('MenuController@show error: ' . $e->getMessage());
+            Log::error('MenuController@show error: '.$e->getMessage());
+
             return response()->json([
                 'message' => 'Erreur lors de la récupération du menu',
-                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne'
+                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne',
             ], 500);
         }
     }
@@ -237,7 +243,7 @@ class MenuController extends Controller
     {
         try {
             $user = $request->user();
-            if (!$user) {
+            if (! $user) {
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
@@ -273,13 +279,14 @@ class MenuController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'message' => 'Erreur de validation',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            Log::error('MenuController@update error: ' . $e->getMessage());
+            Log::error('MenuController@update error: '.$e->getMessage());
+
             return response()->json([
                 'message' => 'Erreur lors de la mise à jour du menu',
-                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne'
+                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne',
             ], 500);
         }
     }
@@ -288,7 +295,7 @@ class MenuController extends Controller
     {
         try {
             $user = $request->user();
-            if (!$user) {
+            if (! $user) {
                 return response()->json(['message' => 'Non authentifié'], 401);
             }
 
@@ -315,10 +322,11 @@ class MenuController extends Controller
 
             return response()->json(null, 204);
         } catch (\Exception $e) {
-            Log::error('MenuController@destroy error: ' . $e->getMessage());
+            Log::error('MenuController@destroy error: '.$e->getMessage());
+
             return response()->json([
                 'message' => 'Erreur lors de la suppression du menu',
-                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne'
+                'error' => config('app.debug') ? $e->getMessage() : 'Erreur interne',
             ], 500);
         }
     }
@@ -333,9 +341,10 @@ class MenuController extends Controller
             if (is_array($res)) {
                 return $res['url'] ?? ($res['secure_url'] ?? '');
             }
+
             return (string) $res;
         } catch (\Exception $e) {
-            Log::error('Upload image error: ' . $e->getMessage());
+            Log::error('Upload image error: '.$e->getMessage());
             throw $e;
         }
     }

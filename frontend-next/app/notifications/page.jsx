@@ -12,7 +12,11 @@ import {
   markNotificationRead,
 } from '@/lib/notifications'
 import { getNotificationType, NOTIFICATION_TABS } from '@/lib/notificationCategories'
-import { getNotificationDeepLink, getNotificationField } from '@/lib/notificationPayload'
+import {
+  getEventNotificationSubtitle,
+  getNotificationDeepLink,
+  getNotificationField,
+} from '@/lib/notificationPayload'
 import {
   getEventRequestDeepLink,
   getOrderDeepLink,
@@ -313,7 +317,7 @@ export default function NotificationsPage() {
     const subtitleParts = []
 
     if (orderId) subtitleParts.push(`Commande #${orderId}`)
-    if (type === 'events') subtitleParts.push('Nouvelle demande')
+    if (type === 'events') subtitleParts.push(getEventNotificationSubtitle(notification))
     const planName = getNotificationField(notification, 'plan_name')
     const promotionKind = getNotificationField(notification, 'promotion_kind')
     const category = getNotificationField(notification, 'category')
@@ -423,7 +427,11 @@ export default function NotificationsPage() {
                   onClick={() => goToEventRequest(notification)}
                   className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
                 >
-                  Voir la demande
+                  {kind === 'event_request_responded'
+                    ? 'Voir la réponse'
+                    : kind === 'event_request_created'
+                      ? 'Traiter la demande'
+                      : 'Voir la demande'}
                 </button>
               )}
 

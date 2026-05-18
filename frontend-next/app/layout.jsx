@@ -1,6 +1,7 @@
 import './styles/globals.css'
 import './styles/tailwind.css'
 import './styles/theme.css'
+import './styles/landing-modern.css'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import Toaster from './components/Toaster'

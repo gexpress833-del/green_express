@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiRequest } from '@/lib/api'
 import Link from 'next/link'
+import { getLoginHref } from '@/lib/guestEntry'
 
 function formatDate(iso) {
   if (!iso) return '—'
@@ -47,7 +48,7 @@ export default function ClientEventRequestsPage() {
 
   useEffect(() => {
     if (!initialised || !isAuthenticated) {
-      router.replace('/login?returnUrl=' + encodeURIComponent('/client/event-requests'))
+      router.replace(getLoginHref('/client/event-requests'))
       return
     }
     setLoading(true)

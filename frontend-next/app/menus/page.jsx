@@ -6,6 +6,7 @@ import MenuCard from '@/components/MenuCard'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiRequest } from '@/lib/api'
 import { getDashboardPathForRole } from '@/lib/permissions'
+import { getLoginHref } from '@/lib/guestEntry'
 
 /**
  * Page publique /menus : visiteurs non-connectés.
@@ -103,66 +104,24 @@ export default function PublicMenus() {
     <section className="page-section client-menus-page">
       <div className="client-menus-inner">
         {/* En-tête marketing */}
-        <div
-          className="text-center"
-          style={{ maxWidth: 760, margin: '0 auto 28px' }}
-        >
-          <h1
-            className="text-4xl font-bold mb-3"
-            style={{
-              background:
-                'linear-gradient(135deg, #00ffff 0%, #9d4edd 50%, #ff00ff 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}
-          >
-            Nos menus du moment
-          </h1>
-          <p className="text-lg text-white/80">
+        <div className="client-menus-public-hero">
+          <h1 className="client-menus-public-title">Nos menus du moment</h1>
+          <p className="client-menus-public-lead">
             Découvrez librement nos plats préparés chaque jour. Pour commander,
             ajouter au panier ou souscrire à un abonnement, connectez-vous ou
             créez un compte gratuit.
           </p>
 
-          <div
-            style={{
-              display: 'flex',
-              gap: 10,
-              justifyContent: 'center',
-              flexWrap: 'wrap',
-              marginTop: 18,
-            }}
-          >
+          <div className="client-menus-public-actions">
             <Link
-              href={`/login?returnUrl=${encodeURIComponent('/client/menus')}`}
-              className="inline-flex items-center justify-center"
-              style={{
-                minHeight: 44,
-                padding: '10px 22px',
-                borderRadius: 12,
-                fontWeight: 700,
-                fontSize: 14,
-                color: '#0b1220',
-                background: 'linear-gradient(135deg, #39ff14 0%, #22d3ee 100%)',
-                border: '1px solid rgba(57, 255, 20, 0.5)',
-              }}
+              href={getLoginHref('/client/menus')}
+              className="client-menus-public-btn client-menus-public-btn--primary"
             >
               Se connecter
             </Link>
             <Link
               href="/register"
-              className="inline-flex items-center justify-center"
-              style={{
-                minHeight: 44,
-                padding: '10px 22px',
-                borderRadius: 12,
-                fontWeight: 700,
-                fontSize: 14,
-                color: '#a5f3fc',
-                background: 'rgba(34, 211, 238, 0.14)',
-                border: '1px solid rgba(34, 211, 238, 0.55)',
-              }}
+              className="client-menus-public-btn client-menus-public-btn--secondary"
             >
               Créer un compte
             </Link>

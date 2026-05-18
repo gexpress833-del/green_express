@@ -1,62 +1,76 @@
 'use client'
-import Link from 'next/link'
-import { Suspense, lazy, useEffect, useRef, useState } from 'react'
+
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiRequest } from '@/lib/api'
-import { formatCurrencyCDF } from '@/lib/helpers'
 import { getDashboardPathForRole } from '@/lib/permissions'
-import {
-  DEMO_LANDING_VIDEO_MP4,
-  PRIMARY_LOGO,
-  VIDEO_SOURCES_MP4,
-  nextLogoSrc,
-} from '@/lib/landingMedia'
+import { getLoginHref, isSafeInternalPath } from '@/lib/guestEntry'
+import { PRIMARY_LOGO } from '@/lib/landingMedia'
+import LandingHero from '@/components/landing/LandingHero'
+import LandingStats from '@/components/landing/LandingStats'
+import LandingHowItWorks from '@/components/landing/LandingHowItWorks'
+import LandingPromotion from '@/components/landing/LandingPromotion'
+import LandingSubscriptions from '@/components/landing/LandingSubscriptions'
+import LandingEnterprise from '@/components/landing/LandingEnterprise'
+import LandingServices from '@/components/landing/LandingServices'
+import LandingPayments from '@/components/landing/LandingPayments'
+import LandingFinalCta from '@/components/landing/LandingFinalCta'
 
-const PromoCard = lazy(() => import('@/components/PromoCard'))
-const PaymentMethodsBanner = lazy(() => import('@/components/PaymentMethodsBanner'))
-
-/** `/?from=brand` : accès volontaire à la landing (logo navbar) — sans redirection vers /{role}. */
 function HomePageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const publicLanding = searchParams.get('from') === 'brand'
+  const returnUrl = searchParams.get('returnUrl') || ''
+  const safeReturnUrl = isSafeInternalPath(returnUrl) ? returnUrl : ''
   const { user, initialised } = useAuth()
-  const heroVideoRef = useRef(null)
   const [logoSrc, setLogoSrc] = useState(PRIMARY_LOGO)
   const [currentPromo, setCurrentPromo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [plans, setPlans] = useState([])
   const [loadingPlans, setLoadingPlans] = useState(true)
 
-  /** Parcours marketing : invités + clients. Autres rôles → /{role} sauf si arrivée depuis le logo (publicLanding). */
   useEffect(() => {
-    if (publicLanding) return
     if (!initialised || !user?.role) return
+    if (publicLanding) return
+
+    if (safeReturnUrl) {
+      const rolePrefix = `/${user.role}`
+      const mayUseReturn =
+        user.role === 'client' ||
+        safeReturnUrl === rolePrefix ||
+        safeReturnUrl.startsWith(`${rolePrefix}/`)
+      if (mayUseReturn) {
+        router.replace(safeReturnUrl)
+        return
+      }
+    }
+
     if (user.role === 'client') return
+
     const target = getDashboardPathForRole(user.role)
     router.replace(target)
-  }, [initialised, user, router, publicLanding])
+  }, [initialised, user, router, publicLanding, safeReturnUrl])
 
   useEffect(() => {
     apiRequest('/api/subscription-plans/public', { method: 'GET' })
-      .then(r => setPlans(Array.isArray(r) ? r : []))
+      .then((r) => setPlans(Array.isArray(r) ? r : []))
       .catch(() => setPlans([]))
       .finally(() => setLoadingPlans(false))
   }, [])
 
   useEffect(() => {
-    // Page d'accueil : afficher uniquement la promotion en cours (entre date début et date fin)
     apiRequest('/api/promotions?active_only=1&current=1', { method: 'GET' })
-      .then(r => {
+      .then((r) => {
         const promo = r && typeof r === 'object' && !Array.isArray(r) && r.id ? r : null
         setCurrentPromo(promo)
         setLoading(false)
       })
       .catch(() => {
         apiRequest('/api/promotions?active_only=1&per_page=1', { method: 'GET' })
-          .then(r => {
-            const arr = Array.isArray(r?.data) ? r.data : (Array.isArray(r) ? r : [])
+          .then((r) => {
+            const arr = Array.isArray(r?.data) ? r.data : Array.isArray(r) ? r : []
             setCurrentPromo(arr.length > 0 ? arr[0] : null)
             setLoading(false)
           })
@@ -67,551 +81,77 @@ function HomePageInner() {
       })
   }, [])
 
-  useEffect(() => {
-    const el = heroVideoRef.current
-    if (!el) return
-    // Skip autoplay on mobile/slow connections to save battery and data
-    const isMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'connection' in navigator && navigator.connection?.saveData)
-    if (isMobile) return
-    const enforceMutedAndPlay = () => {
-      el.muted = true
-      el.defaultMuted = true
-      el.loop = true
-      void el.play().catch(() => {})
-    }
-    enforceMutedAndPlay()
-    el.addEventListener('loadeddata', enforceMutedAndPlay)
-    el.addEventListener('canplay', enforceMutedAndPlay)
-    return () => {
-      el.removeEventListener('loadeddata', enforceMutedAndPlay)
-      el.removeEventListener('canplay', enforceMutedAndPlay)
-    }
-  }, [])
-
   const dashboardHref = user ? getDashboardPathForRole(user.role) : null
+  const loginHref = getLoginHref(safeReturnUrl || '/client/subscriptions')
   const subscriptionPlanHref = !user
-    ? '/login?returnUrl=/client/subscriptions'
+    ? getLoginHref('/client/subscriptions')
     : user.role === 'client'
       ? '/client/subscriptions'
       : dashboardHref
-  const subscriptionPlanLabel =
-    !user || user.role === 'client' ? 'Voir les abonnements' : 'Mon espace'
 
   if (initialised && user?.role && user.role !== 'client' && !publicLanding) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6" style={{ background: '#0b1220' }}>
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 landing-modern-redirect">
         <p className="text-white/80 text-center">Ouverture de votre espace…</p>
-        <p className="text-white/45 text-sm mt-2 text-center">Redirection selon votre profil ({user.role})</p>
+        <p className="text-white/45 text-sm mt-2 text-center">
+          Redirection selon votre profil ({user.role})
+        </p>
       </div>
     )
   }
 
-  const primaryCtaHref = user
-    ? dashboardHref
-    : '/register'
+  const primaryCtaHref = user ? dashboardHref : '/register'
   const primaryCtaLabel = user
-    ? (user.role === 'client' ? 'Accéder à mes commandes' : 'Mon espace')
+    ? user.role === 'client'
+      ? 'Accéder à mes commandes'
+      : 'Mon espace'
     : 'Créer mon compte gratuit'
-  const secondaryCtaHref = user && user.role === 'client'
-    ? '/client/menus'
-    : '/menus'
-  const secondaryCtaLabel = 'Découvrir les menus'
+  const secondaryCtaHref = user && user.role === 'client' ? '/client/menus' : '/menus'
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="landing hero-anim-bg">
-        <div className="landing-inner">
-          <div className="landing-hero-column">
-            <div className="hero-ambient-motion">
-              <div className="mb-8 hero-anim-logo">
-                <img
-                  key={logoSrc}
-                  src={logoSrc}
-                  alt="Green Express"
-                  decoding="async"
-                  fetchPriority="high"
-                  className="mx-auto block h-auto w-auto max-h-[min(220px,36vh)] max-w-[min(240px,72vw)] object-contain"
-                  style={{
-                    borderRadius: 20,
-                    boxShadow: '0 0 12px rgba(0, 255, 255, 0.15)',
-                    border: '1px solid rgba(0, 255, 255, 0.2)',
-                  }}
-                  onError={() => setLogoSrc((s) => nextLogoSrc(s))}
-                />
-              </div>
-              <h1 className="title hero-anim-title">
-                Cuisinés avec soin, livrés en un clin d&apos;œil.
-              </h1>
-              <p className="subtitle hero-anim-subtitle" style={{ maxWidth: 640, margin: '20px auto 0' }}>
-                Green Express prépare ses repas dans sa propre cuisine et les livre directement chez vous à Kolwezi (RDC).
-                Commandez en quelques secondes, suivez votre livreur en temps réel
-                et gagnez des points fidélité à chaque commande.
-              </p>
-
-              {/* CTAs */}
-              <div
-                className="hero-anim-subtitle"
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 12,
-                  justifyContent: 'center',
-                  marginTop: 28,
-                }}
-              >
-                <Link
-                  href={primaryCtaHref || '/register'}
-                  className="inline-flex items-center justify-center"
-                  style={{
-                    minHeight: 48,
-                    padding: '12px 26px',
-                    borderRadius: 14,
-                    fontWeight: 700,
-                    fontSize: 15,
-                    color: '#0b1220',
-                    background: '#2dd4bf',
-                    border: '1px solid rgba(45, 212, 191, 0.6)',
-                  }}
-                >
-                  {primaryCtaLabel}
-                </Link>
-                <Link
-                  href={secondaryCtaHref}
-                  className="inline-flex items-center justify-center"
-                  style={{
-                    minHeight: 48,
-                    padding: '12px 26px',
-                    borderRadius: 14,
-                    fontWeight: 700,
-                    fontSize: 15,
-                    color: '#a5f3fc',
-                    background: 'rgba(34, 211, 238, 0.14)',
-                    border: '1px solid rgba(34, 211, 238, 0.55)',
-                  }}
-                >
-                  {secondaryCtaLabel}
-                </Link>
-              </div>
-
-              {/* Trust badges */}
-              <div
-                className="hero-anim-subtitle"
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 14,
-                  justifyContent: 'center',
-                  marginTop: 24,
-                  color: 'rgba(255,255,255,0.7)',
-                  fontSize: 13,
-                }}
-              >
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#39ff14' }}>●</span> Livraison rapide
-                </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#22d3ee' }}>●</span> Paiement sécurisé
-                </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#a78bfa' }}>●</span> Points fidélité
-                </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#fbbf24' }}>●</span> Service 7j/7
-                </span>
-              </div>
-            </div>
-
-            <div className="landing-hero-video-wrap">
-              <div className="landing-hero-video-frame">
-                <video
-                  ref={heroVideoRef}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  poster={logoSrc}
-                >
-                  {VIDEO_SOURCES_MP4.map((src) => (
-                    <source key={src} src={src} type="video/mp4" />
-                  ))}
-                  <source src={DEMO_LANDING_VIDEO_MP4} type="video/mp4" />
-                  Votre navigateur ne prend pas en charge la lecture vidéo HTML5.
-                </video>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Chiffres clés / Social proof */}
-      <section className="py-12 px-6">
-        <div className="container" style={{ maxWidth: 1100 }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: 16,
-            }}
-          >
-            <div className="stat-card">
-              <h4>Commandes livrées</h4>
-              <p>10 000+</p>
-            </div>
-            <div className="stat-card">
-              <h4>Clients satisfaits</h4>
-              <p>95 %</p>
-            </div>
-            <div className="stat-card">
-              <h4>Délai moyen</h4>
-              <p>&lt; 45 min</p>
-            </div>
-            <div className="stat-card">
-              <h4>Plats au menu</h4>
-              <p>+50 recettes maison</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Comment ça marche */}
-      <section className="py-16 px-6" style={{ background: 'rgba(34, 211, 238, 0.02)' }}>
-        <div className="container" style={{ maxWidth: 1100 }}>
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4" style={{
-              color: '#e0e7ff',
-            }}>
-              Comment ça marche
-            </h2>
-            <p className="text-lg text-white/80 max-w-2xl mx-auto">
-              Commander un repas n&apos;a jamais été aussi simple : trois étapes, c&apos;est tout.
-            </p>
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-              gap: 24,
-              maxWidth: 960,
-              margin: '0 auto',
-            }}
-          >
-            <div className="step-card">
-              <div className="step-number">1</div>
-              <div className="step-icon">🍽️</div>
-              <h3 className="step-title">Choisissez vos plats</h3>
-              <p className="step-desc">
-                Parcourez notre carte préparée chaque jour par nos chefs et composez votre commande selon vos envies.
-              </p>
-            </div>
-            <div className="step-card">
-              <div className="step-number">2</div>
-              <div className="step-icon">💳</div>
-              <h3 className="step-title">Payez en toute sécurité</h3>
-              <p className="step-desc">
-                Carte bancaire ou Mobile Money (Orange Money, M-Pesa, Airtel Money). Paiement protégé, facture automatique.
-              </p>
-            </div>
-            <div className="step-card">
-              <div className="step-number">3</div>
-              <div className="step-icon">🛵</div>
-              <h3 className="step-title">Recevez & savourez</h3>
-              <p className="step-desc">
-                Suivez votre livreur en temps réel. Votre repas arrive chaud, à l&apos;heure, et vous gagnez des points fidélité.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Promotion Actuelle Section */}
-      <section className="py-20 px-6" style={{background: 'rgba(0, 255, 255, 0.015)'}}>
-        <div className="container">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4" style={{
-              color: '#e0e7ff',
-            }}>
-              Promotion du Moment
-            </h2>
-            <p className="text-lg text-white/80 max-w-2xl mx-auto">
-              Profitez de notre offre exclusive du moment et réclamez-la avec vos points fidélité.
-            </p>
-          </div>
-          
-          {loading ? (
-            <div className="card text-center py-16 max-w-4xl mx-auto">
-              <p className="text-white/60">Chargement de la promotion...</p>
-            </div>
-          ) : currentPromo ? (
-            <Suspense fallback={<div className="max-w-5xl mx-auto h-40 animate-pulse bg-white/5 rounded-2xl" />}>
-              <div className="max-w-5xl mx-auto">
-                <PromoCard promo={currentPromo} loginRequired={initialised && !user} />
-              </div>
-            </Suspense>
-          ) : (
-            <div className="card text-center py-16 max-w-4xl mx-auto">
-              <div className="text-5xl mb-4">🎁</div>
-              <p className="text-white/60 text-lg mb-2">Aucune promotion disponible pour le moment.</p>
-              <p className="text-white/40 text-sm">Revenez bientôt pour découvrir nos offres exclusives !</p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Types d'abonnement Green Express */}
-      <section className="py-20 px-6" style={{background: 'rgba(157, 78, 221, 0.02)'}}>
-        <div className="container">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4" style={{
-              color: '#e0e7ff',
-            }}>
-              Nos abonnements
-            </h2>
-            <p className="text-lg text-white/80 max-w-2xl mx-auto">
-              Mangez bien, tous les jours, sans y penser. Choisissez la formule
-              hebdomadaire ou mensuelle qui colle à votre rythme — déjà en FC.
-            </p>
-          </div>
-          {loadingPlans ? (
-            <div className="card text-center py-12 max-w-4xl mx-auto">
-              <p className="text-white/60">Chargement des offres...</p>
-            </div>
-          ) : plans.length > 0 ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-              {plans.map((plan) => (
-                <div key={plan.id} className="card p-6 border border-white/10 hover:border-cyan-500/30 transition">
-                  <h3 className="text-xl font-semibold text-cyan-400 mb-2">{plan.name}</h3>
-                  {plan.description && <p className="text-white/70 text-sm mb-4">{plan.description}</p>}
-                  <div className="space-y-1 text-white/90">
-                    <p>{formatCurrencyCDF(Number(plan.price_week))} / semaine</p>
-                    <p>{formatCurrencyCDF(Number(plan.price_month))} / mois</p>
-                  </div>
-                  <Link
-                    href={subscriptionPlanHref}
-                    className="link-visible-cyan mt-4 inline-block px-4 py-2 rounded-lg text-sm font-semibold border transition"
-                  >
-                    {subscriptionPlanLabel}
-                  </Link>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="card text-center py-12 max-w-4xl mx-auto">
-              <p className="text-white/60">Aucun plan d&apos;abonnement disponible pour le moment.</p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Entreprises — orientation B2B (mêmes routes login / register) */}
-      <section className="py-16 px-6" style={{ background: 'rgba(57, 255, 20, 0.03)' }}>
-        <div className="container max-w-3xl mx-auto">
-          <div className="card p-8 sm:p-10 text-center border border-white/10" style={{ background: 'rgba(15, 28, 46, 0.85)' }}>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3" style={{
-              color: '#a7f3d0',
-            }}>
-              Vous représentez une entreprise ?
-            </h2>
-            <p className="text-white/80 text-base sm:text-lg mb-6 max-w-xl mx-auto leading-relaxed">
-              Offrez à vos équipes des repas de qualité, gérez un budget cantine,
-              suivez les commandes et la facturation depuis un espace entreprise dédié.
-              Idéal pour administrations, hôpitaux, écoles et sociétés privées.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
-              {!initialised ? (
-                <div
-                  className="mx-auto h-11 w-full max-w-md rounded-xl bg-white/5 animate-pulse sm:max-w-lg"
-                  aria-busy="true"
-                  aria-label="Chargement"
-                />
-              ) : !user ? (
-                <>
-                  <Link
-                    href="/login"
-                    className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border transition"
-                    style={{ color: '#0b1220', background: '#2dd4bf', borderColor: 'rgba(45, 212, 191, 0.6)' }}
-                  >
-                    Connexion entreprise
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border border-white/25 text-white/95 hover:bg-white/10 transition"
-                  >
-                    Créer un compte
-                  </Link>
-                </>
-              ) : user.role === 'entreprise' ? (
-                <Link
-                  href="/entreprise"
-                  className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border transition"
-                  style={{ color: '#0b1220', background: '#2dd4bf', borderColor: 'rgba(45, 212, 191, 0.6)' }}
-                >
-                  Mon espace entreprise
-                </Link>
-              ) : (
-                <Link
-                  href={dashboardHref}
-                  className="inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold border border-white/25 text-white/95 hover:bg-white/10 transition"
-                >
-                  Mon tableau de bord
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Nos Services */}
-      <section className="py-20 px-6 container">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4" style={{
-              color: '#e0e7ff',
-            }}>
-              Nos services
-          </h2>
-          <p className="text-lg text-white/80 max-w-2xl mx-auto">
-            Du repas du quotidien aux grandes occasions, Green Express
-            s&apos;adapte à tous vos besoins.
+    <div className="min-h-screen landing-modern-page">
+      {initialised && !user && safeReturnUrl ? (
+        <div className="landing-return-banner" role="status">
+          <p className="landing-return-banner__text">
+            Connectez-vous pour accéder à la page demandée.
           </p>
+          <Link href={getLoginHref(safeReturnUrl)} className="landing-return-banner__cta">
+            Se connecter
+          </Link>
         </div>
-
-        <div className="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
-          <div className="service-card">
-            <div className="service-icon">
-              <span className="text-5xl">👤</span>
-            </div>
-            <h3 className="service-title" style={{
-              color: '#a5f3fc'
-            }}>
-              Pour les particuliers
-            </h3>
-            <p className="service-description">
-              Composez votre commande en quelques clics, payez en toute sécurité
-              et recevez votre repas à domicile ou au bureau. Votre fidélité est récompensée à chaque commande.
-            </p>
-            <ul className="service-features">
-              <li className="service-feature"><span className="feature-check">✓</span> Commandes en ligne</li>
-              <li className="service-feature"><span className="feature-check">✓</span> Suivi en temps réel</li>
-              <li className="service-feature"><span className="feature-check">✓</span> Points fidélité</li>
-              <li className="service-feature"><span className="feature-check">✓</span> Abonnements flexibles</li>
-            </ul>
-          </div>
-
-          <div className="service-card">
-            <div className="service-icon">
-              <span className="text-5xl">🎉</span>
-            </div>
-            <h3 className="service-title" style={{
-              color: '#e9d5ff'
-            }}>
-              Service événementiel
-            </h3>
-            <p className="service-description">
-              Mariage, conférence, séminaire, anniversaire : notre équipe traiteur
-              compose un menu sur mesure, adapté à votre budget, au nombre d&apos;invités
-              et à votre thématique. Devis rapide, service impeccable.
-            </p>
-            <ul className="service-features">
-              <li className="service-feature"><span className="feature-check">✓</span> Mariages et réceptions</li>
-              <li className="service-feature"><span className="feature-check">✓</span> Conférences et séminaires</li>
-              <li className="service-feature"><span className="feature-check">✓</span> Événements privés</li>
-              <li className="service-feature"><span className="feature-check">✓</span> Devis sur mesure</li>
-            </ul>
-            <Link
-              href="/evenements"
-              className="link-visible-cyan mt-4 inline-block px-4 py-2 rounded-lg text-sm font-semibold border transition"
-              style={{ color: '#a5f3fc', backgroundColor: 'rgba(34, 211, 238, 0.25)', borderColor: 'rgba(34, 211, 238, 0.6)' }}
-            >
-              Demander un devis événement
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Paiements sécurisés — réassurance visuelle */}
-      <section
-        className="py-16 px-6"
-        style={{
-          background: 'rgba(15, 23, 42, 0.4)',
-        }}
-      >
-        <div className="container max-w-3xl mx-auto text-center">
-          <h2
-            className="text-2xl sm:text-3xl font-bold mb-3"
-            style={{
-              color: '#c4b5fd',
-            }}
-          >
-            Paiements en toute sécurité
-          </h2>
-          <p className="text-white/75 text-sm sm:text-base mb-8 max-w-xl mx-auto leading-relaxed">
-            Réglez vos commandes et abonnements en toute confiance : cartes bancaires et Mobile Money (RDC) pris en charge
-            pour un parcours de paiement clair et protégé.
-          </p>
-          <Suspense fallback={<div className="mx-auto max-w-2xl w-full h-16 animate-pulse bg-white/5 rounded-xl" />}>
-            <div className="mx-auto max-w-2xl w-full payment-methods-banner--landing">
-              <PaymentMethodsBanner />
-            </div>
-          </Suspense>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 px-6" style={{background: 'rgba(0, 255, 255, 0.02)'}}>
-        <div className="container text-center" style={{ maxWidth: 760 }}>
-          <h2 className="text-4xl font-bold mb-4" style={{
-            color: '#e0e7ff',
-          }}>
-            Prêt à passer à table ?
-          </h2>
-          <p className="text-lg text-white/80 mb-8 max-w-2xl mx-auto">
-            Rejoignez des milliers d&apos;utilisateurs qui ont adopté Green Express pour
-            leurs repas du quotidien. Inscription gratuite, aucun engagement.
-          </p>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 12,
-              justifyContent: 'center',
-            }}
-          >
-            <Link
-              href={primaryCtaHref || '/register'}
-              className="inline-flex items-center justify-center"
-              style={{
-                minHeight: 48,
-                padding: '12px 28px',
-                borderRadius: 14,
-                fontWeight: 700,
-                fontSize: 15,
-                color: '#0b1220',
-                background: '#2dd4bf',
-                border: '1px solid rgba(45, 212, 191, 0.6)',
-              }}
-            >
-              {primaryCtaLabel}
-            </Link>
-            <Link
-              href={secondaryCtaHref}
-              className="inline-flex items-center justify-center"
-              style={{
-                minHeight: 48,
-                padding: '12px 28px',
-                borderRadius: 14,
-                fontWeight: 700,
-                fontSize: 15,
-                color: '#a5f3fc',
-                background: 'rgba(34, 211, 238, 0.14)',
-                border: '1px solid rgba(34, 211, 238, 0.55)',
-              }}
-            >
-              {secondaryCtaLabel}
-            </Link>
-          </div>
-        </div>
-      </section>
+      ) : null}
+      <LandingHero
+        logoSrc={logoSrc}
+        setLogoSrc={setLogoSrc}
+        primaryCtaHref={primaryCtaHref}
+        primaryCtaLabel={primaryCtaLabel}
+        secondaryCtaHref={secondaryCtaHref}
+      />
+      <LandingStats />
+      <LandingHowItWorks />
+      <LandingPromotion
+        loading={loading}
+        currentPromo={currentPromo}
+        loginRequired={initialised && !user}
+      />
+      <LandingSubscriptions
+        plans={plans}
+        loadingPlans={loadingPlans}
+        subscriptionPlanHref={subscriptionPlanHref}
+      />
+      <LandingEnterprise
+        initialised={initialised}
+        user={user}
+        dashboardHref={dashboardHref}
+        loginHref={loginHref}
+      />
+      <LandingServices />
+      <LandingPayments />
+      <LandingFinalCta
+        primaryCtaHref={primaryCtaHref}
+        primaryCtaLabel={primaryCtaLabel}
+        secondaryCtaHref={secondaryCtaHref}
+      />
     </div>
   )
 }

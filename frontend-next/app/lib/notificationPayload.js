@@ -16,6 +16,19 @@ export function getNotificationField(notification, key) {
   return notification?.data?.[key]
 }
 
+/** Sous-titre court pour les cartes notifications « événements ». */
+export function getEventNotificationSubtitle(notification) {
+  const kind = getNotificationField(notification, 'kind')
+  const status = getNotificationField(notification, 'status')
+  if (kind === 'event_request_created') return 'Nouvelle demande de devis'
+  if (kind === 'event_request_responded') {
+    if (status === 'contacted') return 'Réponse devis · contacté'
+    if (status === 'closed') return 'Demande clôturée'
+    return 'Réponse devis'
+  }
+  return 'Événement'
+}
+
 export function getNotificationDeepLink(notification, fallbackHref = null) {
   const deepLink = getNotificationField(notification, 'deep_link')
   if (typeof deepLink === 'string') {

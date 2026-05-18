@@ -12,6 +12,11 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { fetchNotifications } from '@/lib/notifications'
 import { ensureEchoClient, getEchoClient } from '@/lib/echoBootstrap'
+import {
+  getNotificationBroadcastEvent,
+  getUserNotificationChannel,
+  isNotificationsWsEnabled,
+} from '@/lib/notificationWs'
 
 /** Un seul intervalle pour toute l’app : évite N× GET /api/notifications (Navbar + sidebars + pages). */
 const POLL_INTERVAL_MS = 30000
@@ -27,16 +32,15 @@ function setupEchoRefresh({ enabled, userId, onRefresh }) {
     return () => {}
   }
 
-  if (process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_ENABLED !== 'true') {
+  if (!isNotificationsWsEnabled()) {
     return () => {}
   }
 
-  const channelTemplate =
-    process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_CHANNEL || 'App.Models.User.{userId}'
-  const channelName = channelTemplate.replace('{userId}', String(userId))
-  const eventName =
-    process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_EVENT ||
-    '.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated'
+  const channelName = getUserNotificationChannel(userId)
+  const eventName = getNotificationBroadcastEvent()
+  if (!channelName) {
+    return () => {}
+  }
 
   let disposed = false
   let channel = null

@@ -231,4 +231,73 @@ class CloudinaryService
 
         return null;
     }
+
+    /**
+     * Résout un public_id Cloudinary depuis le champ BDD (URL https://res.cloudinary.com/... ou chemin public_id).
+     */
+    public static function publicIdFromStored(?string $stored): ?string
+    {
+        if ($stored === null || ($stored = trim($stored)) === '') {
+            return null;
+        }
+
+        if (filter_var($stored, FILTER_VALIDATE_URL) && str_contains($stored, 'res.cloudinary.com')) {
+            return self::extractPublicId($stored);
+        }
+
+        if (! str_starts_with($stored, 'http')) {
+            return $stored;
+        }
+
+        return null;
+    }
+
+    /**
+     * URL de livraison avec transformations (f_auto, q_auto par défaut).
+     * URLs externes (non Cloudinary) : renvoyées telles quelles.
+     */
+    public static function imageDeliveryUrl(?string $stored, array $transformations = []): string
+    {
+        if ($stored === null || trim($stored) === '') {
+            return '';
+        }
+
+        $stored = trim($stored);
+
+        if (filter_var($stored, FILTER_VALIDATE_URL) && str_starts_with($stored, 'http') && ! str_contains($stored, 'res.cloudinary.com')) {
+            return $stored;
+        }
+
+        $publicId = self::publicIdFromStored($stored);
+        if ($publicId === null || $publicId === '') {
+            return $stored;
+        }
+
+        $merged = array_merge(['f' => 'auto', 'q' => 'auto'], $transformations);
+        $url = self::getTransformedUrl($publicId, $merged);
+
+        return $url !== '' ? $url : $stored;
+    }
+
+    /** Image carte menu (grille catalogue). */
+    public static function menuCardImageUrl(?string $stored): string
+    {
+        return self::imageDeliveryUrl($stored, [
+            'c' => 'fill',
+            'w' => '640',
+            'h' => '480',
+            'g' => 'auto',
+        ]);
+    }
+
+    /** Vignette ligne panier. */
+    public static function menuThumbImageUrl(?string $stored): string
+    {
+        return self::imageDeliveryUrl($stored, [
+            'c' => 'fill',
+            'w' => '96',
+            'h' => '96',
+            'g' => 'auto',
+        ]);
+    }
 }

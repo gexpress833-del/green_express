@@ -5,11 +5,16 @@ namespace App\Http\Controllers;
 use App\Http\Traits\AdminRequiresPermission;
 use App\Models\EventRequest;
 use App\Notifications\EventRequestRespondedNotification;
+use App\Services\AppNotificationService;
 use Illuminate\Http\Request;
 
 class EventRequestController extends Controller
 {
     use AdminRequiresPermission;
+
+    public function __construct(private AppNotificationService $notifications)
+    {
+    }
 
     /**
      * Enregistrer une demande de devis événementiel (client connecté obligatoire).
@@ -43,6 +48,8 @@ class EventRequestController extends Controller
             'user_id' => $user->id,
             'status' => 'pending',
         ]);
+
+        $this->notifications->notifyStaffOfNewEventRequest($eventRequest);
 
         return response()->json([
             'message' => 'Demande enregistrée. Green Express vous recontactera sous 48 h.',
@@ -106,6 +113,9 @@ class EventRequestController extends Controller
             'admin_response' => 'required|string|max:2000',
         ]);
 
+        $previousStatus = $eventRequest->status;
+        $previousResponse = trim((string) ($eventRequest->admin_response ?? ''));
+
         $eventRequest->update([
             'status' => $validated['status'],
             'admin_response' => $validated['admin_response'],
@@ -113,7 +123,13 @@ class EventRequestController extends Controller
             'responded_by' => $admin->id,
         ]);
 
-        if ($eventRequest->user_id) {
+        $newResponse = trim((string) $validated['admin_response']);
+        $shouldNotify = $eventRequest->user_id && (
+            $previousStatus !== $validated['status']
+            || $previousResponse !== $newResponse
+        );
+
+        if ($shouldNotify) {
             $eventRequest->user->notify(new EventRequestRespondedNotification($eventRequest));
         }
 

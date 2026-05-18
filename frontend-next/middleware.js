@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
+import { getGuestEntryHref } from './app/lib/guestEntry'
 
-/** Préfixes des routes réservées aux utilisateurs connectés. Redirection vers /login si pas de session. */
+/** Préfixes des routes réservées aux utilisateurs connectés. Redirection vers la landing (/) si pas de session. */
 const PROTECTED_PREFIXES = [
   '/client',
   '/admin',
@@ -50,9 +51,8 @@ export function middleware(request) {
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)
   if (sessionCookie?.value) return NextResponse.next()
 
-  const loginUrl = new URL('/login', request.url)
-  loginUrl.searchParams.set('returnUrl', pathname)
-  return NextResponse.redirect(loginUrl)
+  const landingPath = getGuestEntryHref(pathname)
+  return NextResponse.redirect(new URL(landingPath, request.url))
 }
 
 export const config = {
