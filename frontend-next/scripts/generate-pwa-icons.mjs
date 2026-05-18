@@ -3,7 +3,7 @@
 // Usage    : node scripts/generate-pwa-icons.mjs
 
 import sharp from 'sharp'
-import { mkdir } from 'node:fs/promises'
+import { copyFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,15 +15,15 @@ const candidates = [
   'public/icons/Logo_green_express@1x_1.png',
   'public/Logo_green_express.png',
   'public/Logo_gexpress.png',
+  'public/favicon.svg',
 ]
 const src = candidates.map((p) => resolve(root, p)).find((p) => existsSync(p))
 if (!src) throw new Error('Aucun logo source trouvé')
 console.log('Source:', src)
 const outDir = resolve(root, 'public/icons')
 
-// Fond blanc pour respecter le logo (qui est sur fond blanc).
-// Pour les versions maskable, on utilise le vert de marque pour les zones tronquées.
-const BG = '#ffffff'
+// Fond aligné sur la charte (favicon SVG = fond sombre).
+const BG = '#0b1220'
 const BG_MASKABLE = '#16a34a'
 
 const tasks = [
@@ -58,6 +58,10 @@ async function run() {
     await img.png({ compressionLevel: 9 }).toFile(out)
     console.log('✓', t.name)
   }
+
+  const apple = resolve(outDir, 'apple-touch-icon.png')
+  await copyFile(apple, resolve(root, 'public/apple-touch-icon.png'))
+  console.log('✓ public/apple-touch-icon.png (racine iOS)')
 }
 
 run().catch((e) => {

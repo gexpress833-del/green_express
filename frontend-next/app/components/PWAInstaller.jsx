@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import styles from './PWAInstaller.module.css'
+import { isIosSafari, isStandaloneDisplay } from '@/lib/pwaDetect'
 
 const DISMISS_KEY = 'gx-pwa-prompt-dismissed'
 const DISMISS_DAYS = 7
@@ -13,18 +14,8 @@ function isRecentlyDismissed() {
   return Date.now() - at < DISMISS_DAYS * 24 * 60 * 60 * 1000
 }
 
-function isStandalone() {
-  if (typeof window === 'undefined') return false
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true
-  )
-}
-
 /**
- * Enregistre le service worker et propose un bouton "Installer l'application"
- * via beforeinstallprompt (Chrome / Edge / Android). Sur iOS Safari, affiche
- * une instruction (Partager → Sur l'écran d'accueil).
+ * Service worker + invite à installer (Chrome/Android) ou guide iOS Safari.
  */
 export default function PWAInstaller() {
   const [deferredPrompt, setDeferredPrompt] = useState(null)
@@ -35,8 +26,6 @@ export default function PWAInstaller() {
     if (typeof window === 'undefined') return
     if (!('serviceWorker' in navigator)) return
 
-    // Enregistrement du Service Worker (dev + prod) pour permettre l'installation PWA.
-    // Le SW est sans-cache en dev grâce à ses conditions internes.
     const register = () => {
       navigator.serviceWorker
         .register('/service-worker.js', { scope: '/' })
@@ -45,7 +34,7 @@ export default function PWAInstaller() {
     if (document.readyState === 'complete') register()
     else window.addEventListener('load', register, { once: true })
 
-    if (isRecentlyDismissed() || isStandalone()) return
+    if (isRecentlyDismissed() || isStandaloneDisplay()) return
 
     const handler = (e) => {
       e.preventDefault()
@@ -61,14 +50,15 @@ export default function PWAInstaller() {
     }
     window.addEventListener('appinstalled', installedHandler)
 
-    // iOS Safari : pas d'événement beforeinstallprompt
-    const ua = window.navigator.userAgent.toLowerCase()
-    const isIos = /iphone|ipad|ipod/.test(ua) && !/crios|fxios/.test(ua)
-    if (isIos) setShowIosHint(true)
+    let iosTimer
+    if (isIosSafari()) {
+      iosTimer = window.setTimeout(() => setShowIosHint(true), 2500)
+    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler)
       window.removeEventListener('appinstalled', installedHandler)
+      if (iosTimer) window.clearTimeout(iosTimer)
     }
   }, [])
 
@@ -94,16 +84,40 @@ export default function PWAInstaller() {
   return (
     <div className={styles.banner} role="dialog" aria-label="Installer Green Express">
       <div className={styles.header}>
-        <div className={styles.iconBox} aria-hidden="true">📱</div>
+        <div className={styles.iconBox} aria-hidden="true">
+          {showIosHint ? (
+            <span className={styles.shareGlyph} aria-hidden>
+              ⎋
+            </span>
+          ) : (
+            '📱'
+          )}
+        </div>
         <div className={styles.body}>
           <p className={styles.title}>
-            {showInstall ? 'Installer Green Express' : 'Ajouter à l\'écran d\'accueil'}
+            {showInstall ? 'Installer Green Express' : 'Installer sur iPhone / iPad'}
           </p>
-          <p className={styles.subtitle}>
-            {showInstall
-              ? 'Accès plus rapide, notifications et expérience plein écran.'
-              : 'Touchez Partager puis « Sur l\'écran d\'accueil » pour installer l\'application.'}
-          </p>
+          {showInstall ? (
+            <p className={styles.subtitle}>
+              Accès plus rapide, notifications et expérience plein écran.
+            </p>
+          ) : (
+            <ol className={styles.iosSteps}>
+              <li>
+                Touchez <strong>Partager</strong>
+                <span className={styles.iosShareHint} aria-hidden>
+                  {' '}
+                  (icône en bas de Safari)
+                </span>
+              </li>
+              <li>
+                Choisissez <strong>Sur l&apos;écran d&apos;accueil</strong>
+              </li>
+              <li>
+                Confirmez avec <strong>Ajouter</strong>
+              </li>
+            </ol>
+          )}
         </div>
         <button
           type="button"
@@ -127,7 +141,7 @@ export default function PWAInstaller() {
           </>
         ) : (
           <button type="button" className={styles.installBtn} onClick={handleDismiss}>
-            J'ai compris
+            J&apos;ai compris
           </button>
         )}
       </div>

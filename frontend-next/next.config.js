@@ -12,6 +12,21 @@ const nextConfig = {
   poweredByHeader: false,
   allowedDevOrigins: ['127.0.0.1', 'localhost', '*.local'],
   /** Les navigateurs demandent souvent /favicon.ico alors que le projet n’a que public/favicon.svg */
+  async headers() {
+    return [
+      {
+        source: '/manifest.webmanifest',
+        headers: [{ key: 'Content-Type', value: 'application/manifest+json' }],
+      },
+      {
+        source: '/service-worker.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+    ]
+  },
   async rewrites() {
     const backend = API_PROXY_TARGET.replace(/\/$/, '')
     return [

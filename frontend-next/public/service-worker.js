@@ -29,6 +29,9 @@ const PRECACHE_URLS = [
   '/offline',
   '/manifest.webmanifest',
   '/favicon.svg',
+  '/icons/apple-touch-icon.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {

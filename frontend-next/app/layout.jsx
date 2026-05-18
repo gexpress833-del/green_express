@@ -6,6 +6,7 @@ import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import Toaster from './components/Toaster'
 import Providers from './components/Providers'
+import PwaHeadLinks from './components/PwaHeadLinks'
 
 export const metadata = {
   title: 'Green Express',
@@ -32,6 +33,7 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  viewportFit: 'cover',
   themeColor: '#16a34a',
 }
 
@@ -40,6 +42,7 @@ export default function RootLayout({ children }){
     <html lang="fr" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.svg" />
+        <PwaHeadLinks />
       </head>
       <body className="app-bg" suppressHydrationWarning>
         <div className="grid-overlay"></div>

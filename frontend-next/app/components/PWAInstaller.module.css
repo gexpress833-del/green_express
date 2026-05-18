@@ -1,6 +1,6 @@
 .banner {
   position: fixed;
-  bottom: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
@@ -112,10 +112,39 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
+.iosSteps {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.iosSteps li {
+  margin-bottom: 0.35rem;
+}
+
+.iosSteps strong {
+  color: #86efac;
+  font-weight: 600;
+}
+
+.iosShareHint {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+}
+
+.shareGlyph {
+  font-size: 22px;
+  line-height: 1;
+  transform: scaleX(-1);
+  display: inline-block;
+}
+
 @media (max-width: 480px) {
   .banner {
     width: calc(100vw - 16px);
-    bottom: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
     padding: 14px;
   }
   .actions { flex-direction: column-reverse; }
