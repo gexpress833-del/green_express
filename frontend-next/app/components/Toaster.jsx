@@ -34,7 +34,7 @@ export default function Toaster(){
   if (toasts.length === 0) return null
 
   return (
-    <div style={{ position: 'fixed', right: 16, top: 16, zIndex: 9999 }}>
+    <div className="toaster-root">
       {toasts.map(t => {
         const variant = t.type === 'error'
           ? 'bg-red-600 text-white'

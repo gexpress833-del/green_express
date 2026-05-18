@@ -1,0 +1,122 @@
+/**
+ * iOS / PWA — encoches, Dynamic Island, barre d'état et home indicator.
+ * Requiert viewport-fit=cover (déjà dans layout.jsx).
+ */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+.app-bg {
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+.min-h-screen {
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+/* ── Navbar ─────────────────────────────────────────────────── */
+.navbar {
+  padding-top: max(8px, calc(6px + var(--sat)));
+}
+
+.nav-inner {
+  padding-left: max(12px, var(--sal));
+  padding-right: max(12px, var(--sar));
+}
+
+@media (min-width: 640px) {
+  .nav-inner {
+    padding-left: max(20px, var(--sal));
+    padding-right: max(20px, var(--sar));
+  }
+}
+
+@media (min-width: 1024px) {
+  .nav-inner {
+    padding-left: max(24px, var(--sal));
+    padding-right: max(24px, var(--sar));
+  }
+}
+
+@media (max-width: 767px) {
+  .nav-links {
+    padding-left: max(16px, var(--sal));
+    padding-right: max(16px, var(--sar));
+    padding-bottom: max(16px, calc(12px + var(--sab)));
+  }
+}
+
+/* ── Contenu principal ────────────────────────────────────────── */
+.container {
+  padding-left: max(14px, var(--sal));
+  padding-right: max(14px, var(--sar));
+}
+
+@media (min-width: 400px) {
+  .container {
+    padding-left: max(16px, var(--sal));
+    padding-right: max(16px, var(--sar));
+  }
+}
+
+@media (min-width: 640px) {
+  .container {
+    padding-left: max(20px, var(--sal));
+    padding-right: max(20px, var(--sar));
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    padding-left: max(24px, var(--sal));
+    padding-right: max(24px, var(--sar));
+  }
+}
+
+.container:has(> .landing-modern-page) {
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+}
+
+/* ── Pied de page ─────────────────────────────────────────────── */
+.footer {
+  padding-bottom: max(24px, calc(16px + var(--sab)));
+  padding-left: max(16px, var(--sal));
+  padding-right: max(16px, var(--sar));
+}
+
+@media (min-width: 640px) {
+  .footer {
+    padding-bottom: max(32px, calc(20px + var(--sab)));
+    padding-left: max(20px, var(--sal));
+    padding-right: max(20px, var(--sar));
+  }
+}
+
+/* ── Toasts ───────────────────────────────────────────────────── */
+.toaster-root {
+  position: fixed;
+  z-index: 10050;
+  top: max(12px, calc(8px + var(--sat)));
+  right: max(12px, var(--sar));
+  left: auto;
+  pointer-events: none;
+  max-width: min(calc(100vw - 24px - var(--sal) - var(--sar)), 420px);
+}
+
+.toaster-root > * {
+  pointer-events: auto;
+}
+
+body:has(.landing-modern-page) .navbar {
+  padding-top: max(6px, calc(4px + var(--sat)));
+}
