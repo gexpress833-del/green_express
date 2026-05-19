@@ -80,6 +80,19 @@ class AppNotificationService
     /**
      * Nouvelle demande de devis — admin, secrétariat et tout compte avec admin.event-requests.
      */
+    /**
+     * Push Beams + badge icône (app fermée / arrière-plan).
+     */
+    public function pushBeamsToUser(User $user, string $title, string $body, string $deepLink): void
+    {
+        $this->beams->sendToUser($user->id, [
+            'title' => $title,
+            'body' => $body,
+            'deep_link' => $deepLink,
+            'badge' => $user->unreadNotifications()->count(),
+        ]);
+    }
+
     public function notifyStaffOfNewEventRequest(EventRequest $eventRequest): void
     {
         $eventRequest->loadMissing('user');
@@ -99,6 +112,7 @@ class AppNotificationService
                         'title' => 'Nouvelle demande événementielle',
                         'body' => (string) ($eventRequest->event_type ?? 'Devis'),
                         'deep_link' => $deepLink,
+                        'badge' => $user->unreadNotifications()->count(),
                     ]);
                 }
             });

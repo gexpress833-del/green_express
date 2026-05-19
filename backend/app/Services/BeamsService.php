@@ -32,12 +32,27 @@ class BeamsService
      * Envoie une notification push aux utilisateurs ciblés.
      *
      * @param  array<string, mixed>  $interests
-     * @param  array{title: string, body: string, deep_link?: string}  $notification
+     * @param  array{title: string, body: string, deep_link?: string, badge?: int}  $notification
      */
     public function sendToInterests(array $interests, array $notification): void
     {
         if (! $this->client) {
             return;
+        }
+
+        $badge = isset($notification['badge']) ? max(0, (int) $notification['badge']) : null;
+
+        $apns = [
+            'aps' => [
+                'alert' => [
+                    'title' => $notification['title'],
+                    'body' => $notification['body'],
+                ],
+                'sound' => 'default',
+            ],
+        ];
+        if ($badge !== null) {
+            $apns['aps']['badge'] = $badge;
         }
 
         try {
@@ -48,16 +63,12 @@ class BeamsService
                         'body' => $notification['body'],
                         'deep_link' => $notification['deep_link'] ?? null,
                     ],
+                    'data' => array_filter([
+                        'deep_link' => $notification['deep_link'] ?? null,
+                        'unread_count' => $badge,
+                    ], fn ($v) => $v !== null),
                 ],
-                'apns' => [
-                    'aps' => [
-                        'alert' => [
-                            'title' => $notification['title'],
-                            'body' => $notification['body'],
-                        ],
-                        'sound' => 'default',
-                    ],
-                ],
+                'apns' => $apns,
                 'fcm' => [
                     'notification' => [
                         'title' => $notification['title'],
@@ -66,6 +77,7 @@ class BeamsService
                     ],
                     'data' => array_filter([
                         'deep_link' => $notification['deep_link'] ?? null,
+                        'unread_count' => $badge !== null ? (string) $badge : null,
                     ]),
                 ],
             ]);

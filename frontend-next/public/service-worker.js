@@ -4,7 +4,7 @@
 
 importScripts("https://js.pusher.com/beams/service-worker.js");
 
-const CACHE_VERSION = 'gx-v2';
+const CACHE_VERSION = 'gx-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const API_CACHE = `${CACHE_VERSION}-api`;
@@ -135,41 +135,118 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
+function normalizeBadgeCount(count) {
+  const n = Math.floor(Number(count) || 0);
+  if (n <= 0) return 0;
+  return Math.min(n, 99);
+}
+
+async function applyAppBadge(count) {
+  const n = normalizeBadgeCount(count);
+  if (!('setAppBadge' in self.navigator)) return;
+  try {
+    if (n === 0 && typeof self.navigator.clearAppBadge === 'function') {
+      await self.navigator.clearAppBadge();
+    } else if (n > 0 && typeof self.navigator.setAppBadge === 'function') {
+      await self.navigator.setAppBadge(n);
+    }
+  } catch {
+    /* noop */
+  }
+}
+
+/** Compteur non lues via API (cookies de session sur même origine). */
+async function refreshBadgeFromApi() {
+  try {
+    const res = await fetch('/api/notifications?limit=1', {
+      method: 'GET',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const count = normalizeBadgeCount(data?.unread_count);
+    await applyAppBadge(count);
+    return count;
+  } catch {
+    return null;
+  }
+}
+
 self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+    return;
+  }
+  if (event.data?.type === 'SET_BADGE') {
+    event.waitUntil(applyAppBadge(event.data.count));
+    return;
+  }
+  if (event.data?.type === 'REFRESH_BADGE') {
+    event.waitUntil(refreshBadgeFromApi());
+  }
 });
 
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {};
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+
   const options = {
-    body: data.body || 'Nouvelle notification Green Express',
+    body: data.body || data.message || 'Nouvelle notification Green Express',
     icon: '/icons/icon-192.png',
     badge: '/icons/badge-72.png',
     vibrate: [200, 100, 200],
+    tag: data.tag || 'gx-notification',
+    renotify: true,
     data: {
-      deep_link: data.deep_link || '/',
+      deep_link: data.deep_link || '/notifications',
+      unread_count: data.unread_count,
     },
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Green Express', options)
+    (async () => {
+      await self.registration.showNotification(
+        data.title || 'Green Express',
+        options
+      );
+      if (data.unread_count != null) {
+        await applyAppBadge(data.unread_count);
+      } else {
+        await refreshBadgeFromApi();
+      }
+    })()
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const deepLink = event.notification.data?.deep_link || '/';
+  const deepLink = event.notification.data?.deep_link || '/notifications';
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    (async () => {
+      const clientList = await clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
+      const targetUrl = new URL(deepLink, self.location.origin).href;
+
       for (const client of clientList) {
-        if (client.url === new URL(deepLink, self.location.origin).href && 'focus' in client) {
-          return client.focus();
+        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+          await client.focus();
+          client.postMessage({ type: 'REFRESH_BADGE' });
+          return;
         }
       }
+
       if (clients.openWindow) {
-        return clients.openWindow(deepLink);
+        await clients.openWindow(targetUrl);
       }
-    })
+      await refreshBadgeFromApi();
+    })()
   );
 });

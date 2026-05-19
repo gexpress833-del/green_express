@@ -17,6 +17,7 @@ import {
   getUserNotificationChannel,
   isNotificationsWsEnabled,
 } from '@/lib/notificationWs'
+import { syncAppIconBadge } from '@/lib/appBadge'
 
 /** Un seul intervalle pour toute l’app : évite N× GET /api/notifications (Navbar + sidebars + pages). */
 const POLL_INTERVAL_MS = 30000
@@ -84,25 +85,28 @@ export function UnreadNotificationsProvider({ children }) {
     [initialised, user, pathname]
   )
 
+  const applyUnreadCount = useCallback((count) => {
+    const n = asUnreadCount({ unread_count: count })
+    setUnreadCount(n)
+    syncAppIconBadge(n)
+  }, [])
+
   const refreshUnreadCount = useCallback(async () => {
     if (!enabled) {
-      setUnreadCount(0)
-      return
-    }
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      applyUnreadCount(0)
       return
     }
     try {
       const data = await fetchNotifications(1)
-      setUnreadCount(asUnreadCount(data))
+      applyUnreadCount(data?.unread_count ?? 0)
     } catch {
-      setUnreadCount(0)
+      applyUnreadCount(0)
     }
-  }, [enabled])
+  }, [enabled, applyUnreadCount])
 
   useEffect(() => {
     if (!enabled) {
-      setUnreadCount(0)
+      applyUnreadCount(0)
       return undefined
     }
 
@@ -118,11 +122,14 @@ export function UnreadNotificationsProvider({ children }) {
     intervalId = setInterval(refresh, POLL_INTERVAL_MS)
 
     const onVisibility = () => {
-      if (!cancelled && document.visibilityState === 'visible') {
-        refresh()
-      }
+      if (!cancelled) refresh()
     }
     document.addEventListener('visibilitychange', onVisibility)
+
+    const onPushHint = () => {
+      if (!cancelled) refresh()
+    }
+    window.addEventListener('gx-push-notification', onPushHint)
 
     const cleanupEcho = setupEchoRefresh({
       enabled,
@@ -130,10 +137,23 @@ export function UnreadNotificationsProvider({ children }) {
       onRefresh: refresh,
     })
 
+    const onSwMessage = (event) => {
+      if (event.data?.type === 'REFRESH_BADGE' && !cancelled) {
+        refresh()
+      }
+    }
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', onSwMessage)
+    }
+
     return () => {
       cancelled = true
       if (intervalId) clearInterval(intervalId)
       document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('gx-push-notification', onPushHint)
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', onSwMessage)
+      }
       cleanupEcho()
     }
   }, [enabled, refreshUnreadCount, user?.id])

@@ -130,7 +130,14 @@ class EventRequestController extends Controller
         );
 
         if ($shouldNotify) {
-            $eventRequest->user->notify(new EventRequestRespondedNotification($eventRequest));
+            $client = $eventRequest->user;
+            $client->notify(new EventRequestRespondedNotification($eventRequest));
+            $this->notifications->pushBeamsToUser(
+                $client,
+                'Green Express vous a contacté',
+                (string) ($eventRequest->event_type ?? 'Votre demande événementielle'),
+                '/client/event-requests'
+            );
         }
 
         return response()->json([

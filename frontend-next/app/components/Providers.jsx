@@ -11,6 +11,7 @@ import OfflineIndicator from '@/components/OfflineIndicator';
 const EchoBootstrap = lazy(() => import('@/components/EchoBootstrap'));
 const PaymentLiveToaster = lazy(() => import('@/components/PaymentLiveToaster'));
 const NotificationLiveToaster = lazy(() => import('@/components/NotificationLiveToaster'));
+const AppBadgeSync = lazy(() => import('@/components/AppBadgeSync'));
 const BeamsClient = lazy(() => import('@/components/BeamsClient'));
 
 export default function Providers({ children }) {
@@ -22,6 +23,7 @@ export default function Providers({ children }) {
           <EchoBootstrap />
           <PaymentLiveToaster />
           <NotificationLiveToaster />
+          <AppBadgeSync />
           <BeamsClient />
         </Suspense>
         <PWAInstaller />
