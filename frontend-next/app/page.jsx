@@ -117,7 +117,7 @@ function HomePageInner() {
           </p>
           <Link href={getLoginHref(safeReturnUrl)} className="landing-return-banner__cta">
             Se connecter
-          </Link>
+            </Link>
         </div>
       ) : null}
       <LandingHero

@@ -86,6 +86,12 @@ export default function BeamsClient() {
           console.log('[Beams] Subscribed to interests:', interests)
         }
 
+        if (typeof client.onMessage === 'function') {
+          client.onMessage(() => {
+            window.dispatchEvent(new CustomEvent('gx-push-notification'))
+          })
+        }
+
         setInitialized(true)
       } catch (err) {
         console.warn('[Beams] Init failed:', err)
