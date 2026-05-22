@@ -19,6 +19,15 @@ const nextConfig = {
         headers: [{ key: 'Content-Type', value: 'application/manifest+json' }],
       },
       {
+        // Digital Asset Links (Android TWA) : relie l'APK au domaine via SHA256.
+        // Doit être servi en application/json depuis /.well-known/assetlinks.json.
+        source: '/.well-known/assetlinks.json',
+        headers: [
+          { key: 'Content-Type', value: 'application/json' },
+          { key: 'Cache-Control', value: 'public, max-age=3600' },
+        ],
+      },
+      {
         source: '/service-worker.js',
         headers: [
           { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },

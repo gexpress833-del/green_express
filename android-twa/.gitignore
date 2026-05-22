@@ -1,0 +1,20 @@
+# Bubblewrap génère ces fichiers — on ne commit que la config
+node_modules/
+*.keystore
+*.jks
+android.keystore
+*.p12
+android-signed.aab
+android-signed.apk
+app-release-signed.apk
+app-release-signed.aab
+app-release-bundle.aab
+app-release.aab
+app-release.apk
+app/build/
+.gradle/
+build/
+local.properties
+keystore.properties
+twa-keystore.json
+output.json

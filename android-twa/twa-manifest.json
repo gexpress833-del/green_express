@@ -1,0 +1,67 @@
+{
+  "packageId": "app.greenexpress.twa",
+  "host": "green-express-iota.vercel.app",
+  "name": "Green Express",
+  "launcherName": "Green Express",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#16a34a",
+  "navigationColor": "#0b1220",
+  "navigationColorDark": "#0b1220",
+  "navigationDividerColor": "#0b1220",
+  "navigationDividerColorDark": "#0b1220",
+  "backgroundColor": "#0b1220",
+  "enableNotifications": true,
+  "startUrl": "/?source=twa",
+  "iconUrl": "https://green-express-iota.vercel.app/icons/icon-512.png",
+  "maskableIconUrl": "https://green-express-iota.vercel.app/icons/icon-maskable-512.png",
+  "monochromeIconUrl": "https://green-express-iota.vercel.app/icons/icon-512.png",
+  "shortcuts": [
+    {
+      "name": "Commander",
+      "shortName": "Commander",
+      "url": "/client?source=twa-shortcut",
+      "iconUrl": "https://green-express-iota.vercel.app/icons/icon-192.png"
+    },
+    {
+      "name": "Mes commandes",
+      "shortName": "Commandes",
+      "url": "/client/orders?source=twa-shortcut",
+      "iconUrl": "https://green-express-iota.vercel.app/icons/icon-192.png"
+    },
+    {
+      "name": "Notifications",
+      "shortName": "Notifs",
+      "url": "/notifications?source=twa-shortcut",
+      "iconUrl": "https://green-express-iota.vercel.app/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://green-express-iota.vercel.app/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": { "enabled": true },
+    "playBilling": { "enabled": false }
+  },
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://green-express-iota.vercel.app/",
+  "minSdkVersion": 21,
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shareTarget": {
+    "action": "/?share-target",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "orientation_lock": "portrait",
+  "fileHandlers": [],
+  "protocolHandlers": [],
+  "additionalTrustedOrigins": []
+}
