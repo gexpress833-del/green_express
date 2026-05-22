@@ -80,16 +80,51 @@ class FcmService
                 'deep_link' => $deepLink,
                 'unread_count' => $badge,
             ], fn($v) => $v !== null),
-            'webpush' => [
+            'android' => [
+                // 'high' : réveille Android même en Doze mode → notif visible écran verrouillé.
+                'priority' => 'high',
                 'notification' => array_filter([
                     'title' => $title,
                     'body' => $body,
-                    'icon' => '/favicon.svg', // Icone par défaut de l'app
+                    'icon' => 'icon-192',
                     'click_action' => $deepLink,
+                    'channel_id' => 'green-express-default',
+                    'default_sound' => true,
+                    'default_vibrate_timings' => true,
+                ]),
+            ],
+            'webpush' => [
+                // 'Urgency: high' demande au push service (FCM/Mozilla) de livrer immédiatement,
+                // sans attendre que le device sorte de veille.
+                'headers' => [
+                    'Urgency' => 'high',
+                    'TTL' => '86400',
+                ],
+                'notification' => array_filter([
+                    'title' => $title,
+                    'body' => $body,
+                    'icon' => '/icons/icon-192.png',
+                    'badge' => '/icons/icon-192.png',
+                    'click_action' => $deepLink,
+                    'tag' => $deepLink ?: 'green-express',
+                    'renotify' => true,
+                    'requireInteraction' => true,
+                    'vibrate' => [200, 100, 200],
                 ]),
                 'fcm_options' => array_filter([
                     'link' => $deepLink,
                 ]),
+            ],
+            'apns' => [
+                'headers' => [
+                    'apns-priority' => '10',
+                ],
+                'payload' => [
+                    'aps' => [
+                        'sound' => 'default',
+                        'mutable-content' => 1,
+                    ],
+                ],
             ],
         ];
 

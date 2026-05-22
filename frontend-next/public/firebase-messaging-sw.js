@@ -19,9 +19,17 @@ messaging.onBackgroundMessage((payload) => {
   console.log("[firebase-messaging-sw.js] Background message received: ", payload);
 
   const notificationTitle = payload.notification?.title || "Green Express";
+  // Tag stable par type (deep_link) pour éviter l'accumulation de doublons identiques :
+  // une nouvelle notif du même tag remplace la précédente.
+  const tag = payload.data?.tag || payload.data?.deep_link || "green-express";
   const notificationOptions = {
     body: payload.notification?.body || "",
-    icon: payload.notification?.icon || "/favicon.svg",
+    icon: payload.notification?.icon || "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    tag,
+    renotify: true,
+    requireInteraction: true,
+    vibrate: [200, 100, 200],
     data: payload.data || {},
   };
 
