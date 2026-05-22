@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Auth\CredentialsAuthenticationService;
+use App\Services\Auth\GoogleAuthService;
 use App\Services\Auth\RegisterClientUserService;
 use App\Services\Auth\RegisterCompanyApplicationService;
 use App\Services\Auth\UserPermissionPresenter;
@@ -23,6 +24,7 @@ class AuthController extends Controller
         private CredentialsAuthenticationService $credentialsAuthentication,
         private RegisterClientUserService $registerClientUser,
         private RegisterCompanyApplicationService $registerCompanyApplication,
+        private GoogleAuthService $googleAuth,
     ) {}
 
     /**
@@ -140,6 +142,25 @@ class AuthController extends Controller
         }
 
         return response()->json(['user' => $this->userPermissionPresenter->toArray($request->user('api'))]);
+    }
+
+    /**
+     * Connexion via Google : id_token vérifié côté serveur, session Sanctum comme login classique.
+     */
+    public function google(Request $request)
+    {
+        $data = $request->validate([
+            'id_token' => 'required|string',
+        ]);
+
+        $user = $this->googleAuth->authenticateFromIdToken($data['id_token']);
+
+        Auth::guard('api')->login($user);
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
+
+        return response()->json(['user' => $this->userPermissionPresenter->toArray($user->fresh())]);
     }
 
     /**

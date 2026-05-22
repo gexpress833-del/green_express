@@ -8,7 +8,9 @@ import { getApiErrorMessage } from '@/lib/api'
 import { isValidEmail, isValidPassword } from '@/lib/helpers'
 import { pushToast } from '@/components/Toaster'
 import PasswordInput from '@/components/PasswordInput'
+import GoogleSignInButton from '@/components/GoogleSignInButton'
 import styles from './register.module.css'
+import loginStyles from '../login/login.module.css'
 
 export default function RegisterPage() {
   const [accountType, setAccountType] = useState('client')
@@ -255,6 +257,10 @@ export default function RegisterPage() {
 
           {accountType === 'client' && (
             <>
+              <GoogleSignInButton disabled={loading} className={loginStyles.googleBtn} />
+              <p className={loginStyles.oauthDivider} role="presentation">
+                <span>ou créer un compte avec e-mail</span>
+              </p>
               <p className={styles.formSectionTitle}>Vos informations</p>
               <div>
                 <label htmlFor="reg-name" className={styles.label}>

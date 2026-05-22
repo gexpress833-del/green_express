@@ -7,6 +7,15 @@ import { apiRequest, getCsrfCookie } from './api';
  * Connexion : csrf puis POST /api/login.
  * @param {string} loginIdentifier — e-mail ou numéro de téléphone (RDC : ex. 08… ou +243…)
  */
+/** Connexion via Google : échange id_token NextAuth → session Sanctum Laravel. */
+export async function linkGoogleAccount(idToken) {
+  await getCsrfCookie();
+  return apiRequest('/api/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ id_token: idToken }),
+  });
+}
+
 export async function login(loginIdentifier, password) {
   await getCsrfCookie();
   const data = await apiRequest('/api/login', {

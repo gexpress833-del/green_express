@@ -56,6 +56,16 @@ services:
         value: "localhost:3000,localhost:3001,greenexpress.onrender.com"
       - key: FRONTEND_URL
         value: https://greenexpress.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://greenexpress.onrender.com"
+      - key: SESSION_SECURE_COOKIE
+        value: true
+      - key: SESSION_SAME_SITE
+        value: lax
+      # Google OAuth — MÊME Client ID que celui utilisé côté front NextAuth
+      # (sert à vérifier l'aud du id_token côté serveur).
+      - key: GOOGLE_CLIENT_ID
+        sync: false
       - key: FILESYSTEM_DISK
         value: local
     healthCheckPath: /api/health

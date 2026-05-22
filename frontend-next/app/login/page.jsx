@@ -4,6 +4,8 @@ import { flushSync } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
+import GoogleSignInButton from '@/components/GoogleSignInButton'
+import { messageForNextAuthError } from '@/lib/nextAuthErrors'
 import styles from './login.module.css'
 
 function EyeIcon({ className }) {
@@ -43,6 +45,7 @@ function LoginForm() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const searchParams = useSearchParams()
+  const returnUrl = searchParams.get('returnUrl') || ''
   const { login: authLogin } = useAuth()
   const passwordInputRef = useRef(null)
   const skipFirstPwFocus = useRef(true)
@@ -50,6 +53,13 @@ function LoginForm() {
   useEffect(() => {
     setLoading(false)
   }, [])
+
+  useEffect(() => {
+    const oauthErr = searchParams.get('error')
+    if (oauthErr) {
+      setError(messageForNextAuthError(oauthErr))
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (skipFirstPwFocus.current) {
@@ -225,6 +235,16 @@ function LoginForm() {
             {loading ? 'Connexion…' : 'Se connecter'}
           </button>
         </form>
+
+        <p className={styles.oauthDivider} role="presentation">
+          <span>ou</span>
+        </p>
+
+        <GoogleSignInButton
+          returnUrl={returnUrl}
+          disabled={loading}
+          className={styles.googleBtn}
+        />
 
         <div className={styles.footer}>
           Pas encore de compte ?{' '}

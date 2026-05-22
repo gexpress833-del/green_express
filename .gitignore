@@ -33,3 +33,5 @@ frontend-next/.env.production.local
 
 # GitHub Actions (ne jamais pousser les workflows)
 .github/workflows/
+
+.vercel
