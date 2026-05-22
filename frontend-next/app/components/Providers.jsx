@@ -14,6 +14,7 @@ const PaymentLiveToaster = lazy(() => import('@/components/PaymentLiveToaster'))
 const NotificationLiveToaster = lazy(() => import('@/components/NotificationLiveToaster'));
 const AppBadgeSync = lazy(() => import('@/components/AppBadgeSync'));
 const BeamsClient = lazy(() => import('@/components/BeamsClient'));
+const FcmBootstrap = lazy(() => import('@/components/FcmBootstrap'));
 
 export default function Providers({ children }) {
   return (
@@ -27,6 +28,7 @@ export default function Providers({ children }) {
           <NotificationLiveToaster />
           <AppBadgeSync />
           <BeamsClient />
+          <FcmBootstrap />
         </Suspense>
         <PWAInstaller />
         <OfflineIndicator />

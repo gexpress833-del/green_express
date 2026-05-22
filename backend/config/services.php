@@ -40,4 +40,12 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
     ],
 
+    'firebase' => [
+        // Si renseigné, contient le JSON brut du Service Account (recommandé en prod / Render)
+        'credentials_json' => env('FIREBASE_CREDENTIALS_JSON'),
+        // Chemin physique vers le fichier JSON (recommandé en dev local)
+        'credentials_path' => env('FIREBASE_CREDENTIALS_PATH', base_path('firebase-credentials.json')),
+        'project_id' => env('FIREBASE_PROJECT_ID', 'greenexpress-push'),
+    ],
+
 ];

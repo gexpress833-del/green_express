@@ -18,6 +18,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\SecretaireController;
 use App\Http\Controllers\CurrencyController;
+use App\Http\Controllers\FcmTokenController;
 
 /*
 |--------------------------------------------------------------------------
@@ -95,6 +96,11 @@ Route::middleware(['auth:api'])->group(function () {
 // GET /api/user et /api/me : publics pour éviter 401 en console (réponse 200 + null si non connecté)
 Route::get('user', [AuthController::class, 'user'])->middleware('throttle:api');
 Route::get('me', [AuthController::class, 'me'])->middleware('throttle:api');
+
+// Enregistrement de token FCM (authentifié ou invité, updateOrCreate gère la liaison)
+Route::post('fcm/token', [FcmTokenController::class, 'store'])->middleware('throttle:api');
+Route::delete('fcm/token', [FcmTokenController::class, 'destroy'])->middleware('throttle:api');
+
 // GET liste notifications : même principe (pas de auth:api) — invité → 200 + compteur 0 (évite 401 / spam console)
 Route::get('notifications', [NotificationController::class, 'index'])->middleware('throttle:api');
 Route::middleware(['auth:api', 'throttle:api'])->group(function () {

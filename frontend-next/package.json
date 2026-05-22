@@ -12,6 +12,7 @@
     "pwa:icons": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
+    "firebase": "^12.13.0",
     "framer-motion": "^12.38.0",
     "next": "15.5.14",
     "next-auth": "^4.24.11",

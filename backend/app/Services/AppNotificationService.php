@@ -15,8 +15,10 @@ use App\Notifications\SubscriptionLifecycleNotification;
 
 class AppNotificationService
 {
-    public function __construct(private BeamsService $beams)
-    {
+    public function __construct(
+        private BeamsService $beams,
+        private FcmService $fcm
+    ) {
     }
 
     public function notifySubscription(Subscription $subscription, string $event, ?string $detail = null): void
@@ -41,6 +43,12 @@ class AppNotificationService
 
         $message = $messages[$event] ?? 'Mise à jour de votre abonnement';
         $this->beams->sendToUser($subscription->user->id, [
+            'title' => 'Abonnement',
+            'body' => $message,
+            'deep_link' => '/client/subscriptions',
+        ]);
+
+        $this->fcm->sendToUser($subscription->user->id, [
             'title' => 'Abonnement',
             'body' => $message,
             'deep_link' => '/client/subscriptions',
@@ -81,15 +89,24 @@ class AppNotificationService
      * Nouvelle demande de devis — admin, secrétariat et tout compte avec admin.event-requests.
      */
     /**
-     * Push Beams + badge icône (app fermée / arrière-plan).
+     * Push Beams + FCM + badge icône (app fermée / arrière-plan).
      */
     public function pushBeamsToUser(User $user, string $title, string $body, string $deepLink): void
     {
+        $badge = $user->unreadNotifications()->count();
+
         $this->beams->sendToUser($user->id, [
             'title' => $title,
             'body' => $body,
             'deep_link' => $deepLink,
-            'badge' => $user->unreadNotifications()->count(),
+            'badge' => $badge,
+        ]);
+
+        $this->fcm->sendToUser($user->id, [
+            'title' => $title,
+            'body' => $body,
+            'deep_link' => $deepLink,
+            'badge' => $badge,
         ]);
     }
 
@@ -109,6 +126,13 @@ class AppNotificationService
                     };
 
                     $this->beams->sendToUser($user->id, [
+                        'title' => 'Nouvelle demande événementielle',
+                        'body' => (string) ($eventRequest->event_type ?? 'Devis'),
+                        'deep_link' => $deepLink,
+                        'badge' => $user->unreadNotifications()->count(),
+                    ]);
+
+                    $this->fcm->sendToUser($user->id, [
                         'title' => 'Nouvelle demande événementielle',
                         'body' => (string) ($eventRequest->event_type ?? 'Devis'),
                         'deep_link' => $deepLink,

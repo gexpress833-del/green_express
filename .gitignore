@@ -35,3 +35,9 @@ frontend-next/.env.production.local
 .github/workflows/
 
 .vercel
+
+# Firebase Admin SDK - JSON ULTRA-sensible, ne JAMAIS committer
+backend/firebase-credentials.json
+backend/firebase-*.json
+firebase-credentials.json
+firebase-adminsdk-*.json
