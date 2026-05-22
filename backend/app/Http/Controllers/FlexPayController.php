@@ -14,6 +14,7 @@ use App\Services\BeamsService;
 use App\Support\ClientPaymentMessage;
 use App\Support\PaymentMessageBuilder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -32,6 +33,16 @@ class FlexPayController extends Controller
         try {
             $rawBody = $request->getContent();
             $secret = config('flexpay.webhook_secret');
+            $isProduction = app()->environment('production');
+
+            // Sécurité : en production, le webhook DOIT être signé. Sans secret configuré,
+            // n'importe qui pourrait simuler un paiement réussi via POST sur cette URL publique.
+            if ($isProduction && empty($secret)) {
+                Log::error('FlexPay Callback: aucun webhook secret configuré en production — requête refusée.');
+
+                return response()->json(['message' => 'Webhook not configured'], 503);
+            }
+
             if (! empty($secret)) {
                 $signature = $request->header('X-FlexPay-Signature')
                     ?? $request->header('X-Webhook-Signature')
@@ -42,6 +53,17 @@ class FlexPayController extends Controller
                     return response()->json(['message' => 'Invalid signature'], 403);
                 }
             }
+
+            // Idempotence : même payload reçu 2× (replay réseau ou retry FlexPay)
+            // → on répond 200 sans rejouer la logique métier ni les notifications.
+            $idempotencyKey = 'flexpay:webhook:' . hash('sha256', $rawBody);
+            if (Cache::has($idempotencyKey)) {
+                Log::info('FlexPay Callback: payload déjà traité (idempotence)', ['key' => $idempotencyKey]);
+
+                return response()->json(['message' => 'OK', 'duplicate' => true], 200);
+            }
+            // TTL 24h : suffisant pour absorber les retries FlexPay sans grossir le cache.
+            Cache::put($idempotencyKey, true, now()->addDay());
 
             $payload = json_decode($rawBody, true);
             if (! is_array($payload)) {
@@ -165,7 +187,15 @@ class FlexPayController extends Controller
                     if ($payment->subscription_id) {
                         $sub = Subscription::query()->lockForUpdate()->find($payment->subscription_id);
                         if ($sub && $sub->isPending()) {
-                            $sub->delete();
+                            // Important : on NE supprime PAS la subscription pour garder une trace côté client.
+                            // Elle est marquée 'cancelled' avec une raison ; le client peut réessayer en créant
+                            // une nouvelle demande depuis l'historique.
+                            $sub->update([
+                                'status' => Subscription::STATUS_CANCELLED,
+                                'rejected_reason' => ClientPaymentMessage::sanitize((string) ($parsed['message'] ?? ''))
+                                    ?: 'Paiement Mobile Money refusé. Réessayez ou contactez le support.',
+                            ]);
+                            $this->notifications->notifySubscription($sub->fresh(), 'rejected', $sub->fresh()->rejected_reason);
                         }
                     }
 

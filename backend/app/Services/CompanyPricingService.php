@@ -201,9 +201,18 @@ class CompanyPricingService
             throw new \InvalidArgumentException("Seuls les abonnements expirés peuvent être renouvelés");
         }
 
+        // On reprend le agent_count effectif de l'ancien abonnement (source de vérité de la facturation).
+        // Si l'entreprise a changé de taille, l'admin peut ajuster ensuite via une nouvelle souscription.
+        $agentCount = (int) ($oldSubscription->agent_count ?: $company->employee_count ?: 0);
+        if ($agentCount < 1) {
+            throw new \InvalidArgumentException(
+                "Nombre d'agents introuvable pour le renouvellement (agent_count=0). Vérifiez la fiche entreprise."
+            );
+        }
+
         $newSubscription = $this->createSubscription(
             $company,
-            $company->employee_count,
+            $agentCount,
             $currency,
             now(),
             now()->addMonth()
@@ -216,7 +225,7 @@ class CompanyPricingService
             $newSubscription,
             'renewed',
             $oldSubscription->agent_count,
-            $company->employee_count,
+            $newSubscription->agent_count,
             $oldSubscription->total_monthly_price,
             $newSubscription->total_monthly_price,
             "Renouvelé depuis l'abonnement {$oldSubscription->id}"
