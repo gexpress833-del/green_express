@@ -49,6 +49,8 @@ Route::post('register', [AuthController::class, 'register'])->middleware('thrott
 Route::post('register-company', [AuthController::class, 'registerCompany'])->middleware('throttle:api');
 Route::post('login', [AuthController::class, 'login'])->middleware('throttle:api')->name('login');
 Route::post('auth/google', [AuthController::class, 'google'])->middleware('throttle:api');
+Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
+Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 // GET /api/login : évite MethodNotAllowed quand on ouvre l'URL dans le navigateur
 Route::get('login', function () {
     return response()->json([

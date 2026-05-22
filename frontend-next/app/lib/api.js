@@ -203,7 +203,16 @@ export async function apiRequest(path, options = {}) {
       !path.includes('/api/notifications/broadcast');
     const skipSessionExpired =
       Boolean(_skipFlag) || isNotificationsNonBroadcast;
-    if (!isLoginOrRegister && typeof window !== 'undefined' && !skipSessionExpired) {
+    const hasCachedUser =
+      typeof window !== 'undefined' &&
+      (() => {
+        try {
+          return Boolean(window.localStorage.getItem('green_express_session_user'));
+        } catch {
+          return false;
+        }
+      })();
+    if (!isLoginOrRegister && typeof window !== 'undefined' && !skipSessionExpired && !hasCachedUser) {
       const returnUrl = encodeURIComponent(window.location.pathname || '/');
       window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { returnUrl } }));
     }

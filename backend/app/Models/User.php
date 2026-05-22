@@ -144,6 +144,14 @@ class User extends Authenticatable implements HasMedia
         return $this->hasMany(FcmToken::class);
     }
 
+    /**
+     * Envoie la notification de réinitialisation avec un lien vers le frontend.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('avatar')->singleFile();

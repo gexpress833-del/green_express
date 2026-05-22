@@ -150,16 +150,15 @@ function LoginForm() {
 
       <div className={styles.layout}>
         <aside className={styles.sidePanel} aria-hidden>
-          <h2>Bienvenue chez Green Express</h2>
+          <h2>Bienvenue sur Green Express</h2>
           <p>
-            Commandez vos repas préférés, suivez vos livraisons en temps réel et gérez
-            votre abonnement, le tout depuis un espace pensé pour vous.
+            Commandez, suivez vos livraisons et gérez votre abonnement en toute simplicité.
           </p>
           <ul className={styles.sideFeatures}>
-            <li><span className={styles.featIcon}>🍽️</span> Menus du jour préparés avec soin</li>
-            <li><span className={styles.featIcon}>🚀</span> Livraison rapide à Kolwezi</li>
-            <li><span className={styles.featIcon}>💳</span> Paiement Mobile Money sécurisé</li>
-            <li><span className={styles.featIcon}>🔔</span> Notifications en temps réel</li>
+            <li><span className={styles.featIcon}>🍽</span> Menus frais du jour</li>
+            <li><span className={styles.featIcon}>⚡</span> Livraison rapide</li>
+            <li><span className={styles.featIcon}>📱</span> Paiement Mobile Money</li>
+            <li><span className={styles.featIcon}>🔔</span> Notifications temps réel</li>
           </ul>
         </aside>
 
@@ -173,7 +172,7 @@ function LoginForm() {
             <span className={styles.titleGradient}>Green Express</span>
           </h1>
           <p className={styles.subtitle}>
-            Bon retour ! Connectez-vous avec votre e-mail ou votre numéro de mobile.
+            Connectez-vous avec votre e-mail ou numéro.
           </p>
         </div>
 
@@ -199,7 +198,7 @@ function LoginForm() {
               required
               className={styles.input}
             />
-            <p className={styles.hint}>Formats acceptés : adresse e-mail, 08… / 09… / +243…</p>
+            <p className={`${styles.hint} ${styles.mobileHidden}`}>Formats : e-mail, 08… / 09… / +243…</p>
           </div>
 
           <div className={styles.passwordField}>

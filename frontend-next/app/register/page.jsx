@@ -171,22 +171,10 @@ export default function RegisterPage() {
         <div style={{ textAlign: 'center' }}>
           <p className={styles.badge}>Inscription</p>
           <h1 className={styles.titleGradient}>Green Express</h1>
-          <p className={styles.subtitle}>Créez votre compte en moins d&apos;une minute.</p>
+          <p className={styles.subtitle}>Créez votre compte en quelques instants.</p>
         </div>
 
-        <h2 className={styles.introHeading}>Comment souhaitez-vous utiliser Green Express ?</h2>
-        <div className={styles.introHelp}>
-          <ul className={styles.introHelpList}>
-            <li>
-              <span className={styles.introHelpClient}>Client</span>
-              <span>pour commander vos repas et gérer vos abonnements.</span>
-            </li>
-            <li>
-              <span className={styles.introHelpEntreprise}>Entreprise</span>
-              <span>pour gérer une équipe, le budget et les repas en volume.</span>
-            </li>
-          </ul>
-        </div>
+        <div className={styles.introHelp} style={{ display: 'none' }} />
 
         {error && (
           <div className={styles.alert} role="alert">
@@ -216,7 +204,7 @@ export default function RegisterPage() {
 
         <form onSubmit={submit} className={`${styles.form} ${formTheme}`} noValidate>
           <div>
-            <span className={styles.sectionLabel}>Choisir un parcours</span>
+            <span className={styles.sectionLabel}>Type de compte</span>
             <div className={styles.accountGrid}>
               <button
                 type="button"
@@ -228,9 +216,9 @@ export default function RegisterPage() {
                   <span className={styles.accountRadioDot} />
                 </span>
                 <span className={styles.accountBody}>
-                  <span className={styles.accountTitle}>👤 Utiliser pour mes repas</span>
+                  <span className={styles.accountTitle}>👤 Client</span>
                   <span className={styles.accountDesc}>
-                    Commander des repas, s&apos;abonner et payer facilement.
+                    Commandez et abonnez-vous.
                   </span>
                 </span>
               </button>
@@ -244,9 +232,9 @@ export default function RegisterPage() {
                   <span className={styles.accountRadioDot} />
                 </span>
                 <span className={styles.accountBody}>
-                  <span className={styles.accountTitle}>🏢 Gérer une équipe / entreprise</span>
+                  <span className={styles.accountTitle}>🏢 Entreprise</span>
                   <span className={styles.accountDesc}>
-                    Ajouter des employés, gérer le budget et suivre les repas.
+                    Gérez votre équipe et commandes en volume.
                   </span>
                 </span>
               </button>
@@ -259,9 +247,8 @@ export default function RegisterPage() {
             <>
               <GoogleSignInButton disabled={loading} className={loginStyles.googleBtn} />
               <p className={loginStyles.oauthDivider} role="presentation">
-                <span>ou créer un compte avec e-mail</span>
+                <span>ou</span>
               </p>
-              <p className={styles.formSectionTitle}>Vos informations</p>
               <div>
                 <label htmlFor="reg-name" className={styles.label}>
                   Nom complet
@@ -306,8 +293,8 @@ export default function RegisterPage() {
                   required
                   className={styles.fieldInput}
                 />
-                <p className={styles.hint}>
-                  Format RDC : 08… ou +243… (sert aussi pour la connexion).
+                <p className={`${styles.hint} ${styles.mobileHidden}`}>
+                  Format : 08… ou +243…
                 </p>
               </div>
               <div>
@@ -323,7 +310,7 @@ export default function RegisterPage() {
                   required
                   className={styles.fieldInput}
                 />
-                <p className={styles.hint}>Choisissez 8 caractères minimum, idéalement avec chiffres et lettres.</p>
+                <p className={`${styles.hint} ${styles.mobileHidden}`}>Min. 8 caractères.</p>
               </div>
               <div>
                 <label htmlFor="reg-password2-client" className={styles.label}>
@@ -446,10 +433,9 @@ export default function RegisterPage() {
               </div>
 
               <div className={styles.detailsBlock}>
-                <p className={styles.detailsBlockTitle}>Détails pour la demande B2B</p>
+                <p className={styles.detailsBlockTitle}>Détails B2B</p>
                 <p className={styles.detailsBlockLead}>
-                  Ces informations sont nécessaires pour valider votre structure auprès de nos équipes (même parcours
-                  qu&apos;avant côté serveur).
+                  Informations pour valider votre structure.
                 </p>
 
                 <div className={styles.row2}>
@@ -483,7 +469,7 @@ export default function RegisterPage() {
                       onChange={(e) => setEmployeeCount(e.target.value)}
                       className={styles.fieldInput}
                     />
-                    <p className={styles.hint}>Si vide, nous enregistrons 1 ligne (modifiable ensuite avec l&apos;admin).</p>
+                    <p className={`${styles.hint} ${styles.mobileHidden}`}>1 par défaut si vide.</p>
                   </div>
                 </div>
 
@@ -571,12 +557,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <p className={styles.trustLine}>⚡ Inscription rapide — moins d&apos;une minute pour commencer.</p>
-          {accountType === 'entreprise' && (
-            <p className={`${styles.trustLine} ${styles.trustLineEntreprise}`}>
-              ✔ Idéal pour les entreprises avec plusieurs employés et la commande en volume.
-            </p>
-          )}
+          <p className={`${styles.trustLine} ${styles.mobileHidden}`}>⚡ Inscription rapide.</p>
 
           <button type="submit" disabled={loading} className={submitClass}>
             {loading

@@ -536,3 +536,10 @@
   line-height: 1.5;
   color: #fecaca;
 }
+
+/* Hide on mobile to reduce clutter */
+@media (max-width: 639px) {
+  .mobileHidden {
+    display: none;
+  }
+}

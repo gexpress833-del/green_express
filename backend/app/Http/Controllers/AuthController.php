@@ -9,7 +9,10 @@ use App\Services\Auth\RegisterCompanyApplicationService;
 use App\Services\Auth\UserPermissionPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -193,5 +196,55 @@ class AuthController extends Controller
         }
 
         return response()->json(['message' => 'Logged out']);
+    }
+
+    /**
+     * Envoie un lien de réinitialisation de mot de passe par e-mail.
+     */
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $status = Password::sendResetLink(
+            $request->only('email')
+        );
+
+        // On retourne toujours 200 pour ne pas révéler l'existence d'un compte
+        return response()->json([
+            'message' => 'Si un compte existe pour cet e-mail, un lien de réinitialisation a été envoyé.',
+        ]);
+    }
+
+    /**
+     * Réinitialise le mot de passe avec le token reçu par e-mail.
+     */
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'token' => 'required|string',
+            'email' => 'required|email',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, string $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'remember_token' => Str::random(60),
+                ])->save();
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            return response()->json(['message' => 'Mot de passe réinitialisé avec succès.']);
+        }
+
+        return response()->json([
+            'message' => 'Impossible de réinitialiser le mot de passe.',
+            'errors' => ['email' => [__($status)]],
+        ], 422);
     }
 }

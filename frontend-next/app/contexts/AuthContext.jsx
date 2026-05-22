@@ -9,6 +9,7 @@ const AuthContext = createContext(null);
 
 /** Délai en ms pendant lequel on ignore "session expirée" après un login réussi (évite logout par une requête qui 401 juste après). */
 const GRACE_AFTER_LOGIN_MS = 4000;
+const AUTH_CACHE_KEY = 'green_express_session_user';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -22,6 +23,18 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     setIsClient(true);
+    try {
+      const cached = window.sessionStorage.getItem(AUTH_CACHE_KEY) || window.localStorage.getItem(AUTH_CACHE_KEY);
+      if (cached) {
+        const parsed = normalizeSessionUser(JSON.parse(cached));
+        if (parsed) {
+          setUser(parsed);
+          setInitialised(true);
+          setLoading(false);
+          sessionResolvedRef.current = true;
+        }
+      }
+    } catch {}
   }, []);
 
   const refreshUser = useCallback(async () => {
@@ -34,14 +47,24 @@ export function AuthProvider({ children }) {
         const nextUser =
           data === undefined || data === null ? null : normalizeSessionUser(data);
         setUser(nextUser);
+        try {
+          if (nextUser) {
+            window.localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(nextUser));
+          } else {
+            window.localStorage.removeItem(AUTH_CACHE_KEY);
+          }
+        } catch {}
         setInitialised(true);
         setLoading(false);
         sessionResolvedRef.current = true;
         return nextUser;
       } catch (err) {
         const status = err?.status;
-        if (status === 401) {
+        if (status === 401 && !user) {
           setUser(null);
+          try {
+            window.localStorage.removeItem(AUTH_CACHE_KEY);
+          } catch {}
           setInitialised(true);
           setLoading(false);
           sessionResolvedRef.current = true;
@@ -75,6 +98,17 @@ export function AuthProvider({ children }) {
     if (typeof window === 'undefined') return;
     const onSessionExpired = async () => {
       if (Date.now() - lastLoginAtRef.current < GRACE_AFTER_LOGIN_MS) return;
+      const hasCachedUser = (() => {
+        try {
+          return Boolean(window.localStorage.getItem(AUTH_CACHE_KEY));
+        } catch {
+          return false;
+        }
+      })();
+      if (hasCachedUser) {
+        setLoading(false);
+        return;
+      }
       setUser(null);
       setInitialised(true);
       setLoading(false);
@@ -94,6 +128,9 @@ export function AuthProvider({ children }) {
       const normalized = normalizeSessionUser(data.user);
       lastLoginAtRef.current = Date.now();
       setUser(normalized);
+      try {
+        window.localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(normalized));
+      } catch {}
       setInitialised(true);
       setLoading(false);
       sessionResolvedRef.current = true;
@@ -116,6 +153,10 @@ export function AuthProvider({ children }) {
       await authLib.logout();
     } catch {}
     setUser(null);
+    try {
+      window.localStorage.removeItem(AUTH_CACHE_KEY);
+      window.sessionStorage.removeItem(AUTH_CACHE_KEY);
+    } catch {}
     setInitialised(true);
     setLoading(false);
     sessionResolvedRef.current = true;

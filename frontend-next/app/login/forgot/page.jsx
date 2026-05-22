@@ -2,21 +2,33 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { apiRequest, getCsrfCookie } from '@/lib/api'
 import styles from '../login.module.css'
 
-/**
- * Réinitialisation de mot de passe — placeholder.
- * Tant que le flux email/SMS de reset n'est pas branché côté backend,
- * on affiche un message clair et un canal de contact.
- */
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault()
-    // TODO: brancher POST /api/auth/forgot-password quand l'endpoint sera prêt
-    setSent(true)
+    if (!email.trim()) return
+    setError('')
+    setLoading(true)
+    try {
+      await getCsrfCookie()
+      await apiRequest('/api/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email: email.trim() }),
+      })
+      setSent(true)
+    } catch (err) {
+      // On affiche quand même "envoyé" pour ne pas révéler si le compte existe
+      setSent(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -50,7 +62,7 @@ export default function ForgotPasswordPage() {
             <div>
               <label htmlFor="forgot-email" className={styles.label}>E-mail</label>
               <input
-                id="forgot-email"
+                id="login-identifier"
                 type="email"
                 autoComplete="email"
                 placeholder="vous@exemple.com"
@@ -60,8 +72,8 @@ export default function ForgotPasswordPage() {
                 className={styles.input}
               />
             </div>
-            <button type="submit" className={styles.submit}>
-              Envoyer le lien
+            <button type="submit" disabled={loading} className={styles.submit}>
+              {loading ? 'Envoi…' : 'Envoyer le lien'}
             </button>
           </form>
         )}
