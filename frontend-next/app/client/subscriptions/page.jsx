@@ -17,7 +17,6 @@ import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc
 
 const PAYMENT_POLL_INTERVAL_MS = 3000
 const PAYMENT_POLL_MAX_ATTEMPTS = 60
-const PAYMENT_PENDING_FALLBACK_MS = 15000
 const PAYMENT_STATUS_REQUEST_TIMEOUT_MS = 7000
 
 function getDefaultProvider(country) {
@@ -237,16 +236,6 @@ export default function ClientSubscriptions() {
         /* erreurs réseau ignorées pendant le polling */
       } finally {
         clearTimeout(statusTimeoutId)
-      }
-
-      const elapsedMs = Date.now() - (pollRef.current.startedAt || Date.now())
-      if (elapsedMs >= PAYMENT_PENDING_FALLBACK_MS) {
-        setPolling(false)
-        setPaymentState({
-          status: 'timeout',
-          message: 'Nous n\'avons pas encore reçu la confirmation de votre opérateur Mobile Money. Acceptez la demande sur votre téléphone, puis actualisez le statut. Si le paiement échoue, vous pourrez annuler la demande et réessayer.',
-        })
-        return
       }
 
       if (pollRef.current.attempts >= PAYMENT_POLL_MAX_ATTEMPTS) {
@@ -525,6 +514,19 @@ export default function ClientSubscriptions() {
               <div className="mb-4 p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/40">
                 <p className="text-cyan-200 font-medium">Paiement en cours…</p>
                 <p className="text-cyan-100/80 text-sm mt-1">{paymentState.message}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (paySubscription?.id) {
+                      pollRef.current.attempts = 0
+                      startPollingSubscriptionStatus(paySubscription.id)
+                    }
+                  }}
+                  disabled={polling}
+                  className="mt-3 block text-sm text-cyan-200 hover:text-white underline underline-offset-2 disabled:opacity-50"
+                >
+                  J&apos;ai confirmé sur mon téléphone — vérifier maintenant
+                </button>
                 <button
                   type="button"
                   onClick={() => {

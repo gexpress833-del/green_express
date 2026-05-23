@@ -14,6 +14,8 @@ use App\Support\ClientPaymentMessage;
 use App\Services\FlexPayService;
 use App\Services\DeliveryService;
 use App\Services\NotificationOrchestratorService;
+use App\Services\Subscriptions\CompanySubscriptionPaymentCompletionService;
+use App\Services\Subscriptions\FlexPaySubscriptionPendingSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -33,7 +35,9 @@ class CompanySubscriptionController extends Controller
     public function __construct(
         CompanyPricingService $pricingService,
         DeliveryService $deliveryService,
-        NotificationOrchestratorService $notifications
+        NotificationOrchestratorService $notifications,
+        private FlexPaySubscriptionPendingSyncService $flexPayPendingSync,
+        private CompanySubscriptionPaymentCompletionService $companyPaymentCompletion,
     ) {
         $this->pricingService = $pricingService;
         $this->deliveryService = $deliveryService;
@@ -242,58 +246,21 @@ class CompanySubscriptionController extends Controller
             return response()->json(['success' => false, 'message' => 'Abonnement introuvable.'], 404);
         }
 
+        $this->flexPayPendingSync->trySyncCompanySubscriptionPayment($subscription, forClientPolling: true);
+        $subscription->refresh();
+
         $payment = Payment::where('company_subscription_id', $subscription->id)
             ->orderByDesc('id')
             ->first();
 
         if (
             $payment
-            && $payment->status === 'pending'
-            && $payment->provider_payment_id
-            && $payment->updated_at
-            && $payment->updated_at->lt(now()->subSeconds(15))
+            && $payment->status === 'completed'
+            && (string) ($subscription->payment_status ?? '') !== 'paid'
+            && $subscription->status === 'pending'
         ) {
-            try {
-                $flexPay = app(FlexPayService::class);
-                $check = $flexPay->checkTransaction((string) $payment->provider_payment_id);
-                if (is_array($check)) {
-                    if ($check['paid'] ?? false) {
-                        $payment->update([
-                            'status' => 'completed',
-                            'failure_reason' => null,
-                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
-                        ]);
-                        if ($subscription->payment_status !== 'paid') {
-                            $subscription->update(['payment_status' => 'paid']);
-                            $this->notifications->notifyCompanySubscriptionPaymentConfirmed($subscription->fresh());
-                        }
-                        $payment->refresh();
-                        $subscription->refresh();
-                    } elseif ($check['failed'] ?? false) {
-                        $payment->update([
-                            'status' => 'failed',
-                            'failure_reason' => $payment->failure_reason ?: 'Échec du paiement par carte',
-                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
-                        ]);
-                        if ($subscription->payment_status !== 'paid') {
-                            $subscription->update(['payment_status' => 'failed']);
-                            $this->notifications->notifyCompanySubscriptionPaymentFailed(
-                                $subscription->fresh(),
-                                ClientPaymentMessage::sanitize((string) ($payment->fresh()->failure_reason ?? '')) ?: 'Échec du paiement par carte'
-                            );
-                        }
-                        $payment->refresh();
-                        $subscription->refresh();
-                    } else {
-                        $payment->touch();
-                    }
-                }
-            } catch (\Throwable $e) {
-                Log::warning('FlexPay active check failed for company subscription', [
-                    'company_subscription_id' => $subscription->id,
-                    'msg' => $e->getMessage(),
-                ]);
-            }
+            $this->companyPaymentCompletion->completeAfterPayment($subscription);
+            $subscription->refresh();
         }
 
         $paymentStatus = $payment?->status ?? 'none';
@@ -301,6 +268,11 @@ class CompanySubscriptionController extends Controller
         $subPaymentStatus = (string) ($subscription->payment_status ?? 'pending');
 
         if ($subPaymentStatus === 'paid' || $paymentStatus === 'completed') {
+            if ($paymentStatus === 'completed' && $subPaymentStatus !== 'paid' && $subscription->status === 'pending') {
+                $this->companyPaymentCompletion->completeAfterPayment($subscription);
+                $subscription->refresh();
+                $subPaymentStatus = (string) ($subscription->payment_status ?? 'pending');
+            }
             $consolidated = 'completed';
             $message = 'Paiement confirmé. L\'administrateur peut maintenant activer l\'abonnement.';
         } elseif ($paymentStatus === 'failed' || $subPaymentStatus === 'failed') {

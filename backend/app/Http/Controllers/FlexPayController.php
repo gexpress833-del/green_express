@@ -9,7 +9,9 @@ use App\Models\Payment;
 use App\Models\Subscription;
 use App\Services\FlexPayService;
 use App\Services\NotificationOrchestratorService;
-use App\Services\OrderNotificationService;
+use App\Services\Orders\OrderPaymentCompletionService;
+use App\Services\Subscriptions\CompanySubscriptionPaymentCompletionService;
+use App\Services\Subscriptions\SubscriptionPaymentCompletionService;
 use App\Services\BeamsService;
 use App\Support\ClientPaymentMessage;
 use App\Support\PaymentMessageBuilder;
@@ -17,13 +19,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-
 class FlexPayController extends Controller
 {
     public function __construct(
         protected FlexPayService $flexPayService,
-        protected OrderNotificationService $orderNotifications,
+        protected OrderPaymentCompletionService $orderPaymentCompletion,
+        protected SubscriptionPaymentCompletionService $subscriptionPaymentCompletion,
+        protected CompanySubscriptionPaymentCompletionService $companyPaymentCompletion,
         protected NotificationOrchestratorService $notifications,
         protected BeamsService $beams
     ) {}
@@ -126,36 +128,22 @@ class FlexPayController extends Controller
 
                     if ($payment->order_id) {
                         $order = Order::query()->lockForUpdate()->find($payment->order_id);
-                        if ($order && $order->status === 'pending_payment') {
-                            $oldStatus = (string) $order->status;
-                            $deliveryCode = $order->delivery_code;
-                            if (! $deliveryCode) {
-                                $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                                while (Order::where('delivery_code', $deliveryCode)->exists()) {
-                                    $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                                }
-                            }
-                            $order->update([
-                                'status' => 'paid',
-                                'delivery_code' => $deliveryCode,
-                            ]);
-                            $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
+                        if ($order) {
+                            $this->orderPaymentCompletion->completeOrderAfterPayment($order);
                         }
                     }
 
                     if ($payment->subscription_id) {
                         $sub = Subscription::query()->lockForUpdate()->find($payment->subscription_id);
-                        if ($sub && $sub->isPending()) {
-                            Subscription::applyPaymentConfirmedScheduling($sub, now());
-                            $this->notifications->notifyClientAndAdminsAfterSubscriptionPayment($sub->fresh());
+                        if ($sub) {
+                            $this->subscriptionPaymentCompletion->completeAfterPayment($sub);
                         }
                     }
 
                     if ($payment->company_subscription_id) {
                         $companySub = CompanySubscription::query()->lockForUpdate()->find($payment->company_subscription_id);
-                        if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
-                            $companySub->update(['payment_status' => 'paid']);
-                            $this->notifications->notifyCompanySubscriptionPaymentConfirmed($companySub->fresh());
+                        if ($companySub) {
+                            $this->companyPaymentCompletion->completeAfterPayment($companySub);
                         }
                     }
 
@@ -175,10 +163,9 @@ class FlexPayController extends Controller
 
                     if ($payment->company_subscription_id) {
                         $companySub = CompanySubscription::query()->lockForUpdate()->find($payment->company_subscription_id);
-                        if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
-                            $companySub->update(['payment_status' => 'failed']);
-                            $this->notifications->notifyCompanySubscriptionPaymentFailed(
-                                $companySub->fresh(),
+                        if ($companySub) {
+                            $this->companyPaymentCompletion->markFailed(
+                                $companySub,
                                 ClientPaymentMessage::sanitize((string) ($parsed['message'] ?? '')) ?: ($payment->failure_reason ?: 'Échec du paiement')
                             );
                         }

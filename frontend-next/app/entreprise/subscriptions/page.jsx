@@ -12,7 +12,6 @@ import { pushRealtimePing } from '@/lib/realtimePing'
 
 const PAYMENT_POLL_INTERVAL_MS = 3000
 const PAYMENT_POLL_MAX_ATTEMPTS = 60
-const PAYMENT_PENDING_FALLBACK_MS = 15000
 const PAYMENT_STATUS_REQUEST_TIMEOUT_MS = 7000
 
 const STATUS_LABELS = {
@@ -300,21 +299,11 @@ export default function EntrepriseSubscriptionsPage() {
         clearTimeout(statusTimeoutId)
       }
 
-      const elapsedMs = Date.now() - (pollRef.current.startedAt || Date.now())
-      if (elapsedMs >= PAYMENT_PENDING_FALLBACK_MS) {
-        setPollingSubId(null)
-        setSubPaymentState(subId, {
-          status: 'timeout',
-          message: 'Nous n\'avons pas encore reçu la confirmation de l\'opérateur Mobile Money. Acceptez la demande sur le téléphone, puis actualisez le statut. Si le paiement échoue, la demande pourra être annulée et relancée.',
-        })
-        return
-      }
-
       if (pollRef.current.attempts >= PAYMENT_POLL_MAX_ATTEMPTS) {
         setPollingSubId(null)
         setSubPaymentState(subId, {
           status: 'timeout',
-          message: 'Pas de confirmation reçue après 3 minutes. Vérifiez votre paiement puis réessayez. Si le problème persiste, annulez la demande d\'abonnement.',
+          message: 'Pas de confirmation reçue après 3 minutes. Vérifiez que le paiement par carte est bien validé, puis réessayez. Si le problème persiste, annulez la demande d\'abonnement.',
         })
         return
       }

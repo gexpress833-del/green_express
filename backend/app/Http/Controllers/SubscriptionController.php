@@ -10,6 +10,8 @@ use App\Support\ClientPaymentMessage;
 use App\Services\FlexPayService;
 use App\Services\NotificationOrchestratorService;
 use App\Services\PhoneRDCService;
+use App\Services\Subscriptions\FlexPaySubscriptionPendingSyncService;
+use App\Services\Subscriptions\SubscriptionPaymentCompletionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -18,9 +20,11 @@ class SubscriptionController extends Controller
 {
     use AdminRequiresPermission;
 
-    public function __construct(private NotificationOrchestratorService $notifications)
-    {
-    }
+    public function __construct(
+        private NotificationOrchestratorService $notifications,
+        private FlexPaySubscriptionPendingSyncService $flexPayPendingSync,
+        private SubscriptionPaymentCompletionService $subscriptionPaymentCompletion,
+    ) {}
 
     /**
      * Liste des abonnements (admin: tous avec user + plan, client: les siens).
@@ -175,14 +179,26 @@ class SubscriptionController extends Controller
                 'raw_response' => $flexResponse,
             ]);
 
+            $paymentStatus = strtolower((string) ($flexResponse['status'] ?? 'pending'));
+            if ($paymentStatus === 'completed') {
+                $payment->update(['status' => 'completed']);
+                $this->subscriptionPaymentCompletion->completeAfterPayment($subscription);
+            }
+
+            $subscription->refresh();
+            $payment->refresh();
+            $paymentCompleted = in_array((string) $subscription->status, [Subscription::STATUS_SCHEDULED, Subscription::STATUS_ACTIVE], true);
+
             return response()->json([
                 'subscription' => $subscription->fresh()->load('subscriptionPlan'),
                 'payment' => $payment,
                 'flexpay_transaction' => $flexResponse,
                 'amount_to_debit' => $resolved['amount'],
                 'currency_to_debit' => $resolved['currency'],
-                'message' => 'Paiement initié. En attente de confirmation sur votre mobile.',
-                'payment_completed' => false,
+                'message' => $paymentCompleted
+                    ? $this->subscriptionPaidMessage($subscription)
+                    : 'Paiement initié. En attente de confirmation sur votre mobile.',
+                'payment_completed' => $paymentCompleted,
                 'operator' => $operator,
                 'operator_label' => PhoneRDCService::operatorLabel($operator),
                 'phone_formatted' => $phoneNormalized,
@@ -442,56 +458,29 @@ class SubscriptionController extends Controller
             return response()->json(['message' => 'Non autorisé.'], 403);
         }
 
+        $this->flexPayPendingSync->trySyncSubscriptionPayment($subscription, forClientPolling: true);
+        $subscription->refresh();
+
         $payment = Payment::where('subscription_id', $subscription->id)
             ->orderByDesc('id')
             ->first();
 
-        if (
-            $payment
-            && $payment->status === 'pending'
-            && $payment->provider_payment_id
-            && $payment->updated_at
-            && $payment->updated_at->lt(now()->subSeconds(15))
-        ) {
-            try {
-                $flexPay = app(FlexPayService::class);
-                $check = $flexPay->checkTransaction((string) $payment->provider_payment_id);
-                if (is_array($check)) {
-                    if ($check['paid'] ?? false) {
-                        $payment->update([
-                            'status' => 'completed',
-                            'failure_reason' => null,
-                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
-                        ]);
-                        if ($subscription->isPending()) {
-                            Subscription::applyPaymentConfirmedScheduling($subscription, now());
-                            $this->notifications->notifyClientAndAdminsAfterSubscriptionPayment($subscription->fresh());
-                        }
-                        $payment->refresh();
-                        $subscription->refresh();
-                    } elseif ($check['failed'] ?? false) {
-                        $payment->update([
-                            'status' => 'failed',
-                            'failure_reason' => $payment->failure_reason ?: 'Échec du paiement Mobile Money',
-                            'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
-                        ]);
-                        $payment->refresh();
-                    } else {
-                        $payment->touch();
-                    }
-                }
-            } catch (\Throwable $e) {
-                Log::warning('FlexPay active check failed for subscription', [
-                    'subscription_id' => $subscription->id,
-                    'msg' => $e->getMessage(),
-                ]);
-            }
+        if ($payment && $payment->status === 'completed' && $subscription->isPending()) {
+            $this->subscriptionPaymentCompletion->completeAfterPayment($subscription);
+            $subscription->refresh();
         }
 
         $paymentStatus = $payment?->status ?? 'none';
         $subscriptionStatus = (string) $subscription->status;
 
         if (in_array($subscriptionStatus, [Subscription::STATUS_SCHEDULED, Subscription::STATUS_ACTIVE], true)) {
+            $consolidated = 'completed';
+            $message = $this->subscriptionPaidMessage($subscription);
+        } elseif ($paymentStatus === 'completed') {
+            if ($subscription->isPending()) {
+                $this->subscriptionPaymentCompletion->completeAfterPayment($subscription);
+                $subscription->refresh();
+            }
             $consolidated = 'completed';
             $message = $this->subscriptionPaidMessage($subscription);
         } elseif ($paymentStatus === 'failed') {

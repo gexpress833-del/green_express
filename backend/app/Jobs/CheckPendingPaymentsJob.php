@@ -9,7 +9,9 @@ use App\Models\Payment;
 use App\Models\Subscription;
 use App\Services\FlexPayService;
 use App\Services\NotificationOrchestratorService;
-use App\Services\OrderNotificationService;
+use App\Services\Orders\OrderPaymentCompletionService;
+use App\Services\Subscriptions\CompanySubscriptionPaymentCompletionService;
+use App\Services\Subscriptions\SubscriptionPaymentCompletionService;
 use App\Services\BeamsService;
 use App\Support\PaymentMessageBuilder;
 use Illuminate\Bus\Queueable;
@@ -17,7 +19,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Str;
 
 class CheckPendingPaymentsJob implements ShouldQueue
 {
@@ -29,7 +30,9 @@ class CheckPendingPaymentsJob implements ShouldQueue
 
     public function handle(
         FlexPayService $flexPayService,
-        OrderNotificationService $orderNotifications,
+        OrderPaymentCompletionService $orderPaymentCompletion,
+        SubscriptionPaymentCompletionService $subscriptionPaymentCompletion,
+        CompanySubscriptionPaymentCompletionService $companyPaymentCompletion,
         NotificationOrchestratorService $notifications,
         BeamsService $beams
     ): void
@@ -53,14 +56,24 @@ class CheckPendingPaymentsJob implements ShouldQueue
                 'retry_count' => $payment->retry_count + 1,
             ]);
 
-            $this->pollFlexPay($payment, $flexPayService, $orderNotifications, $notifications, $beams);
+            $this->pollFlexPay(
+                $payment,
+                $flexPayService,
+                $orderPaymentCompletion,
+                $subscriptionPaymentCompletion,
+                $companyPaymentCompletion,
+                $notifications,
+                $beams
+            );
         }
     }
 
     private function pollFlexPay(
         Payment $payment,
         FlexPayService $flexPayService,
-        OrderNotificationService $orderNotifications,
+        OrderPaymentCompletionService $orderPaymentCompletion,
+        SubscriptionPaymentCompletionService $subscriptionPaymentCompletion,
+        CompanySubscriptionPaymentCompletionService $companyPaymentCompletion,
         NotificationOrchestratorService $notifications,
         BeamsService $beams
     ): void {
@@ -79,31 +92,22 @@ class CheckPendingPaymentsJob implements ShouldQueue
                 'failure_reason' => null,
                 'raw_response' => array_merge($payment->raw_response ?? [], ['last_poll' => $data['raw'] ?? $data]),
             ]);
-            if ($payment->order && $payment->order->status === 'pending_payment') {
-                $order = $payment->order;
-                $oldStatus = (string) $order->status;
-                $deliveryCode = 'GX-' . strtoupper(Str::random(6));
-                while (Order::where('delivery_code', $deliveryCode)->exists()) {
-                    $deliveryCode = 'GX-' . strtoupper(Str::random(6));
+            if ($payment->order_id) {
+                $order = Order::find($payment->order_id);
+                if ($order) {
+                    $orderPaymentCompletion->completeOrderAfterPayment($order);
                 }
-                $order->update([
-                    'status' => 'paid',
-                    'delivery_code' => $deliveryCode,
-                ]);
-                $orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
             }
             if ($payment->subscription_id) {
                 $sub = Subscription::find($payment->subscription_id);
-                if ($sub && $sub->isPending()) {
-                    Subscription::applyPaymentConfirmedScheduling($sub, now());
-                    $notifications->notifyClientAndAdminsAfterSubscriptionPayment($sub->fresh());
+                if ($sub) {
+                    $subscriptionPaymentCompletion->completeAfterPayment($sub);
                 }
             }
             if ($payment->company_subscription_id) {
                 $companySub = CompanySubscription::find($payment->company_subscription_id);
-                if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
-                    $companySub->update(['payment_status' => 'paid']);
-                    $notifications->notifyCompanySubscriptionPaymentConfirmed($companySub->fresh());
+                if ($companySub) {
+                    $companyPaymentCompletion->completeAfterPayment($companySub);
                 }
             }
         } elseif (! empty($data['failed'])) {
@@ -114,9 +118,8 @@ class CheckPendingPaymentsJob implements ShouldQueue
             ]);
             if ($payment->company_subscription_id) {
                 $companySub = CompanySubscription::find($payment->company_subscription_id);
-                if ($companySub && $companySub->status === 'pending' && $companySub->payment_status !== 'paid') {
-                    $companySub->update(['payment_status' => 'failed']);
-                    $notifications->notifyCompanySubscriptionPaymentFailed($companySub->fresh(), 'Échec du paiement (vérification automatique)');
+                if ($companySub) {
+                    $companyPaymentCompletion->markFailed($companySub, 'Échec du paiement (vérification automatique)');
                 }
             }
         } else {
