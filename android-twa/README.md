@@ -22,12 +22,22 @@ node --version    # >= 18
 java -version     # 17.x
 ```
 
-Variables d'environnement attendues par Bubblewrap (Android Studio les définit déjà) :
+Variables d'environnement (détectées automatiquement par `build.ps1` si possible) :
 
 ```
-JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17...
-ANDROID_HOME=C:\Users\<toi>\AppData\Local\Android\Sdk
+JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17...   # ou jdk-21
+ANDROID_HOME=C:\Android\Sdk                             # ou %LOCALAPPDATA%\Android\Sdk
 ```
+
+Build non interactif (évite la saisie du mot de passe keystore) :
+
+```powershell
+$env:BUBBLEWRAP_KEYSTORE_PASSWORD = '...'
+$env:BUBBLEWRAP_KEY_PASSWORD = '...'   # souvent identique au keystore
+.\build.ps1 -Action build
+```
+
+Voir aussi `.env.example`.
 
 ---
 
@@ -86,14 +96,27 @@ Doit retourner ton JSON avec le SHA256 (Content-Type: `application/json`).
 
 ### 4. Construire l'APK + AAB signés
 
+**Option A — automatique** (copier `.env.example` → `.env.local`, y mettre les mots de passe) :
+
 ```powershell
 cd c:\SERVICE\android-twa
 .\build.ps1 -Action build
 ```
 
+**Option B — en deux temps** :
+
+```powershell
+.\build.ps1 -Action compile   # Gradle seul (~1 min si deja compile)
+.\build.ps1 -Action sign      # requiert .env.local ou variables BUBBLEWRAP_*
+```
+
 Génère :
 - `app-release-signed.apk` → test direct sur appareil
 - `app-release-bundle.aab` → upload Play Store
+
+Artefacts Gradle intermediaires (non signes pour install) :
+- `app/build/outputs/apk/release/app-release-unsigned.apk`
+- `app/build/outputs/bundle/release/app-release.aab`
 
 ### 5. Tester localement
 
