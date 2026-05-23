@@ -7,7 +7,6 @@ use App\Models\Payment;
 use App\Services\FlexPayService;
 use App\Services\OrderNotificationService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 /**
  * Interroge l’API FlexPay (/check) pour un paiement Mobile Money encore « pending ».
@@ -20,16 +19,18 @@ final class FlexPayPendingPaymentSyncService
         private OrderNotificationService $orderNotifications,
     ) {}
 
-    public function trySyncOrderPayment(Order $order): bool
+    public function trySyncOrderPayment(Order $order, bool $forClientPolling = false): bool
     {
         $payment = Payment::where('order_id', $order->id)->orderByDesc('id')->first();
+
+        $minAgeSeconds = $forClientPolling ? 2 : 15;
 
         if (
             ! $payment
             || $payment->status !== 'pending'
             || ! $payment->provider_payment_id
             || ! $payment->updated_at
-            || $payment->updated_at->gte(now()->subSeconds(15))
+            || $payment->updated_at->gte(now()->subSeconds($minAgeSeconds))
         ) {
             return false;
         }
@@ -46,15 +47,7 @@ final class FlexPayPendingPaymentSyncService
                     'failure_reason' => null,
                     'raw_response' => array_merge($payment->raw_response ?? [], ['last_check' => $check['raw'] ?? []]),
                 ]);
-                if ($order->status === 'pending_payment') {
-                    $oldStatus = (string) $order->status;
-                    $deliveryCode = 'GX-'.strtoupper(Str::random(6));
-                    while (Order::where('delivery_code', $deliveryCode)->exists()) {
-                        $deliveryCode = 'GX-'.strtoupper(Str::random(6));
-                    }
-                    $order->update(['status' => 'paid', 'delivery_code' => $deliveryCode]);
-                    $this->orderNotifications->notifyStatusChanged($order->load('user'), $oldStatus, 'paid');
-                }
+                app(OrderPaymentCompletionService::class)->completeOrderAfterPayment($order);
 
                 return true;
             }

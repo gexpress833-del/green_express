@@ -18,7 +18,7 @@ import { convertMenuPrice, getStoredCurrencyPreference, getStoredUsdCdfRate, syn
 const CREATE_PAY_TIMEOUT_MS = 120000
 const PAYMENT_POLL_INTERVAL_MS = 3000
 const PAYMENT_POLL_MAX_ATTEMPTS = 60
-const PAYMENT_PENDING_FALLBACK_MS = 15000
+const PAYMENT_PENDING_SOFT_WARN_MS = 20000
 const PAYMENT_STATUS_REQUEST_TIMEOUT_MS = 7000
 
 function getStatusLabel(status) {
@@ -97,6 +97,20 @@ export default function ClientOrderPaymentPage() {
     }
     return list
   }, [orderId])
+
+  const refreshOrderDetail = useCallback(async () => {
+    if (!orderId) return null
+    try {
+      const detail = await apiRequest(`/api/orders/${orderId}`, { method: 'GET' })
+      if (detail?.id) {
+        setOrder(detail)
+        return detail
+      }
+    } catch {
+      await loadOrders()
+    }
+    return null
+  }, [loadOrders, orderId])
 
   useEffect(() => {
     setLoading(true)
@@ -190,6 +204,20 @@ export default function ClientOrderPaymentPage() {
     }
   }, [order?.id, order?.client_phone_number])
 
+  useEffect(() => {
+    if (!order) return
+    if (order.delivery_code) {
+      setPaymentState({
+        status: 'completed',
+        message: 'Paiement confirmé. Présente ce code au livreur.',
+      })
+      return
+    }
+    if (order.status === 'paid') {
+      refreshOrderDetail()
+    }
+  }, [order?.id, order?.delivery_code, order?.status, refreshOrderDetail])
+
   const selectedProviders = useMemo(() => PROVIDER_OPTIONS[country] || [], [country])
 
   const phoneAnalysis = useMemo(() => analyzeRdcMobileMoneyPhone(phone), [phone])
@@ -228,9 +256,14 @@ export default function ClientOrderPaymentPage() {
         const s = String(status?.status || '').toLowerCase()
 
         if (s === 'completed') {
-          // Recharge la commande pour obtenir le delivery_code et items.menu a jour
-          await loadOrders()
-          setPaymentState({ status: 'completed', message: status.message || 'Paiement confirmé.' })
+          const detail = await refreshOrderDetail()
+          const code = detail?.delivery_code || status?.delivery_code
+          setPaymentState({
+            status: 'completed',
+            message: code
+              ? `Paiement confirmé. Code de livraison : ${code}.`
+              : (status.message || 'Paiement confirmé.'),
+          })
           setPolling(false)
           pushToast({ type: 'success', message: 'Paiement confirmé. Code de livraison généré.' })
           return
@@ -257,26 +290,19 @@ export default function ClientOrderPaymentPage() {
 
         // Pending : on garde le message a jour pour l'UI
         if (s === 'pending') {
+          const elapsedMs = Date.now() - (pollRef.current.startedAt || Date.now())
+          const softWarn = elapsedMs >= PAYMENT_PENDING_SOFT_WARN_MS
           setPaymentState((prev) => ({
             status: 'pending',
-            message: status.message || prev.message || 'Paiement en cours…',
+            message: softWarn
+              ? 'Confirmation en cours… Si vous avez déjà validé sur votre téléphone, patientez encore un instant.'
+              : (status.message || prev.message || 'Paiement en cours…'),
           }))
         }
       } catch {
         /* erreurs reseau ignorees pendant le polling */
       } finally {
         clearTimeout(statusTimeoutId)
-      }
-
-      const elapsedMs = Date.now() - (pollRef.current.startedAt || Date.now())
-
-      if (elapsedMs >= PAYMENT_PENDING_FALLBACK_MS) {
-        setPolling(false)
-        setPaymentState({
-          status: 'timeout',
-          message: 'Nous n\'avons pas encore reçu la confirmation de votre opérateur Mobile Money. Acceptez la demande sur votre téléphone, puis actualisez le statut. Si le paiement échoue, vous pourrez annuler la commande et réessayer.',
-        })
-        return
       }
 
       if (pollRef.current.attempts >= PAYMENT_POLL_MAX_ATTEMPTS) {
@@ -293,7 +319,16 @@ export default function ClientOrderPaymentPage() {
     }
 
     tick()
-  }, [loadOrders, orderId])
+  }, [loadOrders, orderId, refreshOrderDetail])
+
+  const handleRefreshPaymentStatus = useCallback(() => {
+    if (!orderId || polling) return
+    setError('')
+    pollRef.current.startedAt = Date.now()
+    pollRef.current.attempts = 0
+    setPaymentState({ status: 'pending', message: 'Vérification du paiement en cours…' })
+    startPollingOrderStatus()
+  }, [orderId, polling, startPollingOrderStatus])
 
   function normalizePhone(value) {
     const cleaned = String(value).replace(/[\s\-()]/g, '').replace(/^0+/, '')
@@ -329,9 +364,14 @@ export default function ClientOrderPaymentPage() {
       setOrder(response?.order || order)
 
       if (response?.delivery_code || response?.payment_completed) {
-        // Paiement deja confirme cote backend (cas rare mais possible)
-        await loadOrders()
-        setPaymentState({ status: 'completed', message: response?.message || 'Paiement confirmé.' })
+        const detail = await refreshOrderDetail()
+        const code = detail?.delivery_code || response?.delivery_code
+        setPaymentState({
+          status: 'completed',
+          message: code
+            ? `Paiement confirmé. Code de livraison : ${code}.`
+            : (response?.message || 'Paiement confirmé.'),
+        })
         pushToast({ type: 'success', message: 'Paiement confirmé.' })
       } else {
         setPaymentState({
@@ -606,7 +646,9 @@ export default function ClientOrderPaymentPage() {
                         <p className="text-white/60 text-sm mt-1">{formatDate(order.created_at)}</p>
                         {order.delivery_address && <p className="text-white/60 text-sm mt-1">📍 {order.delivery_address}</p>}
                       </div>
-                      <span className="badge badge-warning">{getStatusLabel(order.status)}</span>
+                      <span className={`badge ${order.delivery_code || order.status === 'paid' ? 'badge-success' : 'badge-warning'}`}>
+                        {order.delivery_code || order.status === 'paid' ? 'Paiement confirmé' : getStatusLabel(order.status)}
+                      </span>
                     </div>
 
                     <div className="mt-5 pt-5 border-t border-white/10">
@@ -617,11 +659,28 @@ export default function ClientOrderPaymentPage() {
                     </div>
                   </div>
 
-                  {order.delivery_code ? (
+                  {(order.delivery_code || paymentState.status === 'completed') ? (
                     <div className="card border border-cyan-500/30 bg-cyan-500/10">
-                      <p className="text-white/70 text-sm">Code de livraison</p>
-                      <p className="text-3xl font-bold text-cyan-400 font-mono mt-2">{order.delivery_code}</p>
+                      <p className="text-emerald-300 font-semibold text-lg">✓ Paiement confirmé</p>
+                      <p className="text-white/70 text-sm mt-2">Code de livraison</p>
+                      {order.delivery_code ? (
+                        <p className="text-3xl font-bold text-cyan-400 font-mono mt-2">{order.delivery_code}</p>
+                      ) : (
+                        <p className="text-white/60 text-sm mt-2">Génération du code… actualisez dans quelques secondes.</p>
+                      )}
                       <p className="text-white/60 text-sm mt-3">Présente ce code au livreur lors de la remise de ta commande.</p>
+                      {!order.delivery_code && (
+                        <button
+                          type="button"
+                          onClick={refreshOrderDetail}
+                          className="mt-4 text-sm text-cyan-300 hover:text-white underline underline-offset-2"
+                        >
+                          Actualiser le code
+                        </button>
+                      )}
+                      <div className="mt-6">
+                        <GoldButton href="/client/orders">Voir mes commandes</GoldButton>
+                      </div>
                     </div>
                   ) : (
                     <div className="card">
@@ -643,6 +702,14 @@ export default function ClientOrderPaymentPage() {
                               <p className="text-cyan-100/60 text-xs mt-2">
                                 Cette page se met à jour automatiquement. Cela peut prendre jusqu'à 3 minutes.
                               </p>
+                              <button
+                                type="button"
+                                onClick={handleRefreshPaymentStatus}
+                                disabled={polling}
+                                className="mt-3 mr-4 text-sm text-cyan-200 hover:text-white underline underline-offset-2 disabled:opacity-50"
+                              >
+                                J&apos;ai confirmé sur mon téléphone — vérifier maintenant
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -709,9 +776,17 @@ export default function ClientOrderPaymentPage() {
                               <div className="flex flex-wrap gap-3 mt-4">
                                 <button
                                   type="button"
+                                  onClick={handleRefreshPaymentStatus}
+                                  disabled={submitting || cancelling || polling}
+                                  className="gold disabled:opacity-50"
+                                >
+                                  {polling ? 'Vérification…' : 'Vérifier à nouveau le paiement'}
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={handleRetryPayment}
                                   disabled={submitting || cancelling}
-                                  className="gold disabled:opacity-50"
+                                  className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/20 text-white text-sm disabled:opacity-50"
                                 >
                                   Réessayer le paiement
                                 </button>

@@ -58,6 +58,9 @@ services:
         value: https://green-express-iota.vercel.app
       - key: CORS_ALLOWED_ORIGINS
         value: "https://green-express-iota.vercel.app"
+      # Tests Mobile Money : montant minimum applicatif (FlexPay opérateur peut imposer un plancher plus élevé)
+      - key: FLEXPAY_MIN_AMOUNT_CDF
+        value: "100"
       - key: SESSION_SECURE_COOKIE
         value: true
       - key: SESSION_SAME_SITE

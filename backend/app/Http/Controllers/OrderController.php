@@ -15,6 +15,7 @@ use App\Services\Orders\CreateClientOrderService;
 use App\Services\Orders\FlexPayPendingPaymentSyncService;
 use App\Services\Orders\OrderFlexPayInitiationService;
 use App\Services\Orders\OrderManualPaymentConfirmationService;
+use App\Services\Orders\OrderPaymentCompletionService;
 use App\Services\PhoneRDCService;
 use App\Support\OrderPaymentUserMessage;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -30,6 +31,7 @@ class OrderController extends Controller
         private OrderFlexPayInitiationService $orderFlexPayInitiation,
         private OrderManualPaymentConfirmationService $manualPaymentConfirmation,
         private FlexPayPendingPaymentSyncService $flexPayPendingSync,
+        private OrderPaymentCompletionService $orderPaymentCompletion,
     ) {}
 
     private function allowAdminOrCuisinier(Request $request): bool
@@ -277,20 +279,36 @@ class OrderController extends Controller
             return response()->json(['message' => 'Non autorisé'], 403);
         }
 
-        $this->flexPayPendingSync->trySyncOrderPayment($order);
+        $this->flexPayPendingSync->trySyncOrderPayment($order, forClientPolling: true);
         $order->refresh();
         $payment = Payment::where('order_id', $order->id)
             ->orderByDesc('id')
             ->first();
+
+        if ($payment && $payment->status === 'completed' && $order->status === 'pending_payment') {
+            $this->orderPaymentCompletion->completeOrderAfterPayment($order);
+            $order->refresh();
+        }
 
         $paymentStatus = $payment?->status ?? 'none';
         $orderStatus = (string) $order->status;
         $deliveryCode = $order->delivery_code;
 
         // Statut consolide pour le frontend
-        if ($deliveryCode && in_array($orderStatus, ['paid', 'pending', 'out_for_delivery', 'delivered'], true)) {
+        if (
+            $paymentStatus === 'completed'
+            || $orderStatus === 'paid'
+            || ($deliveryCode && in_array($orderStatus, ['paid', 'pending', 'out_for_delivery', 'delivered'], true))
+        ) {
+            if (! $deliveryCode && $orderStatus === 'pending_payment') {
+                $this->orderPaymentCompletion->completeOrderAfterPayment($order);
+                $order->refresh();
+                $deliveryCode = $order->delivery_code;
+            }
             $consolidated = 'completed';
-            $message = 'Paiement confirmé. Code de livraison généré.';
+            $message = $deliveryCode
+                ? 'Paiement confirmé. Code de livraison : '.$deliveryCode.'.'
+                : 'Paiement confirmé. Code de livraison généré.';
         } elseif ($paymentStatus === 'failed') {
             $consolidated = 'failed';
             $message = OrderPaymentUserMessage::humanizeFailureReason($payment?->failure_reason);
