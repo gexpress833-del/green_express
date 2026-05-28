@@ -138,10 +138,10 @@ export default function AdminCompanySubscriptionsPage() {
                             <button
                               type="button"
                               onClick={() => handleActivate(sub)}
-                              disabled={!!actioning}
-                              className="w-full min-h-[48px] px-4 py-3 rounded-xl text-sm font-medium bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 touch-manipulation"
+                              disabled={!!actioning || sub.payment_status !== 'paid'}
+                              className={`w-full min-h-[48px] px-4 py-3 rounded-xl text-sm font-medium text-white touch-manipulation disabled:opacity-50 ${sub.payment_status === 'paid' ? 'bg-green-600 hover:bg-green-500' : 'bg-white/10'}`}
                             >
-                              {actioning === sub.id ? 'En cours…' : 'Activer'}
+                              {actioning === sub.id ? 'En cours…' : sub.payment_status === 'paid' ? 'Activer' : 'Paiement en attente'}
                             </button>
                           )}
                           {sub.status === 'active' && (
@@ -203,10 +203,10 @@ export default function AdminCompanySubscriptionsPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleActivate(sub)}
-                                    disabled={!!actioning}
-                                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-500 disabled:opacity-50"
+                                    disabled={!!actioning || sub.payment_status !== 'paid'}
+                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 ${sub.payment_status === 'paid' ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-white/10 text-white/60'}`}
                                   >
-                                    {actioning === sub.id ? 'En cours…' : 'Activer'}
+                                    {actioning === sub.id ? 'En cours…' : sub.payment_status === 'paid' ? 'Activer' : 'Paiement en attente'}
                                   </button>
                                 )}
                                 {sub.status === 'active' && (

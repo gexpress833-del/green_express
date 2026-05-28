@@ -16,15 +16,11 @@ final class SubscriptionPaymentCompletionService
     {
         $subscription->refresh();
 
-        if (in_array((string) $subscription->status, [Subscription::STATUS_SCHEDULED, Subscription::STATUS_ACTIVE], true)) {
-            return true;
-        }
-
+        // L'admin valide manuellement : l'abonnement reste pending jusqu'à validation admin.
         if (! $subscription->isPending()) {
             return false;
         }
 
-        Subscription::applyPaymentConfirmedScheduling($subscription, now());
         $this->notifications->notifyClientAndAdminsAfterSubscriptionPayment($subscription->fresh());
 
         return true;

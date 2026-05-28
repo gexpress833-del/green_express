@@ -1,17 +1,23 @@
 ﻿'use client'
 
+import { useEffect } from 'react'
 import LivreurSidebar from '@/components/LivreurSidebar'
 
 export default function LivreurShell({ title, subtitle, children }) {
+  useEffect(() => {
+    document.body.classList.add('has-livreur-bottom-nav')
+    return () => document.body.classList.remove('has-livreur-bottom-nav')
+  }, [])
+
   return (
-    <section className="page-section min-h-screen bg-[#0b1220] text-white">
-      <a href="#livreur-main" className="skip-link">Aller au contenu principal</a>
-      <div className="container">
-        <header className="mb-6 md:mb-8">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl" style={{ background: 'linear-gradient(135deg, #ff1493 0%, #ff00ff 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{title}</h1>
-          {subtitle ? <p className="mt-2 text-white/70 text-base md:text-lg max-w-2xl">{subtitle}</p> : null}
+    <section className="page-section min-h-screen bg-[#0b1220] text-white livreur-section">
+      <a href="#livreur-main" className="livreur-skip-link">Aller au contenu principal</a>
+      <div className="container livreur-container">
+        <header className="livreur-header">
+          <h1 className="livreur-title">{title}</h1>
+          {subtitle ? <p className="livreur-subtitle">{subtitle}</p> : null}
         </header>
-        <div className="dashboard-grid">
+        <div className="dashboard-grid livreur-dashboard">
           <LivreurSidebar />
           <main id="livreur-main" tabIndex={-1} className="main-panel outline-none">{children}</main>
         </div>

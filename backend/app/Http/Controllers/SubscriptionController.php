@@ -187,7 +187,7 @@ class SubscriptionController extends Controller
 
             $subscription->refresh();
             $payment->refresh();
-            $paymentCompleted = in_array((string) $subscription->status, [Subscription::STATUS_SCHEDULED, Subscription::STATUS_ACTIVE], true);
+            $paymentCompleted = $payment->status === 'completed';
 
             return response()->json([
                 'subscription' => $subscription->fresh()->load('subscriptionPlan'),
@@ -511,48 +511,17 @@ class SubscriptionController extends Controller
     }
 
     /**
-     * Client : annuler sa propre demande d'abonnement tant qu'elle est en attente.
+     * Client : annuler sa propre demande d'abonnement (DÉSACTIVÉ — seul l'admin peut annuler).
      */
     public function cancelOwn(Request $request, int $id)
     {
-        $subscription = Subscription::findOrFail($id);
-        $user = $request->user();
-
-        if (! $user) {
-            return response()->json(['message' => 'Non authentifié.'], 401);
-        }
-        if ((int) $subscription->user_id !== (int) $user->id) {
-            return response()->json(['message' => 'Cet abonnement ne vous appartient pas.'], 403);
-        }
-        if (! $subscription->isPending()) {
-            return response()->json([
-                'message' => 'Cet abonnement ne peut plus être annulé (paiement confirmé ou statut avancé).',
-            ], 400);
-        }
-
-        $subscription->update(['status' => Subscription::STATUS_CANCELLED]);
-
-        Payment::where('subscription_id', $subscription->id)
-            ->where('status', 'pending')
-            ->update([
-                'status' => 'cancelled',
-                'failure_reason' => 'Annulée par le client',
-            ]);
-
         return response()->json([
-            'message' => 'Abonnement annulé.',
-            'subscription' => $subscription->fresh()->load('subscriptionPlan'),
-        ]);
+            'message' => 'Seul l\'administrateur peut annuler ou modifier un abonnement. Contactez le support.',
+        ], 403);
     }
 
     private function subscriptionPaidMessage(Subscription $sub): string
     {
-        if (! $sub->started_at) {
-            return 'Paiement confirmé. Votre abonnement sera configuré sous peu.';
-        }
-
-        $dateStr = $sub->started_at->timezone(config('app.timezone'))->locale('fr')->translatedFormat('d F Y');
-
-        return "Paiement confirmé. Votre abonnement sera actif à partir du {$dateStr}. Vous recevrez vos repas à partir de cette date.";
+        return 'Paiement confirmé. Votre demande est en attente de validation par l\'administrateur.';
     }
 }

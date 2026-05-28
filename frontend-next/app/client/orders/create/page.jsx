@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { apiRequest, getApiErrorMessage, getCsrfCookie } from '@/lib/api'
 import { formatCurrencyCDF, formatDate } from '@/lib/helpers'
 import PaymentMethodsBanner from '@/components/PaymentMethodsBanner'
+import DeliveryCodeDisplay from '@/components/DeliveryCodeDisplay'
 import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders'
 import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc'
 import { convertMenuPrice, getStoredCurrencyPreference, getStoredUsdCdfRate, syncUsdCdfRate } from '@/lib/currencyPreference'
@@ -660,25 +661,12 @@ export default function ClientOrderPaymentPage() {
                   </div>
 
                   {(order.delivery_code || paymentState.status === 'completed') ? (
-                    <div className="card border border-cyan-500/30 bg-cyan-500/10">
-                      <p className="text-emerald-300 font-semibold text-lg">✓ Paiement confirmé</p>
-                      <p className="text-white/70 text-sm mt-2">Code de livraison</p>
-                      {order.delivery_code ? (
-                        <p className="text-3xl font-bold text-cyan-400 font-mono mt-2">{order.delivery_code}</p>
-                      ) : (
-                        <p className="text-white/60 text-sm mt-2">Génération du code… actualisez dans quelques secondes.</p>
-                      )}
-                      <p className="text-white/60 text-sm mt-3">Présente ce code au livreur lors de la remise de ta commande.</p>
-                      {!order.delivery_code && (
-                        <button
-                          type="button"
-                          onClick={refreshOrderDetail}
-                          className="mt-4 text-sm text-cyan-300 hover:text-white underline underline-offset-2"
-                        >
-                          Actualiser le code
-                        </button>
-                      )}
-                      <div className="mt-6">
+                    <div className="space-y-5">
+                      <DeliveryCodeDisplay
+                        code={order.delivery_code}
+                        subtitle="Code de livraison"
+                      />
+                      <div className="flex justify-center">
                         <GoldButton href="/client/orders">Voir mes commandes</GoldButton>
                       </div>
                     </div>

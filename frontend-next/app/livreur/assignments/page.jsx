@@ -100,12 +100,18 @@ export default function LivreurAssignments(){
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="card border border-pink-500/25 bg-pink-500/5 p-4 sm:p-5">
-                  <p className="text-white/85 text-sm font-semibold mb-3">Validation du code client</p>
-                  <p className="text-white/55 text-sm mb-4">
-                    Un seul champ : le code identifie la commande. Pas besoin de selectionner la carte ci-dessous.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2">
+                <div className="livreur-validation-card">
+                  <div className="livreur-validation-header">
+                    <span className="livreur-validation-icon">🔐</span>
+                    <div>
+                      <p className="livreur-validation-title">Valider la remise</p>
+                      <p className="livreur-validation-desc">
+                        Saisissez le code GX-XXXXXX communiqué par le client pour confirmer la livraison.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="livreur-validation-form">
                     <label className="sr-only" htmlFor="livreur-code-gx">Code GX-</label>
                     <input
                       id="livreur-code-gx"
@@ -117,31 +123,34 @@ export default function LivreurAssignments(){
                         setCodeInput(e.target.value.toUpperCase())
                         setValidationResult(null)
                       }}
-                      className="flex-1 min-h-[44px] rounded-lg border border-white/20 bg-white/5 px-3 text-white placeholder:text-white/35"
+                      className="livreur-validation-input"
                       maxLength={9}
-                      style={{ fontFamily: 'ui-monospace, monospace', letterSpacing: '0.08em' }}
                     />
                     <GoldButton
                       type="button"
                       onClick={handleValidateCode}
                       disabled={validatingCode || !codeInput.trim()}
                     >
-                      {validatingCode ? 'Validation...' : 'Valider la remise'}
+                      {validatingCode ? 'Validation...' : 'Valider'}
                     </GoldButton>
                   </div>
+
                   {validationResult && (
                     <div
-                      className={`mt-3 p-3 rounded-lg text-sm ${
-                        validationResult.success
-                          ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-200'
-                          : 'bg-red-500/15 border border-red-500/40 text-red-200'
-                      }`}
+                      className={`livreur-validation-result${validationResult.success ? ' success' : ' error'}`}
                       role="status"
                     >
-                      {validationResult.message}
-                      {validationResult.points != null && (
-                        <span className="block mt-1">Points credites : {validationResult.points}</span>
-                      )}
+                      <span className="livreur-validation-result-icon">
+                        {validationResult.success ? '✓' : '✗'}
+                      </span>
+                      <div>
+                        <p>{validationResult.message}</p>
+                        {validationResult.points != null && (
+                          <p className="livreur-validation-points">
+                            Points crédités au client : <strong>{validationResult.points}</strong>
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

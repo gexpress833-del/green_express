@@ -100,11 +100,19 @@ function getSubscriptionStatusDisplay(state, currentSub) {
         style: BANDEAU_STYLES.green,
         icon: '✓',
       }
+    case 'pending_paid':
+      return {
+        title: 'Paiement confirmé — activation en cours',
+        subtitle: 'Votre paiement a bien été reçu et enregistré.',
+        description: 'Notre équipe vérifie votre règlement et finalise l’activation de votre abonnement sous 24 heures ouvrées. Vous recevrez une notification dès que vos livraisons seront opérationnelles. Merci de votre confiance.',
+        style: BANDEAU_STYLES.green,
+        icon: '✓',
+      }
     case 'pending':
       return {
-        title: 'En attente d’activation',
-        subtitle: 'Demande enregistrée — activation par l’administrateur.',
-        description: 'Votre demande a bien été reçue. Vous pouvez régler par carte Visa ou Mastercard (bouton sur la fiche ci-dessous) ; l’abonnement passera à l’état Actif après confirmation du paiement par l’administrateur.',
+        title: 'Demande enregistrée',
+        subtitle: 'Votre souscription est bien prise en compte.',
+        description: 'Pour activer votre abonnement, merci de régler par carte Visa ou Mastercard (bouton ci-dessous). Une fois le paiement confirmé, notre équipe activera votre compte dans les plus brefs délais.',
         style: BANDEAU_STYLES.amber,
         icon: '⏳',
       }
@@ -179,7 +187,6 @@ export default function EntrepriseSubscriptionsPage() {
   const [subscribing, setSubscribing] = useState(false)
   const [renewingId, setRenewingId] = useState(null)
   const [payingCard, setPayingCard] = useState(false)
-  const [cancellingSubId, setCancellingSubId] = useState(null)
   const [pollingSubId, setPollingSubId] = useState(null)
   const [paymentStates, setPaymentStates] = useState({})
   const [error, setError] = useState('')
@@ -355,7 +362,7 @@ export default function EntrepriseSubscriptionsPage() {
 
   // État d'abonnement pour affichage clair : none | pending | active | expired
   const subscriptionState = currentSub
-    ? (currentSub.status === 'active' ? 'active' : 'pending')
+    ? (currentSub.status === 'active' ? 'active' : currentSub.payment_status === 'paid' ? 'pending_paid' : 'pending')
     : expiredSub
       ? 'expired'
       : 'none'
@@ -458,31 +465,6 @@ export default function EntrepriseSubscriptionsPage() {
       pushToast({ type: 'error', message: msg })
     } finally {
       setPayingCard(false)
-    }
-  }
-
-  async function handleCancelOwnSubscription(sub) {
-    if (!company?.id || !sub?.id || cancellingSubId) return
-    setCancellingSubId(sub.id)
-    setError('')
-    try {
-      await getCsrfCookie()
-      const res = await apiRequest(`/api/companies/${company.id}/subscriptions/${sub.id}/cancel-own`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      await loadSubscriptions()
-      setSubPaymentState(sub.id, { status: 'cancelled', message: res?.message || 'Abonnement annulé.' })
-      pushToast({ type: 'success', message: res?.message || 'Abonnement annulé.' })
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('company-subscription-payment-id')
-      }
-    } catch (err) {
-      const msg = getApiErrorMessage(err) || 'Impossible d\'annuler cette demande.'
-      setError(msg)
-      pushToast({ type: 'error', message: msg })
-    } finally {
-      setCancellingSubId(null)
     }
   }
 
@@ -702,7 +684,7 @@ export default function EntrepriseSubscriptionsPage() {
                                     <button
                                       type="button"
                                       onClick={() => handlePayByCard(sub)}
-                                      disabled={payingCard || !!confirmModal || pollingSubId === sub.id || cancellingSubId === sub.id}
+                                      disabled={payingCard || !!confirmModal || pollingSubId === sub.id}
                                       className="px-4 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-cyan-600 to-cyan-500 text-white hover:from-cyan-500 hover:to-cyan-400 disabled:opacity-50 border border-cyan-400/30"
                                     >
                                       {payingCard ? 'Ouverture du paiement…' : 'Payer par carte Visa / Mastercard'}
@@ -710,18 +692,10 @@ export default function EntrepriseSubscriptionsPage() {
                                     <button
                                       type="button"
                                       onClick={() => startPollingCompanyPaymentStatus(sub.id)}
-                                      disabled={payingCard || pollingSubId === sub.id || cancellingSubId === sub.id}
+                                      disabled={payingCard || pollingSubId === sub.id}
                                       className="px-4 py-2.5 rounded-lg text-sm font-semibold border border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/15 disabled:opacity-50"
                                     >
                                       {pollingSubId === sub.id ? 'Vérification…' : 'Vérifier le paiement'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCancelOwnSubscription(sub)}
-                                      disabled={payingCard || pollingSubId === sub.id || cancellingSubId === sub.id}
-                                      className="px-4 py-2.5 rounded-lg text-sm font-semibold border border-red-500/60 text-red-100 hover:bg-red-500/20 disabled:opacity-50"
-                                    >
-                                      {cancellingSubId === sub.id ? 'Annulation…' : 'Annuler la demande'}
                                     </button>
                                   </div>
                                 )}
@@ -738,12 +712,6 @@ export default function EntrepriseSubscriptionsPage() {
                                       {paymentStates[sub.id]?.status === 'timeout' ? 'Pas de confirmation reçue' : 'Le paiement n\'a pas abouti'}
                                     </p>
                                     <p className="text-red-100/90 text-xs mt-1">{paymentStates[sub.id]?.message}</p>
-                                  </div>
-                                )}
-
-                                {paymentStates[sub.id]?.status === 'cancelled' && (
-                                  <div className="p-3 rounded-lg bg-white/5 border border-white/15">
-                                    <p className="text-white/80 text-sm">✖ {paymentStates[sub.id]?.message}</p>
                                   </div>
                                 )}
 

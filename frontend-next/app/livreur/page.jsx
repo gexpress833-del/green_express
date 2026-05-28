@@ -48,7 +48,7 @@ export default function LivreurDashboard(){
                   <div className="stat-card">
                     <h4>Assignees</h4>
                     <p className="text-3xl font-bold tabular-nums">{stats?.assigned ?? 0}</p>
-                    <Link href="/livreur/assignments" className="text-sm text-pink-400 hover:text-pink-300 mt-2 inline-block">
+                    <Link href="/livreur/assignments" className="text-sm text-cyan-400 hover:text-cyan-300 mt-2 inline-block">
                       Voir mes missions
                     </Link>
                   </div>
@@ -64,19 +64,19 @@ export default function LivreurDashboard(){
                   </div>
                 </div>
 
-                <section className="card mt-6 border border-white/10">
-                  <h3 className="text-xl font-semibold mb-3 text-white/95">
+                <section className="card mt-4 sm:mt-6 border border-white/10">
+                  <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 text-white/95">
                     Missions en cours
                   </h3>
-                  <p className="text-white/70 mb-4">
+                  <p className="text-white/70 mb-4 text-sm sm:text-base">
                     Ouvrez la liste pour voir adresses, plats et saisir le code GX- remis par le client.
                   </p>
                   <GoldButton href="/livreur/assignments">Voir mes missions</GoldButton>
                 </section>
 
-                <section className="card mt-6 border border-white/10">
-                  <h3 className="text-xl font-semibold mb-3 text-white/95">Actions rapides</h3>
-                  <div className="grid sm:grid-cols-2 gap-4">
+                <section className="card mt-4 sm:mt-6 border border-white/10">
+                  <h3 className="text-lg sm:text-xl font-semibold mb-3 text-white/95">Actions rapides</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <GoldButton href="/livreur/assignments">Mes livraisons</GoldButton>
                     <GoldButton href="/livreur/performance">Ma performance</GoldButton>
                   </div>

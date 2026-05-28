@@ -25,7 +25,6 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->login()
             ->brandName('Green Express')
             ->brandLogo(asset('Logo_gexpress.jpg'))
             ->brandLogoHeight('3rem')

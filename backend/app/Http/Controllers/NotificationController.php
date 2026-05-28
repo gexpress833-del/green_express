@@ -128,6 +128,7 @@ class NotificationController extends Controller
         try {
             $limit = (int) $request->query('limit', 20);
             $limit = max(1, min($limit, 50));
+            $unreadOnly = filter_var($request->query('unread_only', false), FILTER_VALIDATE_BOOLEAN);
 
             $roleLabels = [
                 'client' => 'Client',
@@ -139,10 +140,11 @@ class NotificationController extends Controller
                 'secretaire' => 'Secrétariat',
                 'system' => 'Système',
             ];
-            $notifications = $user->notifications()
-                ->orderBy('created_at', 'desc')
-                ->limit($limit)
-                ->get()
+            $query = $user->notifications()->orderBy('created_at', 'desc');
+            if ($unreadOnly) {
+                $query->whereNull('read_at');
+            }
+            $notifications = $query->limit($limit)->get()
                 ->map(function ($n) use ($roleLabels) {
                     $data = $n->data;
                     if (is_string($data)) {

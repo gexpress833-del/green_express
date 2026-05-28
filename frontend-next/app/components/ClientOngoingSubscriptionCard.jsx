@@ -127,6 +127,13 @@ export default function ClientOngoingSubscriptionCard({ subscription: s, onPayCl
 
   const statusLine = () => {
     if (isPending) {
+      if (s.has_payment_received) {
+        return (
+          <p className="text-emerald-300/95 text-base mt-3 font-medium">
+            Paiement confirmé. Votre demande est en cours d&apos;examen par notre équipe. Vous serez notifié dès que votre abonnement sera activé.
+          </p>
+        )
+      }
       return (
         <p className="text-orange-300/95 text-base mt-3 font-medium">
           Paiement en cours de confirmation… Complétez le paiement Mobile Money si ce n&apos;est pas encore fait.

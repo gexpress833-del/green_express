@@ -14,11 +14,13 @@ use App\Support\ClientPaymentMessage;
 use App\Services\FlexPayService;
 use App\Services\DeliveryService;
 use App\Services\NotificationOrchestratorService;
+use App\Services\PhoneRDCService;
 use App\Services\Subscriptions\CompanySubscriptionPaymentCompletionService;
 use App\Services\Subscriptions\FlexPaySubscriptionPendingSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * Contrôleur pour la gestion des abonnements d'entreprise
@@ -305,55 +307,14 @@ class CompanySubscriptionController extends Controller
     }
 
     /**
-     * Entreprise : annuler sa demande d'abonnement en attente.
+     * Entreprise : annuler sa demande d'abonnement (DÉSACTIVÉ — seul l'admin peut annuler).
      */
     public function cancelOwn(Request $request, Company $company, CompanySubscription $subscription)
     {
-        if ($r = $this->requireAnyPermission($request, ['admin.company-subscriptions', 'entreprise.b2b.access'])) {
-            return $r;
-        }
-
-        if (! $this->canAccessCompany($company)) {
-            return response()->json(['success' => false, 'message' => 'Non autorisé'], 403);
-        }
-
-        if ((int) $subscription->company_id !== (int) $company->id) {
-            return response()->json(['success' => false, 'message' => 'Abonnement introuvable.'], 404);
-        }
-
-        if ($subscription->status !== 'pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cet abonnement ne peut plus être annulé (statut avancé).',
-            ], 400);
-        }
-
-        if ($subscription->payment_status === 'paid') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Paiement déjà confirmé : annulation impossible depuis cet écran.',
-            ], 400);
-        }
-
-        $subscription->update([
-            'status' => 'cancelled',
-            'payment_status' => 'failed',
-        ]);
-
-        $this->notifications->notifyCompanySubscriptionCancelled($subscription->fresh());
-
-        Payment::where('company_subscription_id', $subscription->id)
-            ->where('status', 'pending')
-            ->update([
-                'status' => 'cancelled',
-                'failure_reason' => 'Annulée par le client entreprise',
-            ]);
-
         return response()->json([
-            'success' => true,
-            'message' => 'Abonnement annulé.',
-            'data' => $subscription->fresh()->load('pricingTier'),
-        ]);
+            'success' => false,
+            'message' => 'Seul l\'administrateur peut annuler ou modifier un abonnement. Contactez le support.',
+        ], 403);
     }
 
     /**
@@ -361,37 +322,8 @@ class CompanySubscriptionController extends Controller
      */
     public function initiateCardPayment(Request $request, Company $company, CompanySubscription $subscription)
     {
-        if ($r = $this->requireAnyPermission($request, ['admin.company-subscriptions', 'entreprise.b2b.access'])) {
-            return $r;
-        }
-
-        if (! $this->canAccessCompany($company)) {
-            return response()->json(['success' => false, 'message' => 'Non autorisé'], 403);
-        }
-
-        if ((int) $subscription->company_id !== (int) $company->id) {
-            return response()->json(['success' => false, 'message' => 'Abonnement introuvable.'], 404);
-        }
-
-        $user = $request->user();
-        if ($user && $user->hasPermissionTo('entreprise.b2b.access') && ! $user->canAsAdmin('admin.company-subscriptions')) {
-            if ((int) $company->contact_user_id !== (int) $user->id) {
-                return response()->json(['success' => false, 'message' => 'Non autorisé'], 403);
-            }
-        }
-
-        if ($subscription->status !== 'pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Seul un abonnement en attente d\'activation peut être payé en ligne.',
-            ], 422);
-        }
-
-        if ($subscription->payment_status === 'paid') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Le paiement de cet abonnement est déjà enregistré.',
-            ], 422);
+        if ($denied = $this->authorizeCompanySubscriptionPayment($request, $company, $subscription)) {
+            return $denied;
         }
 
         try {
@@ -457,6 +389,171 @@ class CompanySubscriptionController extends Controller
     }
 
     /**
+     * Entreprise ou admin : initier un paiement Mobile Money (RDC) pour un abonnement B2B en attente.
+     */
+    public function initiateMobilePayment(Request $request, Company $company, CompanySubscription $subscription)
+    {
+        if ($denied = $this->authorizeCompanySubscriptionPayment($request, $company, $subscription)) {
+            return $denied;
+        }
+
+        $data = $request->validate([
+            'client_phone_number' => 'required|string',
+            'country_code' => 'required|string|in:DRC',
+        ]);
+
+        try {
+            $flexPay = app(FlexPayService::class);
+            if (! $flexPay->isConfigured()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Paiement Mobile Money temporairement indisponible. Réessayez plus tard ou contactez le support.',
+                    'error' => 'payment_not_configured',
+                ], 503);
+            }
+
+            $formatted = PhoneRDCService::formatPhoneRDC($data['client_phone_number']);
+            if (! PhoneRDCService::isValidPhoneRDC($formatted)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Numéro invalide pour la RDC.',
+                    'error' => 'Numéro invalide',
+                ], 400);
+            }
+            $phoneNormalized = PhoneRDCService::toE164($formatted);
+            $phone12 = $formatted;
+
+            $operator = PhoneRDCService::detectOperatorRDC($formatted);
+            if ($operator === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Opérateur non reconnu. Utilisez un numéro Vodacom (81–83), Airtel (97–99), Orange (84, 85, 89) ou Afrimoney / Africell (90–91).',
+                    'error' => 'Opérateur non reconnu',
+                ], 400);
+            }
+
+            $subCurrency = (string) ($subscription->currency ?? 'USD');
+            $resolved = $flexPay->resolveAmountAndCurrency((float) $subscription->total_monthly_price, $subCurrency);
+
+            $reference = 'CSUB-'.$subscription->id.'-'.Str::lower(Str::random(12));
+            $callbackUrl = config('flexpay.callback_url')
+                ?: (rtrim(config('app.url'), '/').'/api/flexpay/callback');
+
+            $flexResponse = $flexPay->initiateMobilePayment(
+                $resolved['amount'],
+                $resolved['currency'],
+                $phone12,
+                $reference,
+                'Abonnement entreprise #'.$subscription->id,
+                $callbackUrl
+            );
+
+            $payment = Payment::create([
+                'company_subscription_id' => $subscription->id,
+                'order_id' => null,
+                'subscription_id' => null,
+                'provider' => 'flexpay',
+                'provider_payment_id' => $flexResponse['id'],
+                'reference_id' => $flexResponse['referenceId'] ?? $reference,
+                'amount' => $flexResponse['amount'] ?? $resolved['amount'],
+                'currency' => $flexResponse['currency'] ?? $resolved['currency'],
+                'phone' => $phoneNormalized,
+                'status' => 'pending',
+                'raw_response' => array_merge(
+                    is_array($flexResponse) ? $flexResponse : [],
+                    ['channel' => 'mobile_money']
+                ),
+            ]);
+
+            $this->notifications->notifyCompanySubscriptionPaymentInitiated($subscription->fresh());
+
+            $paymentStatus = strtolower((string) ($flexResponse['status'] ?? 'pending'));
+            $paymentCompleted = false;
+            if ($paymentStatus === 'completed') {
+                $payment->update(['status' => 'completed']);
+                $paymentCompleted = $this->companyPaymentCompletion->completeAfterPayment($subscription);
+            }
+
+            $subscription->refresh();
+            $payment->refresh();
+
+            return response()->json([
+                'success' => true,
+                'payment' => $payment,
+                'flexpay_transaction' => $flexResponse,
+                'amount_to_debit' => $resolved['amount'],
+                'currency_to_debit' => $resolved['currency'],
+                'message' => $paymentCompleted
+                    ? 'Paiement confirmé. L\'administrateur peut maintenant activer l\'abonnement.'
+                    : 'Paiement initié. Confirmez l\'opération sur votre téléphone (Mobile Money).',
+                'payment_completed' => $paymentCompleted,
+                'operator' => $operator,
+                'operator_label' => PhoneRDCService::operatorLabel($operator),
+                'phone_formatted' => $phoneNormalized,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Company subscription mobile payment failed', [
+                'subscription_id' => $subscription->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            $message = ClientPaymentMessage::sanitize($e->getMessage());
+            if (stripos($message, 'minimum') !== false && stripos($message, 'CDF') !== false) {
+                $message = 'Le montant minimum pour un paiement Mobile Money en CDF n\'est pas atteint pour cet abonnement.';
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $message ?: 'Impossible d\'initier le paiement Mobile Money.',
+            ], 400);
+        }
+    }
+
+    /**
+     * @return \Illuminate\Http\JsonResponse|null null si autorisé
+     */
+    private function authorizeCompanySubscriptionPayment(
+        Request $request,
+        Company $company,
+        CompanySubscription $subscription,
+    ): ?\Illuminate\Http\JsonResponse {
+        if ($r = $this->requireAnyPermission($request, ['admin.company-subscriptions', 'entreprise.b2b.access'])) {
+            return $r;
+        }
+
+        if (! $this->canAccessCompany($company)) {
+            return response()->json(['success' => false, 'message' => 'Non autorisé'], 403);
+        }
+
+        if ((int) $subscription->company_id !== (int) $company->id) {
+            return response()->json(['success' => false, 'message' => 'Abonnement introuvable.'], 404);
+        }
+
+        $user = $request->user();
+        if ($user && $user->hasPermissionTo('entreprise.b2b.access') && ! $user->canAsAdmin('admin.company-subscriptions')) {
+            if ((int) $company->contact_user_id !== (int) $user->id) {
+                return response()->json(['success' => false, 'message' => 'Non autorisé'], 403);
+            }
+        }
+
+        if ($subscription->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Seul un abonnement en attente d\'activation peut être payé en ligne.',
+            ], 422);
+        }
+
+        if ($subscription->payment_status === 'paid') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le paiement de cet abonnement est déjà enregistré.',
+            ], 422);
+        }
+
+        return null;
+    }
+
+    /**
      * Activer un abonnement entreprise après paiement (admin).
      * Route préférée : POST /api/admin/company-subscriptions/{companySubscription}/activate
      */
@@ -491,6 +588,13 @@ class CompanySubscriptionController extends Controller
                 ->whereKey($subscription->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            if ((string) ($locked->payment_status ?? '') !== 'paid') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'L\'abonnement ne peut pas être activé : le paiement n\'a pas encore été reçu (status: ' . ($locked->payment_status ?? 'aucun') . ').',
+                ], 422);
+            }
 
             $this->pricingService->activateSubscription($locked);
 

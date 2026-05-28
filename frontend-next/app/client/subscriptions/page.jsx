@@ -40,7 +40,6 @@ export default function ClientSubscriptions() {
   const [payCountry, setPayCountry] = useState('DRC')
   const [payProvider, setPayProvider] = useState('')
   const [polling, setPolling] = useState(false)
-  const [payCancelling, setPayCancelling] = useState(false)
   const [paymentState, setPaymentState] = useState({ status: 'idle', message: '' })
   const pollRef = useRef({ timer: null, attempts: 0, startedAt: 0, subscriptionId: null })
   const { user } = useAuth()
@@ -314,39 +313,6 @@ export default function ClientSubscriptions() {
     handlePayWithMobileMoney()
   }
 
-  async function handleCancelOwnSubscription() {
-    if (!paySubscription || payCancelling) return
-    setPayCancelling(true)
-    setPayError('')
-    if (pollRef.current.timer) {
-      clearTimeout(pollRef.current.timer)
-      pollRef.current.timer = null
-    }
-    setPolling(false)
-    try {
-      await getCsrfCookie()
-      const res = await apiRequest(`/api/subscriptions/${paySubscription.id}/cancel-own`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      await loadSubs()
-      setPaymentState({ status: 'cancelled', message: res?.message || 'Abonnement annulé.' })
-      pushToast({ type: 'success', message: res?.message || 'Abonnement annulé.' })
-      setTimeout(() => {
-        setShowPayModal(false)
-        setPaySubscription(null)
-        setPayPhone('')
-        setPayProvider('')
-        setPaymentState({ status: 'idle', message: '' })
-      }, 1000)
-    } catch (err) {
-      const msg = getApiErrorMessage(err) || 'Impossible d\'annuler la demande.'
-      setPayError(msg)
-    } finally {
-      setPayCancelling(false)
-    }
-  }
-
   return (
     <ReadOnlyGuard allowedActions={['view', 'read', 'subscribe']} showWarning={false}>
       <section className="client-subscriptions-page page-section page-section--admin-tight min-h-screen bg-[#0b1220] text-white">
@@ -359,9 +325,10 @@ export default function ClientSubscriptions() {
 
           <div className="card mb-6 p-4 sm:p-5 border border-cyan-500/25 bg-cyan-500/5 text-center sm:text-left">
             <p className="text-white/90 text-sm sm:text-base leading-relaxed m-0">
-              <strong className="text-cyan-300">Validation par l’équipe :</strong> après souscription, votre demande est
-              <strong> en attente d’approbation</strong> par un administrateur (vérification du paiement Mobile Money).
-              Vous ne pouvez pas <strong>mettre en pause</strong> ni <strong>résilier vous-même</strong> un abonnement en cours — seul l’administrateur peut approuver, refuser ou annuler. Pour toute question, contactez le support.
+              <strong className="text-cyan-300">Votre abonnement, notre engagement :</strong> chaque demande est
+              <strong> soigneusement validée</strong> par notre équipe pour garantir la qualité du service.
+              Une fois votre paiement Mobile Money confirmé, nous activons votre abonnement dans les meilleurs délais.
+              Seul l’administrateur peut approuver, ajuster ou suspendre une souscription — pour votre sécurité et la nôtre.
             </p>
             <div className="mt-4 pt-4 border-t border-cyan-500/25 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 items-center sm:items-stretch">
               <GoldButton href="/client/subscriptions/historique" className="!inline-flex items-center justify-center gap-2 shrink-0 px-5 py-3 text-[15px] shadow-[0_4px_20px_rgba(212,175,55,0.35)]">
@@ -475,7 +442,7 @@ export default function ClientSubscriptions() {
         <div
           className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-black/70"
           onClick={() => {
-            if (paySubmitting || polling || payCancelling) return
+            if (paySubmitting || polling) return
             if (pollRef.current.timer) {
               clearTimeout(pollRef.current.timer)
               pollRef.current.timer = null
@@ -557,32 +524,27 @@ export default function ClientSubscriptions() {
                   <button
                     type="button"
                     onClick={handleRetryPayment}
-                    disabled={paySubmitting || payCancelling}
+                    disabled={paySubmitting}
                     className="min-h-[44px] px-4 py-2 rounded-lg bg-[#d4af37] text-[#0b1220] font-semibold hover:bg-[#e5c048] disabled:opacity-50"
                   >
                     Réessayer le paiement
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancelOwnSubscription}
-                    disabled={paySubmitting || payCancelling}
-                    className="min-h-[44px] px-4 py-2 rounded-lg border border-red-500/60 text-red-100 hover:bg-red-500/20 disabled:opacity-50"
-                  >
-                    {payCancelling ? 'Annulation…' : 'Annuler la demande'}
                   </button>
                 </div>
               </div>
             )}
 
-            {paymentState.status === 'cancelled' && (
-              <div className="mb-4 p-3 rounded-lg bg-white/5 border border-white/15">
-                <p className="text-white/80 text-sm">✖ {paymentState.message}</p>
-              </div>
-            )}
-
             {paymentState.status === 'completed' && (
-              <div className="mb-4 p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/40">
-                <p className="text-emerald-200 text-sm">✓ {paymentState.message}</p>
+              <div className="mb-4 p-5 rounded-xl bg-emerald-500/10 border border-emerald-500/40 backdrop-blur-sm">
+                <div className="flex items-start gap-4">
+                  <span className="text-2xl shrink-0">✓</span>
+                  <div>
+                    <p className="text-emerald-200 font-semibold text-base">Paiement confirmé</p>
+                    <p className="text-emerald-100/80 text-sm mt-1 leading-relaxed">
+                      {paymentState.message || 'Votre demande est en cours d\'examen par notre équipe. Vous serez notifié dès que votre abonnement sera activé.'}
+                    </p>
+                    <p className="text-emerald-100/60 text-xs mt-2">Merci de votre confiance. — L’équipe Green Express</p>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -642,7 +604,7 @@ export default function ClientSubscriptions() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (paySubmitting || polling || payCancelling) return
+                    if (paySubmitting || polling) return
                     if (pollRef.current.timer) {
                       clearTimeout(pollRef.current.timer)
                       pollRef.current.timer = null
@@ -660,7 +622,7 @@ export default function ClientSubscriptions() {
                 <button
                   type="button"
                   onClick={handlePayWithMobileMoney}
-                  disabled={paySubmitting || polling || payCancelling || paymentState.status === 'completed' || paymentState.status === 'cancelled'}
+                  disabled={paySubmitting || polling || paymentState.status === 'completed'}
                   className="min-h-[44px] px-4 py-2 rounded-lg bg-[#d4af37] text-[#0b1220] font-semibold hover:bg-[#e5c048] disabled:opacity-50"
                 >
                   {paySubmitting ? 'Envoi…' : polling ? 'Vérification en cours…' : 'Lancer le paiement'}

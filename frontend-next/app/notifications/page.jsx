@@ -24,6 +24,7 @@ import {
   getSubscriptionsDeepLink,
 } from '@/lib/notificationNavigation'
 import { getApiErrorMessage } from '@/lib/api'
+import { resolveNotificationNavigateHref } from '@/lib/notificationDetailActions'
 import ConfirmModal from '@/components/ConfirmModal'
 import styles from './page.module.css'
 
@@ -119,10 +120,11 @@ export default function NotificationsPage() {
   const [markingAll, setMarkingAll] = useState(false)
   const [deletingAll, setDeletingAll] = useState(false)
   const [confirmModal, setConfirmModal] = useState(null)
+  const [detailNotification, setDetailNotification] = useState(null)
   const dashboardHref = user?.role ? `/${user.role}` : '/client'
 
   async function requestNotifications(signal) {
-    const data = await fetchNotifications(50, { signal })
+    const data = await fetchNotifications(50, { signal }, { unreadOnly: true })
     return Array.isArray(data?.notifications) ? data.notifications : []
   }
 
@@ -165,7 +167,7 @@ export default function NotificationsPage() {
   }, [])
 
   const unread = notifications.filter((notification) => !notification.read_at)
-  const allVisible = unread.length > 0 ? unread : notifications
+  const allVisible = unread
   const filteredNotifications =
     activeTab === 'all'
       ? allVisible
@@ -326,9 +328,6 @@ export default function NotificationsPage() {
     const hasEventAction = Boolean(getNotificationField(notification, 'event_request_id'))
     const hasSubscriptionAction = Boolean(getNotificationField(notification, 'subscription_id') || getNotificationField(notification, 'company_subscription_id'))
     const hasPromotionAction = Boolean(getNotificationField(notification, 'promotion_id'))
-    const hasSpecificAction = hasOrderAction || hasEventAction || hasSubscriptionAction || hasPromotionAction
-    const explicitDeepLink = getNotificationDeepLink(notification, null)
-    const cardDeepLink = explicitDeepLink && !hasSpecificAction ? explicitDeepLink : null
     if (type === 'subscriptions' && planName) subtitleParts.push(planName)
     if (type === 'promotions' && promotionKind === 'special') subtitleParts.push('Mise en avant')
     if (category === 'announcement' || kind === 'announcement') {
@@ -340,27 +339,19 @@ export default function NotificationsPage() {
       <article
         key={notification.id}
         className={`${styles.card} ${theme.cardClass}`}
-        style={cardDeepLink ? { cursor: 'pointer' } : undefined}
-        role={cardDeepLink ? 'button' : undefined}
-        tabIndex={cardDeepLink ? 0 : undefined}
-        onClick={cardDeepLink
-          ? (event) => {
-            const target = event.target
-            if (target instanceof Element && target.closest('button,a,input,textarea,select')) {
-              return
-            }
-            router.push(cardDeepLink)
-          }
-          : undefined}
-        onKeyDown={cardDeepLink
-          ? (event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') {
-              return
-            }
-            event.preventDefault()
-            router.push(cardDeepLink)
-          }
-          : undefined}
+        style={{ cursor: 'pointer' }}
+        role="button"
+        tabIndex={0}
+        onClick={(event) => {
+          const target = event.target
+          if (target instanceof Element && target.closest('button,a,input,textarea,select')) return
+          openNotificationDetail(notification)
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          event.preventDefault()
+          openNotificationDetail(notification)
+        }}
       >
         {!notification.read_at && <span className={`${styles.dot} ${theme.dotClass}`} />}
 
@@ -411,59 +402,25 @@ export default function NotificationsPage() {
             </div>
 
             <div className={styles.actions}>
-              {hasOrderAction && (
-                <button
-                  type="button"
-                  onClick={() => goToOrder(notification)}
-                  className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
-                >
-                  Voir la commande
-                </button>
-              )}
-
-              {hasEventAction && (
-                <button
-                  type="button"
-                  onClick={() => goToEventRequest(notification)}
-                  className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
-                >
-                  {kind === 'event_request_responded'
-                    ? 'Voir la réponse'
-                    : kind === 'event_request_created'
-                      ? 'Traiter la demande'
-                      : 'Voir la demande'}
-                </button>
-              )}
-
-              {hasSubscriptionAction && (
-                <button
-                  type="button"
-                  onClick={() => goToSubscriptions(notification)}
-                  className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
-                >
-                  Voir mes abonnements
-                </button>
-              )}
-
-              {hasPromotionAction && (
-                <button
-                  type="button"
-                  onClick={() => goToPromotions(notification)}
-                  className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
-                >
-                  Voir les promotions
-                </button>
-              )}
-
-              {explicitDeepLink && !hasSpecificAction && (
-                <button
-                  type="button"
-                  onClick={() => router.push(explicitDeepLink)}
-                  className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
-                >
-                  Ouvrir
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => openNotificationDetail(notification)}
+                className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`}
+              >
+                {hasOrderAction
+                  ? 'Voir la commande'
+                  : hasEventAction
+                    ? (kind === 'event_request_responded'
+                      ? 'Voir la réponse'
+                      : kind === 'event_request_created'
+                        ? 'Traiter la demande'
+                        : 'Voir la demande')
+                    : hasSubscriptionAction
+                      ? 'Voir l\'abonnement'
+                      : hasPromotionAction
+                        ? 'Voir la promotion'
+                        : 'Voir le détail'}
+              </button>
 
               {!notification.read_at && (
                 <button
@@ -503,9 +460,9 @@ export default function NotificationsPage() {
             <div className={styles.titleWrap}>
               <h1 className={styles.title}>Notifications</h1>
               <p className={styles.subtitle}>
-                Mes notifications.
+                Non lues uniquement.
                 {' '}
-                {unreadCount > 0 ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` : 'Tout est lu'}
+                {unreadCount > 0 ? `${unreadCount} en attente` : 'Rien de nouveau'}
               </p>
             </div>
           </div>
@@ -552,7 +509,7 @@ export default function NotificationsPage() {
             href="/notifications/historique"
             className={styles.historyLink}
           >
-            Voir l’historique{readCount > 0 ? ` (${readCount})` : ''}
+            Voir l&apos;historique complet
           </Link>
         </div>
 
@@ -574,7 +531,10 @@ export default function NotificationsPage() {
           </div>
         ) : filteredNotifications.length === 0 ? (
           <div className={styles.stateCard}>
-            <p className={styles.stateText}>Aucune notification à afficher.</p>
+            <p className={styles.stateText}>Aucune notification non lue.</p>
+            <Link href="/notifications/historique" className={styles.historyLink}>
+              Consulter l&apos;historique
+            </Link>
           </div>
         ) : (
           <div className={styles.cards}>
@@ -588,6 +548,60 @@ export default function NotificationsPage() {
           onCancel={() => setConfirmModal(null)}
         />
       )}
+
+      {detailNotification && (() => {
+        const type = getNotificationType(detailNotification)
+        const theme = NOTIFICATION_THEMES[type] || NOTIFICATION_THEMES.announcements
+        const title = getNotificationField(detailNotification, 'title') || theme.label
+        const message = getNotificationField(detailNotification, 'message') || 'Vous avez une nouvelle notification.'
+        const previewImage = getPreviewImage(detailNotification)
+        const navigateHref = resolveNotificationNavigateHref(detailNotification, user?.role)
+        const createdLabel = detailNotification.created_at
+          ? new Date(detailNotification.created_at).toLocaleString('fr-FR', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+          : ''
+        const originLabel = detailNotification.origin_label
+
+        return (
+          <div
+            className={styles.detailOverlay}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="notification-detail-title"
+            onClick={closeNotificationDetail}
+          >
+            <div className={styles.detailPanel} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.detailHeader}>
+                <span className={`${styles.iconWrap} ${theme.iconClass}`}>{theme.icon}</span>
+                <div className={styles.detailHeaderText}>
+                  <p className={`${styles.previewLabel} ${theme.labelClass}`}>{theme.label}</p>
+                  <h2 id="notification-detail-title" className={styles.detailTitle}>{title}</h2>
+                  {createdLabel && <p className={styles.detailMeta}>{createdLabel}</p>}
+                  {originLabel && <p className={styles.detailMeta}>De : {originLabel}</p>}
+                </div>
+                <button type="button" className={`${styles.buttonReset} ${styles.detailClose}`} onClick={closeNotificationDetail} aria-label="Fermer">×</button>
+              </div>
+              {previewImage && <img src={previewImage} alt="" className={styles.detailImage} />}
+              <p className={styles.detailMessage}>{message}</p>
+              <div className={styles.detailActions}>
+                {navigateHref && (
+                  <button type="button" className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`} onClick={() => navigateFromDetail(detailNotification)}>
+                    Ouvrir dans l&apos;application
+                  </button>
+                )}
+                <button type="button" className={`${styles.buttonReset} ${styles.actionDanger}`} onClick={() => { closeNotificationDetail(); handleDelete(detailNotification) }}>
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </section>
   )
 }

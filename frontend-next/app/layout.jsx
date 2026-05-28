@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import './styles/globals.css'
 import './styles/tailwind.css'
 import './styles/theme.css'
@@ -48,7 +49,9 @@ export default function RootLayout({ children }){
       <body className="app-bg" suppressHydrationWarning>
         <div className="grid-overlay"></div>
         <Providers>
-          <Navbar />
+          <Suspense fallback={null}>
+            <Navbar />
+          </Suspense>
           <div className="container">{children}</div>
           <Footer />
           <Toaster />

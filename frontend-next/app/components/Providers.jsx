@@ -7,6 +7,7 @@ import PWAInstaller from '@/components/PWAInstaller';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import NextAuthProvider from '@/components/NextAuthProvider';
 import AuthenticatedRuntime from '@/components/AuthenticatedRuntime';
+import DeliveryLiveToaster from '@/components/DeliveryLiveToaster';
 
 export default function Providers({ children }) {
   return (
@@ -17,6 +18,7 @@ export default function Providers({ children }) {
         <AuthenticatedRuntime />
         <PWAInstaller />
         <OfflineIndicator />
+        <DeliveryLiveToaster />
         {children}
       </CartProvider>
       </UnreadNotificationsProvider>

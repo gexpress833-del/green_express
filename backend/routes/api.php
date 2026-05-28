@@ -47,7 +47,7 @@ Route::get('ping', function() {
 
 Route::post('register', [AuthController::class, 'register'])->middleware('throttle:api');
 Route::post('register-company', [AuthController::class, 'registerCompany'])->middleware('throttle:api');
-Route::post('login', [AuthController::class, 'login'])->middleware('throttle:api')->name('login');
+Route::post('login', [AuthController::class, 'login'])->middleware('throttle:api')->name('api.login');
 Route::post('auth/google', [AuthController::class, 'google'])->middleware('throttle:api');
 Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
 Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
@@ -261,6 +261,7 @@ Route::delete('companies/{company}', [\App\Http\Controllers\Api\CompanyControlle
 Route::get('companies/{company}/subscriptions', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'index'])->middleware('throttle:api');
 Route::post('companies/{company}/subscriptions', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'store'])->middleware('throttle:api');
 Route::post('companies/{company}/subscriptions/{subscription}/initiate-card-payment', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'initiateCardPayment'])->middleware('throttle:api');
+Route::post('companies/{company}/subscriptions/{subscription}/initiate-mobile-payment', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'initiateMobilePayment'])->middleware('throttle:api');
 Route::get('companies/{company}/subscriptions/{subscription}/payment-status', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'paymentStatus'])->middleware('throttle:api');
 Route::post('companies/{company}/subscriptions/{subscription}/cancel-own', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'cancelOwn'])->middleware('throttle:api');
 Route::get('subscriptions/{subscription}', [\App\Http\Controllers\Api\CompanySubscriptionController::class, 'show'])->middleware('throttle:api');

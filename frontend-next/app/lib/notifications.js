@@ -4,8 +4,12 @@ import { apiRequest } from './api';
  * @param {number} limit
  * @param {RequestInit} [fetchOptions] - ex. { signal: AbortSignal } pour timeout
  */
-export async function fetchNotifications(limit = 20, fetchOptions = {}) {
-  return apiRequest(`/api/notifications?limit=${encodeURIComponent(limit)}`, {
+export async function fetchNotifications(limit = 20, fetchOptions = {}, { unreadOnly = false } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (unreadOnly) {
+    params.set('unread_only', '1');
+  }
+  return apiRequest(`/api/notifications?${params.toString()}`, {
     method: 'GET',
     ...fetchOptions,
   });

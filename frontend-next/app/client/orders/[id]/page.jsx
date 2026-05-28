@@ -3,6 +3,7 @@
 import ClientSubpageHeader from '@/components/ClientSubpageHeader'
 import OrderStatusTimeline from '@/components/OrderStatusTimeline'
 import ReadOnlyGuard from '@/components/ReadOnlyGuard'
+import DeliveryCodeDisplay from '@/components/DeliveryCodeDisplay'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -107,15 +108,11 @@ export default function ClientOrderDetailPage() {
                 )}
 
                 {order.delivery_code && (
-                  <div className="mt-6 p-4 bg-gradient-to-r from-cyan-500/15 to-purple-500/15 border border-cyan-500/25 rounded-lg">
-                    <p className="text-white/65 text-sm mb-2">Code de livraison</p>
-                    <p
-                      className="text-2xl font-bold text-cyan-300 font-mono tracking-widest"
-                      aria-label={`Code de livraison : ${order.delivery_code}`}
-                    >
-                      {order.delivery_code}
-                    </p>
-                    <p className="text-white/45 text-xs mt-2">À communiquer au livreur à la réception.</p>
+                  <div className="mt-6">
+                    <DeliveryCodeDisplay
+                      code={order.delivery_code}
+                      subtitle="Code de livraison"
+                    />
                   </div>
                 )}
 

@@ -312,7 +312,7 @@ export default function ClientDashboard() {
   const NAV = [
     { icon: '🍽️', label: 'Menus',        href: '/client/menus' },
     { icon: '🛒', label: 'Panier',        href: '/client/cart',                      badge: cartCount, badgeColor: '#fbbf24' },
-    { icon: BellIcon, label: 'Notifications', href: '/notifications/historique',     badge: unreadNotifications, badgeColor: '#22d3ee', isBell: true },
+    { icon: BellIcon, label: 'Notifications', href: '/notifications',     badge: unreadNotifications, badgeColor: '#22d3ee', isBell: true },
     { icon: '🎁', label: 'Promos',        href: '/client/promotions' },
     { icon: '💳', label: 'Abonnements',   href: '/client/subscriptions#renew' },
     { icon: '👤', label: 'Profil',        href: '/profile' },
