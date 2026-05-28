@@ -1,15 +1,13 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useLandingMotionPrefs } from './useLandingMotionPrefs'
 import {
-  DEMO_LANDING_VIDEO_MP4,
-  VIDEO_SOURCES_MP4,
   nextLogoSrc,
   PRIMARY_LOGO,
 } from '@/lib/landingMedia'
 import { LandingCtaPrimary, LandingCtaSecondary, LandingCtaRow } from './LandingCta'
+import LandingMenusCarousel from './LandingMenusCarousel'
 
 const BADGES = [
   { label: 'Livraison rapide à Kolwezi', color: '#34d399' },
@@ -25,31 +23,7 @@ export default function LandingHero({
   primaryCtaLabel,
   secondaryCtaHref,
 }) {
-  const heroVideoRef = useRef(null)
   const { reduce, entranceProps } = useLandingMotionPrefs()
-
-  useEffect(() => {
-    const el = heroVideoRef.current
-    if (!el) return
-    const isMobile =
-      typeof window !== 'undefined' &&
-      (window.innerWidth < 768 ||
-        ('connection' in navigator && navigator.connection?.saveData))
-    if (isMobile) return
-    const enforceMutedAndPlay = () => {
-      el.muted = true
-      el.defaultMuted = true
-      el.loop = true
-      void el.play().catch(() => {})
-    }
-    enforceMutedAndPlay()
-    el.addEventListener('loadeddata', enforceMutedAndPlay)
-    el.addEventListener('canplay', enforceMutedAndPlay)
-    return () => {
-      el.removeEventListener('loadeddata', enforceMutedAndPlay)
-      el.removeEventListener('canplay', enforceMutedAndPlay)
-    }
-  }, [])
 
   return (
     <section className="landing landing-modern-hero hero-anim-bg">
@@ -163,24 +137,7 @@ export default function LandingHero({
             </motion.div>
 
             <motion.div className="landing-hero-video-wrap landing-modern-hero__video">
-              <div className="landing-hero-video-frame">
-                <video
-                  ref={heroVideoRef}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  poster={logoSrc || PRIMARY_LOGO}
-                  className="landing-modern-hero__video-el"
-                >
-                  {VIDEO_SOURCES_MP4.map((src) => (
-                    <source key={src} src={src} type="video/mp4" />
-                  ))}
-                  <source src={DEMO_LANDING_VIDEO_MP4} type="video/mp4" />
-                  Votre navigateur ne prend pas en charge la lecture vidéo HTML5.
-                </video>
-              </div>
+              <LandingMenusCarousel poster={logoSrc || PRIMARY_LOGO} />
             </motion.div>
           </motion.div>
         </div>
