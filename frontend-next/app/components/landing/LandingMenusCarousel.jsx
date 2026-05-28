@@ -65,18 +65,30 @@ export default function LandingMenusCarousel({ poster }) {
     >
       <div className="landing-menus-carousel__frame">
         {loading && (
-          <div className="landing-menus-carousel__placeholder">
+          <div className="landing-menus-carousel__slide landing-menus-carousel__slide--center">
             <div className="landing-menus-carousel__spinner" aria-hidden />
-            <p>Chargement des menus…</p>
+            <p className="landing-menus-carousel__center-text">Chargement des menus…</p>
           </div>
         )}
 
         {!loading && (menus.length === 0 || error) && (
-          <div
-            className="landing-menus-carousel__placeholder"
-            style={poster ? { backgroundImage: `url(${poster})` } : undefined}
-          >
-            <p>Découvrez bientôt nos menus</p>
+          <div className="landing-menus-carousel__slide">
+            {poster ? (
+              <img
+                src={poster}
+                alt="Green Express"
+                className="landing-menus-carousel__img"
+                style={{ objectFit: 'contain', background: '#07070a', padding: '1rem' }}
+              />
+            ) : (
+              <div className="landing-menus-carousel__slide--solid" />
+            )}
+            <div className="landing-menus-carousel__scrim" aria-hidden />
+            <div className="landing-menus-carousel__caption">
+              <p className="landing-menus-carousel__name">
+                Découvrez bientôt nos menus
+              </p>
+            </div>
           </div>
         )}
 
