@@ -428,6 +428,16 @@
 .actionPrimary {
   font-size: 0.78rem;
   font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+  transition: all 0.18s ease;
+}
+
+.actionPrimary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.15);
 }
 
 .actionOrder {
@@ -458,12 +468,28 @@
   color: #6b7280;
   font-size: 0.78rem;
   font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  transition: all 0.18s ease;
+}
+
+.actionMuted:hover {
+  background: #e5e7eb;
 }
 
 .actionDanger {
   color: #dc2626;
   font-size: 0.78rem;
   font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #fef2f2;
+  transition: all 0.18s ease;
+}
+
+.actionDanger:hover {
+  background: #fee2e2;
 }
 
 @keyframes spin {
