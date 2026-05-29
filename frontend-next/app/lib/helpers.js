@@ -41,6 +41,7 @@ export function formatCurrencyCDF(amount) {
 export function formatOrderMoney(amount, currency) {
   const c = (currency || 'CDF').toUpperCase();
   if (c === 'CDF' || c === 'FC') return formatCurrencyCDF(amount ?? 0);
+  if (c === 'USD') return `${Number(amount ?? 0).toLocaleString('fr-FR')}\u00a0$`;
   return `${Number(amount ?? 0).toLocaleString('fr-FR')}\u00a0${c}`;
 }
 

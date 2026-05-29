@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { apiRequest } from '@/lib/api'
-import { formatCurrency } from '@/lib/helpers'
+import { formatOrderMoney } from '@/lib/helpers'
 
 const ROTATION_MS = 3500
 
@@ -116,9 +116,7 @@ export default function LandingMenusCarousel({ poster }) {
                 </p>
                 {current.price != null && (
                   <p className="landing-menus-carousel__price">
-                    {formatCurrency
-                      ? formatCurrency(Number(current.price), current.currency || 'CDF')
-                      : `${current.price} ${current.currency || 'CDF'}`}
+                    {formatOrderMoney(current.price, current.currency || 'CDF')}
                   </p>
                 )}
               </div>
