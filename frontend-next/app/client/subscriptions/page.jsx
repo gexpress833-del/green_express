@@ -490,7 +490,7 @@ export default function ClientSubscriptions() {
                     }
                   }}
                   disabled={polling}
-                  className="mt-3 block text-sm text-cyan-200 hover:text-white underline underline-offset-2 disabled:opacity-50"
+                  className="mt-3 block text-sm text-cyan-300 hover:text-white underline underline-offset-2 disabled:opacity-50 bg-transparent font-medium"
                 >
                   J&apos;ai confirmé sur mon téléphone — vérifier maintenant
                 </button>
@@ -507,7 +507,7 @@ export default function ClientSubscriptions() {
                       message: 'Paiement signalé comme non abouti par vous-même. Vous pouvez réessayer ou annuler la demande d\'abonnement.',
                     })
                   }}
-                  className="mt-3 text-xs text-cyan-100/70 hover:text-white underline underline-offset-2"
+                  className="mt-3 text-xs text-cyan-200 hover:text-white underline underline-offset-2 bg-transparent font-medium"
                 >
                   Le paiement n&apos;a pas marché sur mon téléphone ?
                 </button>
