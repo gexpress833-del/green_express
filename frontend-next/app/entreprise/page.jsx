@@ -65,23 +65,17 @@ export default function EntrepriseDashboard(){
                   <div className="stat-card">
                     <h4>👥 Employés</h4>
                     <p className="text-3xl font-bold">{stats?.employees ?? 0}</p>
-                    <Link href="/entreprise/employees" className="text-sm text-green-400 hover:text-green-300 mt-2 inline-block">
-                      Détail →
-                    </Link>
+                    <GoldButton href="/entreprise/employees" className="text-sm mt-2">Détail</GoldButton>
                   </div>
                   <div className="stat-card">
                     <h4>🛒 Commandes</h4>
                     <p className="text-3xl font-bold">{stats?.orders ?? 0}</p>
-                    <Link href="/entreprise/orders" className="text-sm text-green-400 hover:text-green-300 mt-2 inline-block">
-                      Détail →
-                    </Link>
+                    <GoldButton href="/entreprise/orders" className="text-sm mt-2">Détail</GoldButton>
                   </div>
                   <div className="stat-card">
                     <h4>💰 Budget</h4>
                     <p className="text-3xl font-bold">{stats?.budget ?? 0} USD</p>
-                    <Link href="/entreprise/budget" className="text-sm text-green-400 hover:text-green-300 mt-2 inline-block">
-                      Détail →
-                    </Link>
+                    <GoldButton href="/entreprise/budget" className="text-sm mt-2">Détail</GoldButton>
                   </div>
                 </div>
 
