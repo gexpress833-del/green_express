@@ -180,12 +180,7 @@ export default function LivreurAssignments(){
                         <span className={`badge ${order.status === 'delivered' ? 'badge-success' : 'badge-warning'}`}>
                           {getOrderStatusLabel(order.status)}
                         </span>
-                        <Link
-                          href={`/livreur/order/${order.id}`}
-                          className="text-sm text-pink-300 hover:text-pink-200 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 rounded"
-                        >
-                          Detail commande
-                        </Link>
+                        <GoldButton href={`/livreur/order/${order.id}`} className="text-sm">Détail commande</GoldButton>
                       </div>
                     </div>
 

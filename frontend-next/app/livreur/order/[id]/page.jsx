@@ -43,9 +43,7 @@ export default function LivreurOrderDetails() {
             {!loading && error && (
               <div className="card border border-red-500/30 bg-red-500/10 text-center py-8">
                 <p className="text-red-200">{error}</p>
-                <Link href="/livreur/assignments" className="inline-block mt-4 text-pink-300 hover:underline">
-                  Retour aux missions
-                </Link>
+                <GoldButton href="/livreur/assignments" className="mt-4">Retour aux missions</GoldButton>
               </div>
             )}
             {!loading && order && (
@@ -101,12 +99,7 @@ export default function LivreurOrderDetails() {
                 </div>
 
                 <div className="text-center">
-                  <Link
-                    href="/livreur/assignments"
-                    className="text-pink-300 text-sm hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 rounded"
-                  >
-                    Retour aux missions
-                  </Link>
+                  <GoldButton href="/livreur/assignments" className="text-sm">Retour aux missions</GoldButton>
                 </div>
               </div>
             )}

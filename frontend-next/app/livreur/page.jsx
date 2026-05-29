@@ -48,9 +48,7 @@ export default function LivreurDashboard(){
                   <div className="stat-card">
                     <h4>Assignees</h4>
                     <p className="text-3xl font-bold tabular-nums">{stats?.assigned ?? 0}</p>
-                    <Link href="/livreur/assignments" className="text-sm text-cyan-400 hover:text-cyan-300 mt-2 inline-block">
-                      Voir mes missions
-                    </Link>
+                    <GoldButton href="/livreur/assignments" className="text-sm mt-2">Voir mes missions</GoldButton>
                   </div>
                   <div className="stat-card">
                     <h4>Livrees</h4>
