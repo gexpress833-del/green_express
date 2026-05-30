@@ -18,7 +18,7 @@ import { convertMenuPrice, getStoredCurrencyPreference, getStoredUsdCdfRate, syn
 
 const CREATE_PAY_TIMEOUT_MS = 120000
 const PAYMENT_POLL_INTERVAL_MS = 3000
-const PAYMENT_POLL_MAX_ATTEMPTS = 60
+const PAYMENT_POLL_MAX_ATTEMPTS = 20
 const PAYMENT_PENDING_SOFT_WARN_MS = 20000
 const PAYMENT_STATUS_REQUEST_TIMEOUT_MS = 7000
 
@@ -307,11 +307,11 @@ export default function ClientOrderPaymentPage() {
       }
 
       if (pollRef.current.attempts >= PAYMENT_POLL_MAX_ATTEMPTS) {
-        // Timeout : 60 essais x 3s = 3 minutes
+        // Timeout : 20 essais x 3s = 1 minute
         setPolling(false)
         setPaymentState({
           status: 'timeout',
-          message: 'Pas de confirmation reçue après 3 minutes. Vérifiez votre téléphone (USSD Mobile Money) ou réessayez. Si le problème persiste, annulez la commande.',
+          message: 'Pas de confirmation reçue après 1 minute. Vérifiez votre téléphone (USSD Mobile Money) ou réessayez. Si le problème persiste, annulez la commande.',
         })
         return
       }
@@ -688,7 +688,7 @@ export default function ClientOrderPaymentPage() {
                               <p className="text-cyan-200 font-medium">Paiement en cours…</p>
                               <p className="text-cyan-100/80 text-sm mt-1">{paymentState.message}</p>
                               <p className="text-cyan-100/60 text-xs mt-2">
-                                Cette page se met à jour automatiquement. Cela peut prendre jusqu'à 3 minutes.
+                                Cette page se met à jour automatiquement. Cela peut prendre jusqu'à 1 minute.
                               </p>
                               <button
                                 type="button"

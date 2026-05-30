@@ -16,7 +16,7 @@ import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders'
 import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc'
 
 const PAYMENT_POLL_INTERVAL_MS = 3000
-const PAYMENT_POLL_MAX_ATTEMPTS = 60
+const PAYMENT_POLL_MAX_ATTEMPTS = 20
 const PAYMENT_STATUS_REQUEST_TIMEOUT_MS = 7000
 
 function getDefaultProvider(country) {
@@ -241,7 +241,7 @@ export default function ClientSubscriptions() {
         setPolling(false)
         setPaymentState({
           status: 'timeout',
-          message: 'Pas de confirmation reçue après 3 minutes. Vérifiez votre téléphone (USSD Mobile Money) ou réessayez. Si le problème persiste, annulez la demande.',
+          message: 'Pas de confirmation reçue après 1 minute. Vérifiez votre téléphone (USSD Mobile Money) ou réessayez. Si le problème persiste, annulez la demande.',
         })
         return
       }
