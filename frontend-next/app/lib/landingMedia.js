@@ -7,10 +7,10 @@
 
 /** Ordre de tentative pour <img onError> : aligné sur les fichiers réels dans public/ */
 export const LOGO_CANDIDATES = [
+  '/Gexpress_logo.png',
   '/Logo_gexpress.png',
   '/logo.png',
   '/logo.jpg',
-  '/Logo_gexpress.jpg',
   '/favicon.svg',
 ]
 

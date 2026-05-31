@@ -12,6 +12,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
 // Source logo (carrée idéalement). Priorité au nouveau logo s'il existe.
 const candidates = [
+  'public/Gexpress_logo.png',
   'public/icons/Logo_green_express@1x_1.png',
   'public/Logo_green_express.png',
   'public/Logo_gexpress.png',
