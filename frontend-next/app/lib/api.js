@@ -216,6 +216,11 @@ export async function apiRequest(path, options = {}) {
       const returnUrl = encodeURIComponent(window.location.pathname || '/');
       window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { returnUrl } }));
     }
+
+    if (skipSessionExpired) {
+      return null;
+    }
+
     const message = isLoginOrRegister
       ? formatApiErrorMessage(res.status, errorData)
       : 'Session expirée ou invalide';

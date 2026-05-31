@@ -25,13 +25,19 @@ export default function FcmBootstrap() {
 
         console.log("FCM: Device Token acquired:", token.substring(0, 15) + "...");
 
-        await apiRequest("/api/fcm/token", {
+        const response = await apiRequest("/api/fcm/token", {
           method: "POST",
           body: JSON.stringify({
             token,
             platform: "web",
           }),
+          skipSessionExpiredOn401: true,
         });
+
+        if (response === null) {
+          console.info("FCM: enregistrement ignoré (session non authentifiée).");
+          return;
+        }
 
         console.log("FCM: Token successfully registered on backend.");
 
@@ -53,11 +59,6 @@ export default function FcmBootstrap() {
           return unsubscribe;
         }
       } catch (error) {
-        // 401 = session expirée/invalide : non critique pour les notifications.
-        if (error?.status === 401) {
-          console.info("FCM: enregistrement ignoré (session non authentifiée).");
-          return;
-        }
         console.error("FCM Bootstrap failed:", error);
       }
     };
