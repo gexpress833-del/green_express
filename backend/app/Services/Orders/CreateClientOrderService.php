@@ -67,6 +67,8 @@ class CreateClientOrderService
             'company_id' => $data['company_id'] ?? null,
             'status' => 'pending_payment',
             'delivery_address' => $data['delivery_address'],
+            'delivery_latitude' => $data['delivery_latitude'] ?? null,
+            'delivery_longitude' => $data['delivery_longitude'] ?? null,
             'client_phone_number' => $phoneNorm,
             'total_amount' => $total,
             'currency' => $orderCurrency,

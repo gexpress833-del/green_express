@@ -22,6 +22,8 @@ class StoreOrderRequest extends FormRequest
             'items.*.original_price' => 'nullable|numeric|min:0',
             'items.*.original_currency' => 'nullable|string|in:CDF,USD',
             'delivery_address' => 'required|string|max:500',
+            'delivery_latitude' => 'nullable|numeric|between:-90,90',
+            'delivery_longitude' => 'nullable|numeric|between:-180,180',
             'client_phone_number' => 'required|string|max:30',
             'currency' => 'nullable|string|in:CDF,USD',
             'company_id' => 'nullable|integer|exists:users,id',

@@ -16,6 +16,7 @@ import LandingSubscriptions from '@/components/landing/LandingSubscriptions'
 import LandingEnterprise from '@/components/landing/LandingEnterprise'
 import LandingServices from '@/components/landing/LandingServices'
 import LandingPayments from '@/components/landing/LandingPayments'
+import LandingMap from '@/components/landing/LandingMap'
 import LandingFinalCta from '@/components/landing/LandingFinalCta'
 
 function HomePageInner() {
@@ -147,6 +148,7 @@ function HomePageInner() {
       />
       <LandingServices />
       <LandingPayments />
+      <LandingMap />
       <LandingFinalCta
         primaryCtaHref={primaryCtaHref}
         primaryCtaLabel={primaryCtaLabel}

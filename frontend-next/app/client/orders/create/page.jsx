@@ -64,6 +64,10 @@ export default function ClientOrderPaymentPage() {
   const [order, setOrder] = useState(null)
   const [singleMenu, setSingleMenu] = useState(null)
   const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [deliveryLatitude, setDeliveryLatitude] = useState(null)
+  const [deliveryLongitude, setDeliveryLongitude] = useState(null)
+  const [geoLoading, setGeoLoading] = useState(false)
+  const [geoError, setGeoError] = useState('')
   const [phone, setPhone] = useState('')
   const [country, setCountry] = useState('DRC')
   const [provider, setProvider] = useState('')
@@ -466,6 +470,40 @@ export default function ClientOrderPaymentPage() {
     })
   }
 
+  function handleShareLocation() {
+    setGeoLoading(true)
+    setGeoError('')
+    if (!navigator.geolocation) {
+      setGeoError('La géolocalisation n\'est pas supportée par ce navigateur.')
+      setGeoLoading(false)
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setDeliveryLatitude(pos.coords.latitude)
+        setDeliveryLongitude(pos.coords.longitude)
+        setGeoLoading(false)
+      },
+      (err) => {
+        setGeoLoading(false)
+        switch (err.code) {
+          case err.PERMISSION_DENIED:
+            setGeoError('Permission refusée. Activez le GPS dans les paramètres de votre navigateur.')
+            break
+          case err.POSITION_UNAVAILABLE:
+            setGeoError('Position GPS indisponible. Vérifiez que le GPS est activé.')
+            break
+          case err.TIMEOUT:
+            setGeoError('Délai de récupération de la position dépassé. Réessayez.')
+            break
+          default:
+            setGeoError('Erreur de géolocalisation.')
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    )
+  }
+
   async function doCreateSingleOrder() {
     setCreatingOrder(true)
     setError('')
@@ -473,22 +511,27 @@ export default function ClientOrderPaymentPage() {
     const timeoutId = setTimeout(() => controller.abort(), CREATE_PAY_TIMEOUT_MS)
     try {
       await getCsrfCookie()
+      const payload = {
+        items: [{
+          menu_id: singleMenu.id,
+          quantity: 1,
+          price: singleMenuPrice.price,
+          currency: singleMenuPrice.currency,
+          original_price: singleMenuPrice.originalPrice,
+          original_currency: singleMenuPrice.originalCurrency,
+        }],
+        delivery_address: deliveryAddress.trim(),
+        client_phone_number: normalizePhone(phone.trim()),
+        currency: singleMenuPrice.currency,
+      }
+      if (deliveryLatitude != null && deliveryLongitude != null) {
+        payload.delivery_latitude = deliveryLatitude
+        payload.delivery_longitude = deliveryLongitude
+      }
       const createdOrder = await apiRequest('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: [{
-            menu_id: singleMenu.id,
-            quantity: 1,
-            price: singleMenuPrice.price,
-            currency: singleMenuPrice.currency,
-            original_price: singleMenuPrice.originalPrice,
-            original_currency: singleMenuPrice.originalCurrency,
-          }],
-          delivery_address: deliveryAddress.trim(),
-          client_phone_number: normalizePhone(phone.trim()),
-          currency: singleMenuPrice.currency,
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       })
       if (!createdOrder?.id) {
@@ -587,6 +630,32 @@ export default function ClientOrderPaymentPage() {
                         placeholder="Adresse complète de livraison..."
                         className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40"
                       />
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleShareLocation}
+                          disabled={geoLoading}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white rounded-lg text-sm font-medium transition flex items-center gap-2"
+                        >
+                          {geoLoading ? (
+                            <span className="inline-block w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            '📍'
+                          )}
+                          {geoLoading ? 'Récupération…' : 'Partager ma position GPS'}
+                        </button>
+                        {deliveryLatitude != null && deliveryLongitude != null && (
+                          <span className="text-emerald-400 text-sm flex items-center gap-1">
+                            ✅ Position capturée ({deliveryLatitude.toFixed(5)}, {deliveryLongitude.toFixed(5)})
+                          </span>
+                        )}
+                      </div>
+                      {geoError && (
+                        <p className="text-red-400 text-xs mt-2">{geoError}</p>
+                      )}
+                      <p className="text-white/40 text-xs mt-2">
+                        Facultatif : partagez votre position pour aider le livreur à vous trouver plus facilement.
+                      </p>
                     </div>
 
                     <div className="mt-4">
