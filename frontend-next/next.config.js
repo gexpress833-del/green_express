@@ -7,7 +7,10 @@ const API_PROXY_TARGET =
 const nextConfig = {
   /** Masque le badge « N » / overlay en bas à gauche (uniquement en `next dev`). */
   devIndicators: process.env.NODE_ENV === 'development' ? false : undefined,
-  reactStrictMode: true,
+  // Desactive en raison d'une incompatibilite de react-leaflet@4 avec le
+  // double-montage StrictMode en dev ("Map container is already initialized").
+  // Sans effet en production (StrictMode n'y est jamais actif).
+  reactStrictMode: false,
   compress: true,
   poweredByHeader: false,
   allowedDevOrigins: ['127.0.0.1', 'localhost', '*.local'],

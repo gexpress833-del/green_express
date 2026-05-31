@@ -8,10 +8,23 @@ const Map = dynamic(() => import('@/components/Map'), { ssr: false })
 
 export default function LandingMap() {
   const [started, setStarted] = useState(false)
-  const { position, loading, error, requestPosition } = useGeolocation({ watch: false })
+  const [manualPosition, setManualPosition] = useState(null)
+  const { position: gpsPosition, loading, error, requestPosition } = useGeolocation({
+    watch: false,
+    autoStart: false,
+  })
+
+  // La correction manuelle (clic/drag) prend le dessus sur la position GPS.
+  const position = manualPosition || gpsPosition
 
   const handleStart = () => {
+    setManualPosition(null)
     setStarted(true)
+    requestPosition()
+  }
+
+  const handleRefresh = () => {
+    setManualPosition(null)
     requestPosition()
   }
 
@@ -66,20 +79,37 @@ export default function LandingMap() {
 
             {position && (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-800/60 rounded-xl border border-white/10 px-5 py-3">
-                  <p className="text-emerald-400 text-sm font-medium flex items-center gap-2">
-                    <span>✅</span>
-                    Position trouvée ({position.latitude.toFixed(5)}, {position.longitude.toFixed(5)})
-                  </p>
+                <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-800/60 rounded-xl border border-white/10 px-5 py-4">
+                  <div className="space-y-1">
+                    <p className="text-emerald-400 text-sm font-medium flex items-center gap-2">
+                      <span>✅</span>
+                      Position trouvée ({position.latitude.toFixed(5)}, {position.longitude.toFixed(5)})
+                    </p>
+                    {position.accuracy ? (
+                      <p className="text-white/45 text-xs">
+                        Précision estimée : ±{Math.round(position.accuracy)} m
+                      </p>
+                    ) : null}
+                  </div>
                   <button
-                    onClick={requestPosition}
-                    className="text-sm text-white/60 hover:text-white underline underline-offset-2 transition"
+                    onClick={handleRefresh}
+                    disabled={loading}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/15 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition flex items-center gap-2 border border-white/10"
                   >
-                    Actualiser
+                    {loading ? (
+                      <span className="inline-block w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <span>↻</span>
+                    )}
+                    {loading ? 'Actualisation…' : 'Actualiser'}
                   </button>
                 </div>
+                <p className="text-white/50 text-xs px-1">
+                  La position n'est pas exacte ? Déplacez le marqueur ou cliquez directement sur la carte pour indiquer votre emplacement réel.
+                </p>
                 <Map
                   userPosition={position}
+                  onPositionChange={setManualPosition}
                   height="420px"
                   zoom={15}
                   className="w-full"

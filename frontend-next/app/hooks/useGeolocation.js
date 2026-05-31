@@ -13,7 +13,7 @@ const GEO_OPTIONS = {
  * @param {boolean} watch - Si true, utilise watchPosition (temps réel). Sinon getCurrentPosition (one-shot).
  * @param {number} intervalMs - Intervalle minimum entre mises à jour en mode watch (défaut: 5000ms).
  */
-export default function useGeolocation({ watch = false, intervalMs = 5000 } = {}) {
+export default function useGeolocation({ watch = false, intervalMs = 5000, autoStart = true } = {}) {
   const [position, setPosition] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -88,7 +88,9 @@ export default function useGeolocation({ watch = false, intervalMs = 5000 } = {}
       })
     }
 
-    requestPosition()
+    if (autoStart) {
+      requestPosition()
+    }
 
     return () => {
       if (watchRef.current) {
@@ -96,7 +98,7 @@ export default function useGeolocation({ watch = false, intervalMs = 5000 } = {}
         watchRef.current = null
       }
     }
-  }, [requestPosition])
+  }, [requestPosition, autoStart])
 
   return { position, loading, error, permission, requestPosition }
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -60,6 +60,8 @@ const ICONS = {
  * - height : string — hauteur CSS (défaut: '400px')
  * - zoom : number — zoom initial (défaut: 15)
  * - showRoute : boolean — tracer une ligne entre les positions (défaut: false)
+ * - onPositionChange : function({latitude, longitude}) — si fourni, le marqueur
+ *   utilisateur devient déplaçable et un clic sur la carte repositionne le point.
  * - className : string — classes CSS additionnelles
  */
 export default function Map({
@@ -69,13 +71,25 @@ export default function Map({
   height = '400px',
   zoom = 15,
   showRoute = false,
+  onPositionChange = null,
   className = '',
 }) {
   const [mounted, setMounted] = useState(false)
+  // Identifiant unique par instance pour eviter l'erreur Leaflet
+  // "Map container is already initialized" (React StrictMode / remounts en dev).
+  const [mapId] = useState(() => `leaflet-map-${Math.random().toString(36).slice(2)}`)
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    return () => {
+      // Nettoyage du conteneur Leaflet au demontage pour permettre une
+      // reinitialisation propre (corrige "Map container is already initialized").
+      const container = document.getElementById(mapId)
+      if (container != null) {
+        container._leaflet_id = null
+      }
+    }
+  }, [mapId])
 
   // Déterminer le centre initial
   const center = userPosition
@@ -100,6 +114,7 @@ export default function Map({
   return (
     <div className={`rounded-2xl overflow-hidden shadow-lg border border-white/10 ${className}`} style={{ height }}>
       <MapContainer
+        id={mapId}
         center={center}
         zoom={zoom}
         scrollWheelZoom={true}
@@ -113,14 +128,34 @@ export default function Map({
 
         <MapRecenter position={userPosition || driverPosition} />
 
+        {/* Clic sur la carte pour repositionner (mode edition) */}
+        {onPositionChange && <ClickToSetPosition onPositionChange={onPositionChange} />}
+
         {/* Marqueur utilisateur / client */}
         {userPosition && (
-          <Marker position={[userPosition.latitude, userPosition.longitude]} icon={ICONS.user}>
+          <Marker
+            position={[userPosition.latitude, userPosition.longitude]}
+            icon={ICONS.user}
+            draggable={Boolean(onPositionChange)}
+            eventHandlers={
+              onPositionChange
+                ? {
+                    dragend: (e) => {
+                      const { lat, lng } = e.target.getLatLng()
+                      onPositionChange({ latitude: lat, longitude: lng })
+                    },
+                  }
+                : undefined
+            }
+          >
             <Popup>
               <div className="text-sm font-medium">📍 Votre position</div>
               <div className="text-xs text-gray-600">
                 {userPosition.latitude.toFixed(5)}, {userPosition.longitude.toFixed(5)}
               </div>
+              {onPositionChange && (
+                <div className="text-xs text-gray-500 mt-1">Déplacez le marqueur ou cliquez sur la carte pour ajuster.</div>
+              )}
             </Popup>
           </Marker>
         )}
@@ -156,6 +191,18 @@ export default function Map({
       </MapContainer>
     </div>
   )
+}
+
+/**
+ * Capte les clics sur la carte pour repositionner le marqueur utilisateur.
+ */
+function ClickToSetPosition({ onPositionChange }) {
+  useMapEvents({
+    click(e) {
+      onPositionChange({ latitude: e.latlng.lat, longitude: e.latlng.lng })
+    },
+  })
+  return null
 }
 
 /**
