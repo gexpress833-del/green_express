@@ -213,6 +213,7 @@ class OrderController extends Controller
         $data = $request->validate([
             'client_phone_number' => ['required', 'string'],
             'country_code' => ['required', 'string', 'in:DRC'],
+            'payment_currency' => ['nullable', 'string', 'in:CDF,USD'],
         ]);
 
         $result = $this->orderFlexPayInitiation->initiate($order, $user, $data);

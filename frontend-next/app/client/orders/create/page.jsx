@@ -83,6 +83,7 @@ export default function ClientOrderPaymentPage() {
   const [paymentState, setPaymentState] = useState({ status: 'idle', message: '' })
   const [confirmModal, setConfirmModal] = useState(null)
   const [preferredCurrency, setPreferredCurrency] = useState('CDF')
+  const [paymentCurrency, setPaymentCurrency] = useState('CDF')
   const [usdCdfRate, setUsdCdfRate] = useState(2800)
   const pollRef = useRef({ timer: null, attempts: 0, startedAt: 0 })
   const singleMenuPrice = singleMenu ? convertMenuPrice(singleMenu, preferredCurrency, usdCdfRate) : null
@@ -93,6 +94,23 @@ export default function ClientOrderPaymentPage() {
     deliveryZone?.enabled &&
     hasCoords &&
     !isWithinZone(deliveryZone, { latitude: deliveryLatitude, longitude: deliveryLongitude })
+
+  const orderCurrency = (() => {
+    const c = String(order?.currency || order?.items?.[0]?.currency || order?.items?.[0]?.menu?.currency || 'CDF').toUpperCase()
+    return c === 'FC' ? 'CDF' : c
+  })()
+  // Montant qui sera débité dans la devise de paiement choisie.
+  const amountToDebit = (() => {
+    const total = Number(order?.total_amount) || 0
+    if (paymentCurrency === orderCurrency) return total
+    if (orderCurrency === 'USD' && paymentCurrency === 'CDF') return Math.round(total * usdCdfRate)
+    if (orderCurrency === 'CDF' && paymentCurrency === 'USD') return Math.round((total / usdCdfRate) * 100) / 100
+    return total
+  })()
+
+  useEffect(() => {
+    if (order) setPaymentCurrency(orderCurrency)
+  }, [order?.id, orderCurrency])
 
   useEffect(() => {
     setPreferredCurrency(getStoredCurrencyPreference())
@@ -374,6 +392,7 @@ export default function ClientOrderPaymentPage() {
       const payload = {
         client_phone_number: normalizedPhone,
         country_code: country,
+        payment_currency: paymentCurrency,
       }
       if (provider) payload.provider = provider
 
@@ -482,7 +501,7 @@ export default function ClientOrderPaymentPage() {
     }
     setConfirmModal({
       title: 'Confirmer le paiement',
-      message: `Vous allez initier un paiement Mobile Money pour la commande #${order.id}. Un débit sera effectué sur votre compte.`,
+      message: `Vous allez être débité de ${formatCurrency(amountToDebit, paymentCurrency)} via Mobile Money pour la commande #${order.id}.`,
       variant: 'warning',
       confirmLabel: 'Lancer le paiement',
       onConfirm: () => { setConfirmModal(null); doInitiatePayment() },
@@ -771,8 +790,13 @@ export default function ClientOrderPaymentPage() {
                     <div className="mt-5 pt-5 border-t border-white/10">
                       <p className="text-white/70 text-sm mb-3">Total à payer</p>
                       <p className="text-3xl font-bold text-cyan-300">
-                        {formatCurrency(order.total_amount, order.currency || order.items?.[0]?.currency || order.items?.[0]?.menu?.currency || 'CDF')}
+                        {formatCurrency(amountToDebit, paymentCurrency)}
                       </p>
+                      {paymentCurrency !== orderCurrency && (
+                        <p className="text-white/45 text-xs mt-2">
+                          Montant initial : {formatCurrency(order.total_amount, orderCurrency)} · converti au taux 1 USD = {Number(usdCdfRate).toLocaleString('fr-FR')} CDF
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -919,6 +943,30 @@ export default function ClientOrderPaymentPage() {
                       <p className="text-white/60 text-sm mb-4">
                         Paiement sécurisé par <strong className="text-cyan-200/90">Mobile Money</strong> (RDC uniquement).
                       </p>
+
+                      <div className="mb-4">
+                        <label className="block text-white/80 text-sm mb-2">Devise de paiement</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {['CDF', 'USD'].map((cur) => (
+                            <button
+                              key={cur}
+                              type="button"
+                              onClick={() => setPaymentCurrency(cur)}
+                              disabled={submitting || polling}
+                              className={`px-4 py-3 rounded-lg border text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                                paymentCurrency === cur
+                                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
+                                  : 'bg-white/5 border-white/15 text-white/70 hover:bg-white/10'
+                              }`}
+                            >
+                              {cur === 'CDF' ? 'Franc congolais (CDF)' : 'Dollar US (USD)'}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-white/40 text-xs mt-2">
+                          Choisissez la devise dans laquelle vous souhaitez être débité.
+                        </p>
+                      </div>
 
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>

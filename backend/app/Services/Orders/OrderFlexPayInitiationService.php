@@ -23,7 +23,7 @@ final class OrderFlexPayInitiationService
     ) {}
 
     /**
-     * @param  array{client_phone_number: string, country_code: string}  $data
+     * @param  array{client_phone_number: string, country_code: string, payment_currency?: string|null}  $data
      * @return array{ok: true, data: array<string, mixed>}|array{ok: false, http_status: int, message: string, error?: string}
      */
     public function initiate(Order $order, User $user, array $data): array
@@ -78,8 +78,32 @@ final class OrderFlexPayInitiationService
             $phone12 = $formatted;
 
             $order->load('items.menu');
-            $orderCurrency = $order->currency ?? $order->items->first()?->currency ?? $order->items->first()?->menu?->currency ?? 'CDF';
-            $resolved = $this->flexPay->resolveAmountAndCurrency((float) $order->total_amount, (string) $orderCurrency);
+            $orderCurrency = strtoupper((string) ($order->currency ?? $order->items->first()?->currency ?? $order->items->first()?->menu?->currency ?? 'CDF'));
+            if ($orderCurrency === 'FC') {
+                $orderCurrency = 'CDF';
+            }
+
+            // Devise choisie par le client (CDF ou USD). Par défaut : devise de la commande.
+            $chosenCurrency = strtoupper((string) ($data['payment_currency'] ?? $orderCurrency));
+            if ($chosenCurrency === 'FC') {
+                $chosenCurrency = 'CDF';
+            }
+            if (! in_array($chosenCurrency, ['CDF', 'USD'], true)) {
+                $chosenCurrency = $orderCurrency;
+            }
+
+            // Conversion du montant vers la devise de paiement choisie.
+            $amountToPay = (float) $order->total_amount;
+            if ($chosenCurrency !== $orderCurrency) {
+                $rate = (float) config('flexpay.rate_usd_to_cdf', 2800);
+                if ($orderCurrency === 'USD' && $chosenCurrency === 'CDF') {
+                    $amountToPay = $amountToPay * $rate;
+                } elseif ($orderCurrency === 'CDF' && $chosenCurrency === 'USD') {
+                    $amountToPay = $amountToPay / $rate;
+                }
+            }
+
+            $resolved = $this->flexPay->resolveAmountAndCurrency($amountToPay, $chosenCurrency);
 
             $reference = 'ORD-'.$order->id.'-'.Str::lower(Str::random(12));
 
