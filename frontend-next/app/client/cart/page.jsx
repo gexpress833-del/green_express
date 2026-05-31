@@ -12,7 +12,6 @@ import PaymentMethodsBanner from '@/components/PaymentMethodsBanner';
 import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders';
 import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc';
 import { fetchDeliveryZone, isWithinZone } from '@/lib/geo';
-import Link from 'next/link';
 import Image from 'next/image';
 
 function formatCurrency(amount, currency) {
@@ -387,16 +386,17 @@ export default function CartPage() {
                       <button
                         type="submit"
                         disabled={submitting || (locationRequired && !hasCoords) || outOfZone}
-                        className="px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black font-bold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {submitting ? 'Création...' : 'Passer la commande'}
                       </button>
-                      <Link
-                        href="/client/menus"
-                        className="inline-block px-6 py-3 border border-white/30 rounded-lg text-white/90 hover:bg-white/10 transition"
+                      <button
+                        type="button"
+                        onClick={() => router.push('/client/menus')}
+                        className="px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black font-bold rounded-lg transition no-underline"
                       >
                         Continuer mes achats
-                      </Link>
+                      </button>
                     </div>
                   </form>
                 </>

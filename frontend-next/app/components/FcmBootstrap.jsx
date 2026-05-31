@@ -53,6 +53,11 @@ export default function FcmBootstrap() {
           return unsubscribe;
         }
       } catch (error) {
+        // 401 = session expirée/invalide : non critique pour les notifications.
+        if (error?.status === 401) {
+          console.info("FCM: enregistrement ignoré (session non authentifiée).");
+          return;
+        }
         console.error("FCM Bootstrap failed:", error);
       }
     };
