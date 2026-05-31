@@ -97,17 +97,20 @@ export default function LandingMenusCarousel({ poster }) {
             <motion.div
               key={current?.id ?? index}
               className="landing-menus-carousel__slide"
-              initial={{ opacity: 0, scale: 1.02 }}
+              initial={{ opacity: 0, scale: 1.05 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              exit={{ opacity: 0, scale: 1.02 }}
+              transition={{ duration: 1.0, ease: [0.32, 0.72, 0, 1] }}
             >
-              <img
+              <motion.img
                 src={current.image}
                 alt={current.name || current.title || 'Menu Green Express'}
                 className="landing-menus-carousel__img"
                 loading="lazy"
                 decoding="async"
+                initial={{ scale: 1.15 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 3.5, ease: [0.25, 0.46, 0.45, 0.94] }}
               />
               <div className="landing-menus-carousel__scrim" aria-hidden />
               <div className="landing-menus-carousel__caption">

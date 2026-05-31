@@ -74,7 +74,7 @@ export default function LandingHero({
                 transition: { duration: 0.65, delay: 0.15, ease: [0.22, 1, 0.36, 1] },
               })}
             >
-              Des repas de qualité, livrés rapidement ou que vous soyez, chez vous ou à votre bureau.
+              Des repas de qualité, livrés rapidement ou que vous soyez, chez vous ou à votre poste de travail.
             </motion.h1>
 
             <motion.div
