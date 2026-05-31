@@ -90,7 +90,7 @@ export default function ClientMenus() {
                   Choisissez FC ou USD. Ce choix sera utilisé pour les menus, le panier et la commande.
                 </p>
               </div>
-              <div className="inline-flex rounded-xl border border-white/10 bg-black/20 p-1">
+              <div className="inline-flex rounded-xl border border-white/10 bg-slate-800/60 p-1">
                 {['CDF', 'USD'].map((currency) => (
                   <button
                     key={currency}
@@ -103,8 +103,8 @@ export default function ClientMenus() {
                     }}
                     className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
                       preferredCurrency === currency
-                        ? 'bg-[#d4af37] text-[#0b1220]'
-                        : 'text-white/75 hover:bg-white/10'
+                        ? 'bg-[#d4af37] text-[#0b1220] shadow-sm'
+                        : 'bg-slate-700/50 text-white/80 hover:bg-slate-600/50'
                     }`}
                   >
                     {currency === 'CDF' ? 'FC' : 'USD'}

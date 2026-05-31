@@ -955,8 +955,8 @@ export default function ClientOrderPaymentPage() {
                               disabled={submitting || polling}
                               className={`px-4 py-3 rounded-lg border text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
                                 paymentCurrency === cur
-                                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
-                                  : 'bg-white/5 border-white/15 text-white/70 hover:bg-white/10'
+                                  ? 'bg-[#d4af37] border-[#d4af37] text-[#0b1220] shadow-sm'
+                                  : 'bg-slate-700/50 border-white/10 text-white/80 hover:bg-slate-600/50'
                               }`}
                             >
                               {cur === 'CDF' ? 'Franc congolais (CDF)' : 'Dollar US (USD)'}
