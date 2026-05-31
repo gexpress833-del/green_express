@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { apiRequest } from '@/lib/api'
 import { formatOrderMoney } from '@/lib/helpers'
 
-const ROTATION_MS = 3500
+const ROTATION_MS = 7000
 
 function pickMenus(payload) {
   if (Array.isArray(payload)) return payload
@@ -97,10 +97,10 @@ export default function LandingMenusCarousel({ poster }) {
             <motion.div
               key={current?.id ?? index}
               className="landing-menus-carousel__slide"
-              initial={{ opacity: 0, scale: 1.05 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.02 }}
-              transition={{ duration: 1.0, ease: [0.32, 0.72, 0, 1] }}
+              initial={{ opacity: 0, scale: 1.08, x: 60 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 1.04, x: -60 }}
+              transition={{ duration: 1.4, ease: [0.25, 0.1, 0.25, 1] }}
             >
               <motion.img
                 src={current.image}
@@ -108,9 +108,9 @@ export default function LandingMenusCarousel({ poster }) {
                 className="landing-menus-carousel__img"
                 loading="lazy"
                 decoding="async"
-                initial={{ scale: 1.15 }}
+                initial={{ scale: 1.12 }}
                 animate={{ scale: 1 }}
-                transition={{ duration: 5.0, ease: [0.25, 0.46, 0.45, 0.94] }}
+                transition={{ duration: 6.5, ease: [0.25, 0.46, 0.45, 0.94] }}
               />
               <div className="landing-menus-carousel__scrim" aria-hidden />
               <div className="landing-menus-carousel__caption">
