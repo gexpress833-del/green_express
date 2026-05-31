@@ -308,6 +308,25 @@ export default function NotificationsPage() {
     if (href) router.push(href)
   }
 
+  function openNotificationDetail(notification) {
+    setDetailNotification(notification)
+    if (!notification.read_at) {
+      handleMarkRead(notification)
+    }
+  }
+
+  function closeNotificationDetail() {
+    setDetailNotification(null)
+  }
+
+  function navigateFromDetail(notification) {
+    const href = resolveNotificationNavigateHref(notification, user?.role)
+    if (href) {
+      closeNotificationDetail()
+      router.push(href)
+    }
+  }
+
   function renderCard(notification) {
     const type = getNotificationType(notification)
     const theme = NOTIFICATION_THEMES[type] || NOTIFICATION_THEMES.announcements
@@ -588,6 +607,69 @@ export default function NotificationsPage() {
               </div>
               {previewImage && <img src={previewImage} alt="" className={styles.detailImage} />}
               <p className={styles.detailMessage}>{message}</p>
+
+              {/* Détails spécifiques selon le type */}
+              {(() => {
+                const details = []
+                const orderId = getNotificationField(detailNotification, 'order_id')
+                const eventId = getNotificationField(detailNotification, 'event_request_id')
+                const subId = getNotificationField(detailNotification, 'subscription_id')
+                const companySubId = getNotificationField(detailNotification, 'company_subscription_id')
+                const promoId = getNotificationField(detailNotification, 'promotion_id')
+                const planName = getNotificationField(detailNotification, 'plan_name')
+                const promoKind = getNotificationField(detailNotification, 'promotion_kind')
+                const eventType = getNotificationField(detailNotification, 'event_type')
+                const eventDate = getNotificationField(detailNotification, 'event_date')
+                const eventLocation = getNotificationField(detailNotification, 'event_location')
+                const orderStatus = getNotificationField(detailNotification, 'order_status')
+                const orderAmount = getNotificationField(detailNotification, 'order_amount')
+                const orderCurrency = getNotificationField(detailNotification, 'order_currency')
+                const deliveryAddress = getNotificationField(detailNotification, 'delivery_address')
+                const subscriptionStatus = getNotificationField(detailNotification, 'subscription_status')
+                const promotionCode = getNotificationField(detailNotification, 'promotion_code')
+                const promotionDiscount = getNotificationField(detailNotification, 'promotion_discount')
+                const validUntil = getNotificationField(detailNotification, 'valid_until')
+                const priority = getNotificationField(detailNotification, 'priority')
+
+                if (orderId) {
+                  details.push({ label: 'N° Commande', value: `#${orderId}` })
+                  if (orderStatus) details.push({ label: 'Statut', value: orderStatus })
+                  if (orderAmount != null) details.push({ label: 'Montant', value: `${orderAmount} ${orderCurrency || 'CDF'}` })
+                  if (deliveryAddress) details.push({ label: 'Livraison', value: deliveryAddress })
+                }
+                if (eventId) {
+                  details.push({ label: 'N° Demande', value: `#${eventId}` })
+                  if (eventType) details.push({ label: 'Type', value: eventType })
+                  if (eventDate) details.push({ label: 'Date', value: new Date(eventDate).toLocaleDateString('fr-FR') })
+                  if (eventLocation) details.push({ label: 'Lieu', value: eventLocation })
+                }
+                if (subId || companySubId) {
+                  details.push({ label: 'N° Abonnement', value: `#${subId || companySubId}` })
+                  if (planName) details.push({ label: 'Plan', value: planName })
+                  if (subscriptionStatus) details.push({ label: 'Statut', value: subscriptionStatus })
+                }
+                if (promoId) {
+                  details.push({ label: 'N° Promotion', value: `#${promoId}` })
+                  if (promoKind) details.push({ label: 'Type', value: promoKind })
+                  if (promotionCode) details.push({ label: 'Code', value: promotionCode })
+                  if (promotionDiscount) details.push({ label: 'Réduction', value: promotionDiscount })
+                  if (validUntil) details.push({ label: 'Valide jusqu\'au', value: new Date(validUntil).toLocaleDateString('fr-FR') })
+                }
+                if (priority) details.push({ label: 'Priorité', value: priority })
+
+                if (details.length === 0) return null
+                return (
+                  <div className={styles.detailFields}>
+                    {details.map((d) => (
+                      <div key={d.label} className={styles.detailField}>
+                        <span className={styles.detailFieldLabel}>{d.label}</span>
+                        <span className={styles.detailFieldValue}>{d.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+
               <div className={styles.detailActions}>
                 {navigateHref && (
                   <button type="button" className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`} onClick={() => navigateFromDetail(detailNotification)}>

@@ -501,6 +501,39 @@
   }
 }
 
+/* Champs de détail dans le panneau */
+.detailFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+  padding: 14px;
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.detailField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detailFieldLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.detailFieldValue {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  word-break: break-word;
+}
+
 @media (max-width: 480px) {
   .page {
     padding: 14px 8px 28px;
@@ -534,5 +567,10 @@
 
   .tabs {
     gap: 10px 8px;
+  }
+
+  .detailFields {
+    grid-template-columns: 1fr;
+    padding: 10px;
   }
 }

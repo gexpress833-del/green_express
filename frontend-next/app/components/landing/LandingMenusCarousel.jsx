@@ -110,7 +110,7 @@ export default function LandingMenusCarousel({ poster }) {
                 decoding="async"
                 initial={{ scale: 1.15 }}
                 animate={{ scale: 1 }}
-                transition={{ duration: 3.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                transition={{ duration: 5.0, ease: [0.25, 0.46, 0.45, 0.94] }}
               />
               <div className="landing-menus-carousel__scrim" aria-hidden />
               <div className="landing-menus-carousel__caption">
