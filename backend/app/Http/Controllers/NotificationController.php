@@ -197,6 +197,21 @@ class NotificationController extends Controller
         }
     }
 
+    public function show(Request $request, string $id)
+    {
+        $user = $request->user('api');
+        if (! $user) {
+            return response()->json(['message' => 'Non authentifié'], 401);
+        }
+
+        $notification = $this->findNotificationForUser($user, $id);
+        if (! $notification) {
+            return response()->json(['message' => 'Notification introuvable'], 404);
+        }
+
+        return response()->json($notification);
+    }
+
     public function markRead(Request $request, string $id)
     {
         $user = $request->user('api');

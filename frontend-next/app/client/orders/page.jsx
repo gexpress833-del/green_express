@@ -187,12 +187,22 @@ export default function ClientOrders(){
                         )}
 
                         <div className="flex flex-wrap justify-between items-center gap-2 pt-4 border-t border-white/10">
-                          <Link
-                            href={`/client/orders/${order.id}`}
-                            className="text-sm text-cyan-300/90 hover:text-cyan-200 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded px-1 -mx-1"
-                          >
-                            Suivi détaillé →
-                          </Link>
+                          <div className="flex flex-wrap gap-2">
+                            <Link
+                              href={`/client/orders/${order.id}`}
+                              className="text-sm text-cyan-300/90 hover:text-cyan-200 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 rounded px-1 -mx-1"
+                            >
+                              Suivi détaillé →
+                            </Link>
+                            {(order.status === 'assigned' || order.status === 'out_for_delivery') && (
+                              <Link
+                                href={`/client/orders/track?order=${order.id}`}
+                                className="text-sm px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition shadow-lg inline-flex items-center gap-1"
+                              >
+                                🗺️ Suivre sur la carte
+                              </Link>
+                            )}
+                          </div>
                           <p className="text-white/80 text-sm">
                             Total : <span className="font-semibold text-cyan-300 tabular-nums">
                               {order.total_amount != null

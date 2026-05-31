@@ -181,6 +181,14 @@ export default function LivreurAssignments(){
                           {getOrderStatusLabel(order.status)}
                         </span>
                         <GoldButton href={`/livreur/order/${order.id}`} className="text-sm">Détail commande</GoldButton>
+                        {order.status === 'assigned' || order.status === 'out_for_delivery' ? (
+                          <a
+                            href={`/livreur/track?order=${order.id}`}
+                            className="text-sm px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold transition shadow-lg inline-block text-center"
+                          >
+                            🗺️ Suivre sur la carte
+                          </a>
+                        ) : null}
                       </div>
                     </div>
 

@@ -15,6 +15,7 @@ use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\SecretaireController;
 use App\Http\Controllers\CurrencyController;
@@ -122,6 +123,7 @@ Route::put('profile', [ProfileController::class, 'update'])->middleware('throttl
 Route::put('profile/password', [ProfileController::class, 'updatePassword'])->middleware('throttle:api');
 
 // Notifications (DB) — GET index déclaré plus haut avec GET /api/user
+Route::get('notifications/{id}', [NotificationController::class, 'show'])->middleware('throttle:api');
 Route::post('notifications/{id}/read', [NotificationController::class, 'markRead'])->middleware('throttle:api');
 Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->middleware('throttle:api');
 Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->middleware('throttle:api');
@@ -163,6 +165,12 @@ Route::post('orders/{id}/initiate-payment', [OrderController::class, 'initiatePa
 Route::post('orders/{id}/confirm-payment', [OrderController::class, 'confirmPayment'])->middleware('throttle:api'); // Auth check manually
 // Statut consolide du paiement pour le polling client (succes / pending / failed / cancelled)
 Route::get('orders/{id}/payment-status', [OrderController::class, 'paymentStatus'])->middleware('throttle:api'); // Auth check manually
+
+// Géolocalisation
+Route::post('customer/location', [LocationController::class, 'storeCustomerLocation'])->middleware('throttle:api');
+Route::post('driver/location', [LocationController::class, 'storeDriverLocation'])->middleware('throttle:api');
+Route::get('orders/{id}/location', [LocationController::class, 'getOrderLocation'])->middleware('throttle:api');
+Route::get('orders/{id}/tracking', [LocationController::class, 'getOrderTracking'])->middleware('throttle:api');
 // Annulation par le client proprietaire (uniquement si pending_payment)
 Route::post('orders/{id}/cancel-own', [OrderController::class, 'cancelOwn'])->middleware('throttle:api'); // Auth check manually
 Route::post('orders/{uuid}/validate-code', [OrderController::class, 'validateCode'])->middleware('auth:api', 'throttle:api');
