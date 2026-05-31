@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import GoldButton from '@/components/GoldButton'
 import LivreurShell from '@/components/LivreurShell'
 import OrderStatusTimeline from '@/components/OrderStatusTimeline'
 import { apiRequest } from '@/lib/api'
