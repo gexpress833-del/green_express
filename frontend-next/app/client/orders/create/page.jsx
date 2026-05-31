@@ -15,6 +15,7 @@ import DeliveryCodeDisplay from '@/components/DeliveryCodeDisplay'
 import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders'
 import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc'
 import { convertMenuPrice, getStoredCurrencyPreference, getStoredUsdCdfRate, syncUsdCdfRate } from '@/lib/currencyPreference'
+import { fetchDeliveryZone, isWithinZone } from '@/lib/geo'
 
 const CREATE_PAY_TIMEOUT_MS = 120000
 const PAYMENT_POLL_INTERVAL_MS = 3000
@@ -68,6 +69,7 @@ export default function ClientOrderPaymentPage() {
   const [deliveryLongitude, setDeliveryLongitude] = useState(null)
   const [geoLoading, setGeoLoading] = useState(false)
   const [geoError, setGeoError] = useState('')
+  const [deliveryZone, setDeliveryZone] = useState(null)
   const [phone, setPhone] = useState('')
   const [country, setCountry] = useState('DRC')
   const [provider, setProvider] = useState('')
@@ -85,10 +87,27 @@ export default function ClientOrderPaymentPage() {
   const pollRef = useRef({ timer: null, attempts: 0, startedAt: 0 })
   const singleMenuPrice = singleMenu ? convertMenuPrice(singleMenu, preferredCurrency, usdCdfRate) : null
 
+  const locationRequired = deliveryZone?.enabled && deliveryZone?.require_location
+  const hasCoords = deliveryLatitude != null && deliveryLongitude != null
+  const outOfZone =
+    deliveryZone?.enabled &&
+    hasCoords &&
+    !isWithinZone(deliveryZone, { latitude: deliveryLatitude, longitude: deliveryLongitude })
+
   useEffect(() => {
     setPreferredCurrency(getStoredCurrencyPreference())
     setUsdCdfRate(getStoredUsdCdfRate())
     syncUsdCdfRate(apiRequest).then(setUsdCdfRate).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchDeliveryZone().then((zone) => {
+      if (!cancelled) setDeliveryZone(zone)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const loadOrders = useCallback(async (options = {}) => {
@@ -483,6 +502,17 @@ export default function ClientOrderPaymentPage() {
         setDeliveryLatitude(pos.coords.latitude)
         setDeliveryLongitude(pos.coords.longitude)
         setGeoLoading(false)
+        if (
+          deliveryZone?.enabled &&
+          !isWithinZone(deliveryZone, {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          })
+        ) {
+          setGeoError(
+            `Service indisponible à votre position. Les commandes sont limitées à ${deliveryZone.zone_name} (rayon de ${Math.round(deliveryZone.radius_km)} km).`,
+          )
+        }
       },
       (err) => {
         setGeoLoading(false)
@@ -562,6 +592,16 @@ export default function ClientOrderPaymentPage() {
     const np = normalizePhone(phone.trim())
     if (!isValidPhoneForCountry(np, 'DRC')) {
       setError('Indiquez un numéro Mobile Money RDC valide pour le paiement (ex. 08…, 09… ou +243…).')
+      return
+    }
+    if (locationRequired && !hasCoords) {
+      setError('Le partage de votre position GPS est obligatoire pour commander.')
+      return
+    }
+    if (outOfZone) {
+      setError(
+        `Service indisponible à votre position. Les commandes sont limitées à ${deliveryZone.zone_name} (rayon de ${Math.round(deliveryZone.radius_km)} km).`,
+      )
       return
     }
     setError('')
@@ -644,9 +684,14 @@ export default function ClientOrderPaymentPage() {
                           )}
                           {geoLoading ? 'Récupération…' : 'Partager ma position GPS'}
                         </button>
-                        {deliveryLatitude != null && deliveryLongitude != null && (
+                        {hasCoords && !outOfZone && (
                           <span className="text-emerald-400 text-sm flex items-center gap-1">
                             ✅ Position capturée ({deliveryLatitude.toFixed(5)}, {deliveryLongitude.toFixed(5)})
+                          </span>
+                        )}
+                        {hasCoords && outOfZone && (
+                          <span className="text-red-400 text-sm flex items-center gap-1">
+                            ⛔ Hors zone de livraison
                           </span>
                         )}
                       </div>
@@ -654,7 +699,9 @@ export default function ClientOrderPaymentPage() {
                         <p className="text-red-400 text-xs mt-2">{geoError}</p>
                       )}
                       <p className="text-white/40 text-xs mt-2">
-                        Facultatif : partagez votre position pour aider le livreur à vous trouver plus facilement.
+                        {locationRequired
+                          ? `Obligatoire : le service est réservé à ${deliveryZone?.zone_name || 'la zone autorisée'}. Partagez votre position GPS pour commander.`
+                          : 'Facultatif : partagez votre position pour aider le livreur à vous trouver plus facilement.'}
                       </p>
                     </div>
 
@@ -678,8 +725,8 @@ export default function ClientOrderPaymentPage() {
                       <button
                         type="button"
                         onClick={handleCreateSingleOrder}
-                        disabled={creatingOrder}
-                        className="gold disabled:opacity-50"
+                        disabled={creatingOrder || (locationRequired && !hasCoords) || outOfZone}
+                        className="gold disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {creatingOrder ? 'Création...' : 'Créer puis payer'}
                       </button>

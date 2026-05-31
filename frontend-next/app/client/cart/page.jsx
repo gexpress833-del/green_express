@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PaymentMethodsBanner from '@/components/PaymentMethodsBanner';
 import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders';
 import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc';
+import { fetchDeliveryZone, isWithinZone } from '@/lib/geo';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -45,6 +46,7 @@ export default function CartPage() {
   const [deliveryLongitude, setDeliveryLongitude] = useState(null);
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState('');
+  const [deliveryZone, setDeliveryZone] = useState(null);
   const [client_phone_number, setClient_phone_number] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -73,6 +75,23 @@ export default function CartPage() {
     }
   }, [user?.phone]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchDeliveryZone().then((zone) => {
+      if (!cancelled) setDeliveryZone(zone);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const locationRequired = deliveryZone?.enabled && deliveryZone?.require_location;
+  const hasCoords = deliveryLatitude != null && deliveryLongitude != null;
+  const outOfZone =
+    deliveryZone?.enabled &&
+    hasCoords &&
+    !isWithinZone(deliveryZone, { latitude: deliveryLatitude, longitude: deliveryLongitude });
+
   const handleShareLocation = () => {
     setGeoLoading(true);
     setGeoError('');
@@ -86,6 +105,17 @@ export default function CartPage() {
         setDeliveryLatitude(pos.coords.latitude);
         setDeliveryLongitude(pos.coords.longitude);
         setGeoLoading(false);
+        if (
+          deliveryZone?.enabled &&
+          !isWithinZone(deliveryZone, {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          })
+        ) {
+          setGeoError(
+            `Service indisponible à votre position. Les commandes sont limitées à ${deliveryZone.zone_name} (rayon de ${Math.round(deliveryZone.radius_km)} km).`,
+          );
+        }
       },
       (err) => {
         setGeoLoading(false);
@@ -125,6 +155,16 @@ export default function CartPage() {
     const np = normalizePhoneDrc(client_phone_number.trim());
     if (!isValidDrcMobileMoney(np)) {
       setError('Numéro Mobile Money invalide (RDC : ex. 08… ou +243…).');
+      return;
+    }
+    if (locationRequired && !hasCoords) {
+      setError('Le partage de votre position GPS est obligatoire pour commander.');
+      return;
+    }
+    if (outOfZone) {
+      setError(
+        `Service indisponible à votre position. Les commandes sont limitées à ${deliveryZone.zone_name} (rayon de ${Math.round(deliveryZone.radius_km)} km).`,
+      );
       return;
     }
     setSubmitting(true);
@@ -293,9 +333,14 @@ export default function CartPage() {
                           )}
                           {geoLoading ? 'Récupération…' : 'Partager ma position GPS'}
                         </button>
-                        {deliveryLatitude != null && deliveryLongitude != null && (
+                        {hasCoords && !outOfZone && (
                           <span className="text-emerald-400 text-sm flex items-center gap-1">
                             ✅ Position capturée ({deliveryLatitude.toFixed(5)}, {deliveryLongitude.toFixed(5)})
+                          </span>
+                        )}
+                        {hasCoords && outOfZone && (
+                          <span className="text-red-400 text-sm flex items-center gap-1">
+                            ⛔ Hors zone de livraison
                           </span>
                         )}
                       </div>
@@ -303,7 +348,9 @@ export default function CartPage() {
                         <p className="text-red-400 text-xs mt-2">{geoError}</p>
                       )}
                       <p className="text-white/40 text-xs mt-2">
-                        Facultatif : partagez votre position pour aider le livreur à vous trouver plus facilement.
+                        {locationRequired
+                          ? `Obligatoire : le service est réservé à ${deliveryZone?.zone_name || 'la zone autorisée'}. Partagez votre position GPS pour commander.`
+                          : 'Facultatif : partagez votre position pour aider le livreur à vous trouver plus facilement.'}
                       </p>
                     </div>
                     <div className="mb-4">
@@ -339,8 +386,8 @@ export default function CartPage() {
                     <div className="flex flex-wrap gap-4">
                       <button
                         type="submit"
-                        disabled={submitting}
-                        className="px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black font-bold rounded-lg transition disabled:opacity-50"
+                        disabled={submitting || (locationRequired && !hasCoords) || outOfZone}
+                        className="px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black font-bold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {submitting ? 'Création...' : 'Passer la commande'}
                       </button>

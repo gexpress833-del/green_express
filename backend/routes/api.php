@@ -77,6 +77,18 @@ Route::get('subscription-plans/public', [SubscriptionPlanController::class, 'pub
 Route::get('menus/public/recent', [MenuController::class, 'publicRecent'])->middleware('throttle:api');
 Route::get('menus/public/browse', [MenuController::class, 'browse'])->middleware('throttle:api');
 Route::get('currency/rate', [CurrencyController::class, 'showRate'])->middleware('throttle:api');
+
+// Zone de livraison autorisee (geofence) - public, pour validation cote client
+Route::get('delivery-zone', function () {
+    return response()->json([
+        'enabled' => (bool) config('delivery.geofence_enabled', true),
+        'require_location' => (bool) config('delivery.require_location', true),
+        'zone_name' => (string) config('delivery.zone_name', 'Kolwezi'),
+        'center_latitude' => (float) config('delivery.center_latitude', -10.7167),
+        'center_longitude' => (float) config('delivery.center_longitude', 25.4667),
+        'radius_km' => (float) config('delivery.radius_km', 30),
+    ]);
+})->middleware('throttle:api');
 Route::post('promotions/{id}/claim', [PromotionController::class, 'claim'])->middleware('auth:api', 'throttle:api'); 
 Route::post('promotions', [PromotionController::class, 'store'])->middleware('auth:api', 'throttle:api');
 Route::get('my-promotion-claims', [PromotionController::class, 'myClaims'])->middleware('auth:api', 'throttle:api');

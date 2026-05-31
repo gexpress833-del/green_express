@@ -101,6 +101,53 @@
                     @error('delivery_address')
                         <p class="mt-1.5 text-xs font-medium text-red-600">{{ $message }}</p>
                     @enderror
+                    <div
+                        x-data="{
+                            loading: false,
+                            error: '',
+                            share() {
+                                this.error = '';
+                                if (!navigator.geolocation) {
+                                    this.error = 'La géolocalisation n\'est pas supportée par ce navigateur.';
+                                    return;
+                                }
+                                this.loading = true;
+                                navigator.geolocation.getCurrentPosition(
+                                    (pos) => {
+                                        this.loading = false;
+                                        $wire.set('delivery_latitude', pos.coords.latitude);
+                                        $wire.set('delivery_longitude', pos.coords.longitude);
+                                    },
+                                    (err) => {
+                                        this.loading = false;
+                                        this.error = err.code === err.PERMISSION_DENIED
+                                            ? 'Permission refusée. Activez le GPS dans votre navigateur.'
+                                            : 'Position GPS indisponible. Vérifiez que le GPS est activé.';
+                                    },
+                                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                                );
+                            }
+                        }"
+                        class="mt-3"
+                    >
+                        <button
+                            type="button"
+                            x-on:click="share()"
+                            x-bind:disabled="loading"
+                            class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                        >
+                            <span x-show="!loading">📍 Partager ma position GPS</span>
+                            <span x-show="loading">Récupération…</span>
+                        </button>
+                        <template x-if="$wire.delivery_latitude && $wire.delivery_longitude">
+                            <span class="ml-2 text-sm font-medium text-emerald-600">✅ Position capturée</span>
+                        </template>
+                        <p x-show="error" x-text="error" class="mt-1.5 text-xs font-medium text-red-600"></p>
+                        @error('delivery_latitude')
+                            <p class="mt-1.5 text-xs font-medium text-red-600">{{ $message }}</p>
+                        @enderror
+                        <p class="mt-2 text-xs text-zinc-500">Obligatoire : le service est réservé à Kolwezi. Partagez votre position pour commander.</p>
+                    </div>
                 </div>
                 <div>
                     <label for="client_phone_number" class="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-800">

@@ -22,6 +22,10 @@ trait ManagesClientCart
 
     public string $client_phone_number = '';
 
+    public ?float $delivery_latitude = null;
+
+    public ?float $delivery_longitude = null;
+
     protected function initializeClientCartState(): void
     {
         $this->usdCdfRate = MenuPriceConverter::defaultUsdCdfRate();
@@ -177,6 +181,8 @@ trait ManagesClientCart
             'delivery_address' => $this->delivery_address,
             'client_phone_number' => $this->client_phone_number,
             'currency' => $currency,
+            'delivery_latitude' => $this->delivery_latitude,
+            'delivery_longitude' => $this->delivery_longitude,
         ];
 
         $order = $orders->create(auth()->user(), $data);
@@ -184,6 +190,8 @@ trait ManagesClientCart
         $this->cart = [];
         $this->delivery_address = '';
         $this->client_phone_number = '';
+        $this->delivery_latitude = null;
+        $this->delivery_longitude = null;
         $this->persistCartToSession();
 
         session()->flash('status', 'Commande #'.$order->id.' enregistrée — statut : paiement en attente.');

@@ -8,23 +8,13 @@ const Map = dynamic(() => import('@/components/Map'), { ssr: false })
 
 export default function LandingMap() {
   const [started, setStarted] = useState(false)
-  const [manualPosition, setManualPosition] = useState(null)
-  const { position: gpsPosition, loading, error, requestPosition } = useGeolocation({
+  const { position, loading, error, requestPosition } = useGeolocation({
     watch: false,
     autoStart: false,
   })
 
-  // La correction manuelle (clic/drag) prend le dessus sur la position GPS.
-  const position = manualPosition || gpsPosition
-
   const handleStart = () => {
-    setManualPosition(null)
     setStarted(true)
-    requestPosition()
-  }
-
-  const handleRefresh = () => {
-    setManualPosition(null)
     requestPosition()
   }
 
@@ -92,7 +82,7 @@ export default function LandingMap() {
                     ) : null}
                   </div>
                   <button
-                    onClick={handleRefresh}
+                    onClick={requestPosition}
                     disabled={loading}
                     className="px-4 py-2 bg-white/10 hover:bg-white/15 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition flex items-center gap-2 border border-white/10"
                   >
@@ -104,12 +94,8 @@ export default function LandingMap() {
                     {loading ? 'Actualisation…' : 'Actualiser'}
                   </button>
                 </div>
-                <p className="text-white/50 text-xs px-1">
-                  La position n'est pas exacte ? Déplacez le marqueur ou cliquez directement sur la carte pour indiquer votre emplacement réel.
-                </p>
                 <Map
                   userPosition={position}
-                  onPositionChange={setManualPosition}
                   height="420px"
                   zoom={15}
                   className="w-full"

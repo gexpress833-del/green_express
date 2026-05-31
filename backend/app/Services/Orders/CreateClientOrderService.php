@@ -19,6 +19,7 @@ class CreateClientOrderService
 {
     public function __construct(
         private OrderNotificationService $orderNotifications,
+        private DeliveryZoneService $deliveryZone,
     ) {}
 
     /**
@@ -32,6 +33,8 @@ class CreateClientOrderService
      */
     public function create(User $user, array $data): Order
     {
+        $this->assertWithinDeliveryZone($data);
+
         $orderCurrency = strtoupper((string) ($data['currency'] ?? 'CDF'));
         $total = 0.0;
         $totalQuantity = 0;
@@ -95,5 +98,40 @@ class CreateClientOrderService
         $this->orderNotifications->notifyOrderCreated($order->load('user'));
 
         return $order->load('items.menu');
+    }
+
+    /**
+     * Verifie que la position GPS de livraison est dans la zone autorisee.
+     * Si la geolocalisation est obligatoire, l'absence de coordonnees est rejetee.
+     */
+    private function assertWithinDeliveryZone(array $data): void
+    {
+        if (! $this->deliveryZone->geofenceEnabled()) {
+            return;
+        }
+
+        $lat = $data['delivery_latitude'] ?? null;
+        $lng = $data['delivery_longitude'] ?? null;
+        $hasCoords = is_numeric($lat) && is_numeric($lng);
+
+        if (! $hasCoords) {
+            if ($this->deliveryZone->locationRequired()) {
+                throw ValidationException::withMessages([
+                    'delivery_latitude' => ['Le partage de votre position GPS est obligatoire pour commander.'],
+                ]);
+            }
+
+            return;
+        }
+
+        if (! $this->deliveryZone->isWithinZone((float) $lat, (float) $lng)) {
+            throw ValidationException::withMessages([
+                'delivery_latitude' => [sprintf(
+                    'Service indisponible à votre position. Les commandes sont limitées à %s (rayon de %d km).',
+                    $this->deliveryZone->zoneName(),
+                    (int) $this->deliveryZone->radiusKm(),
+                )],
+            ]);
+        }
     }
 }
