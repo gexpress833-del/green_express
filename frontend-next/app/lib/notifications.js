@@ -15,6 +15,15 @@ export async function fetchNotifications(limit = 20, fetchOptions = {}, { unread
   });
 }
 
+export async function fetchNotificationById(id, fetchOptions = {}) {
+  const raw = id == null ? '' : String(id).trim();
+  if (!raw) throw new Error('Identifiant de notification manquant');
+  return apiRequest(`/api/notifications/${encodeURIComponent(raw)}`, {
+    method: 'GET',
+    ...fetchOptions,
+  });
+}
+
 export async function markNotificationRead(id) {
   return apiRequest(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' });
 }

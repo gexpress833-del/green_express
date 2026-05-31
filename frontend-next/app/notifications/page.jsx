@@ -24,7 +24,6 @@ import {
   getSubscriptionsDeepLink,
 } from '@/lib/notificationNavigation'
 import { getApiErrorMessage } from '@/lib/api'
-import { resolveNotificationNavigateHref } from '@/lib/notificationDetailActions'
 import ConfirmModal from '@/components/ConfirmModal'
 import styles from './page.module.css'
 
@@ -120,7 +119,6 @@ export default function NotificationsPage() {
   const [markingAll, setMarkingAll] = useState(false)
   const [deletingAll, setDeletingAll] = useState(false)
   const [confirmModal, setConfirmModal] = useState(null)
-  const [detailNotification, setDetailNotification] = useState(null)
   const dashboardHref = user?.role ? `/${user.role}` : '/client'
 
   async function requestNotifications(signal) {
@@ -309,22 +307,7 @@ export default function NotificationsPage() {
   }
 
   function openNotificationDetail(notification) {
-    setDetailNotification(notification)
-    if (!notification.read_at) {
-      handleMarkRead(notification)
-    }
-  }
-
-  function closeNotificationDetail() {
-    setDetailNotification(null)
-  }
-
-  function navigateFromDetail(notification) {
-    const href = resolveNotificationNavigateHref(notification, user?.role)
-    if (href) {
-      closeNotificationDetail()
-      router.push(href)
-    }
+    router.push(`/notifications/${notification.id}`)
   }
 
   function renderCard(notification) {
@@ -568,122 +551,6 @@ export default function NotificationsPage() {
         />
       )}
 
-      {detailNotification && (() => {
-        const type = getNotificationType(detailNotification)
-        const theme = NOTIFICATION_THEMES[type] || NOTIFICATION_THEMES.announcements
-        const title = getNotificationField(detailNotification, 'title') || theme.label
-        const message = getNotificationField(detailNotification, 'message') || 'Vous avez une nouvelle notification.'
-        const previewImage = getPreviewImage(detailNotification)
-        const navigateHref = resolveNotificationNavigateHref(detailNotification, user?.role)
-        const createdLabel = detailNotification.created_at
-          ? new Date(detailNotification.created_at).toLocaleString('fr-FR', {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-          : ''
-        const originLabel = detailNotification.origin_label
-
-        return (
-          <div
-            className={styles.detailOverlay}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="notification-detail-title"
-            onClick={closeNotificationDetail}
-          >
-            <div className={styles.detailPanel} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.detailHeader}>
-                <span className={`${styles.iconWrap} ${theme.iconClass}`}>{theme.icon}</span>
-                <div className={styles.detailHeaderText}>
-                  <p className={`${styles.previewLabel} ${theme.labelClass}`}>{theme.label}</p>
-                  <h2 id="notification-detail-title" className={styles.detailTitle}>{title}</h2>
-                  {createdLabel && <p className={styles.detailMeta}>{createdLabel}</p>}
-                  {originLabel && <p className={styles.detailMeta}>De : {originLabel}</p>}
-                </div>
-                <button type="button" className={`${styles.buttonReset} ${styles.detailClose}`} onClick={closeNotificationDetail} aria-label="Fermer">×</button>
-              </div>
-              {previewImage && <img src={previewImage} alt="" className={styles.detailImage} />}
-              <p className={styles.detailMessage}>{message}</p>
-
-              {/* Détails spécifiques selon le type */}
-              {(() => {
-                const details = []
-                const orderId = getNotificationField(detailNotification, 'order_id')
-                const eventId = getNotificationField(detailNotification, 'event_request_id')
-                const subId = getNotificationField(detailNotification, 'subscription_id')
-                const companySubId = getNotificationField(detailNotification, 'company_subscription_id')
-                const promoId = getNotificationField(detailNotification, 'promotion_id')
-                const planName = getNotificationField(detailNotification, 'plan_name')
-                const promoKind = getNotificationField(detailNotification, 'promotion_kind')
-                const eventType = getNotificationField(detailNotification, 'event_type')
-                const eventDate = getNotificationField(detailNotification, 'event_date')
-                const eventLocation = getNotificationField(detailNotification, 'event_location')
-                const orderStatus = getNotificationField(detailNotification, 'order_status')
-                const orderAmount = getNotificationField(detailNotification, 'order_amount')
-                const orderCurrency = getNotificationField(detailNotification, 'order_currency')
-                const deliveryAddress = getNotificationField(detailNotification, 'delivery_address')
-                const subscriptionStatus = getNotificationField(detailNotification, 'subscription_status')
-                const promotionCode = getNotificationField(detailNotification, 'promotion_code')
-                const promotionDiscount = getNotificationField(detailNotification, 'promotion_discount')
-                const validUntil = getNotificationField(detailNotification, 'valid_until')
-                const priority = getNotificationField(detailNotification, 'priority')
-
-                if (orderId) {
-                  details.push({ label: 'N° Commande', value: `#${orderId}` })
-                  if (orderStatus) details.push({ label: 'Statut', value: orderStatus })
-                  if (orderAmount != null) details.push({ label: 'Montant', value: `${orderAmount} ${orderCurrency || 'CDF'}` })
-                  if (deliveryAddress) details.push({ label: 'Livraison', value: deliveryAddress })
-                }
-                if (eventId) {
-                  details.push({ label: 'N° Demande', value: `#${eventId}` })
-                  if (eventType) details.push({ label: 'Type', value: eventType })
-                  if (eventDate) details.push({ label: 'Date', value: new Date(eventDate).toLocaleDateString('fr-FR') })
-                  if (eventLocation) details.push({ label: 'Lieu', value: eventLocation })
-                }
-                if (subId || companySubId) {
-                  details.push({ label: 'N° Abonnement', value: `#${subId || companySubId}` })
-                  if (planName) details.push({ label: 'Plan', value: planName })
-                  if (subscriptionStatus) details.push({ label: 'Statut', value: subscriptionStatus })
-                }
-                if (promoId) {
-                  details.push({ label: 'N° Promotion', value: `#${promoId}` })
-                  if (promoKind) details.push({ label: 'Type', value: promoKind })
-                  if (promotionCode) details.push({ label: 'Code', value: promotionCode })
-                  if (promotionDiscount) details.push({ label: 'Réduction', value: promotionDiscount })
-                  if (validUntil) details.push({ label: 'Valide jusqu\'au', value: new Date(validUntil).toLocaleDateString('fr-FR') })
-                }
-                if (priority) details.push({ label: 'Priorité', value: priority })
-
-                if (details.length === 0) return null
-                return (
-                  <div className={styles.detailFields}>
-                    {details.map((d) => (
-                      <div key={d.label} className={styles.detailField}>
-                        <span className={styles.detailFieldLabel}>{d.label}</span>
-                        <span className={styles.detailFieldValue}>{d.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                )
-              })()}
-
-              <div className={styles.detailActions}>
-                {navigateHref && (
-                  <button type="button" className={`${styles.buttonReset} ${styles.actionPrimary} ${theme.actionClass}`} onClick={() => navigateFromDetail(detailNotification)}>
-                    Ouvrir dans l&apos;application
-                  </button>
-                )}
-                <button type="button" className={`${styles.buttonReset} ${styles.actionDanger}`} onClick={() => { closeNotificationDetail(); handleDelete(detailNotification) }}>
-                  Supprimer
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
     </section>
   )
 }
