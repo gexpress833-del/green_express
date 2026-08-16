@@ -26,7 +26,7 @@ export default function LandingMenusCarousel({ poster }) {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await apiRequest('/api/menus/public/browse?status=approved', { method: 'GET' })
+        const res = await apiRequest('/api/menus', { method: 'GET' })
         if (cancelled) return
         const list = pickMenus(res).filter((m) => m && m.image)
         setMenus(list)
