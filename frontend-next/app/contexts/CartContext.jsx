@@ -70,7 +70,6 @@ export function CartProvider({ children }) {
   const addItem = useCallback((menu, quantity = 1) => {
     if (!menu?.id) return;
     const qty = Math.max(1, parseInt(quantity, 10) || 1);
-    const priced = convertMenuPrice(menu, preferredCurrency, usdCdfRate);
     setItems((prev) => {
       const existing = prev.find((i) => i.menu_id === menu.id);
       if (existing) {
@@ -83,17 +82,17 @@ export function CartProvider({ children }) {
         {
           menu_id: menu.id,
           quantity: qty,
-          price: priced.price,
-          currency: priced.currency,
-          original_price: priced.originalPrice,
-          original_currency: priced.originalCurrency,
-          exchange_rate: priced.rate,
+          price: menu.price_fc,
+          currency: 'CDF',
+          original_price: menu.price_fc,
+          original_currency: 'CDF',
+          exchange_rate: 1,
           title: menu.title || menu.name,
           image: menu.image,
         },
       ];
     });
-  }, [preferredCurrency, usdCdfRate]);
+  }, []);
 
   const setPreferredCurrency = useCallback((currency) => {
     const next = setStoredCurrencyPreference(currency);

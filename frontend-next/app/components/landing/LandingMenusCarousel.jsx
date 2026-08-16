@@ -118,9 +118,9 @@ export default function LandingMenusCarousel({ poster }) {
                 <p className="landing-menus-carousel__name">
                   {current.name || current.title || 'Plat du jour'}
                 </p>
-                {current.price != null && (
+                {current.price_fc != null && (
                   <p className="landing-menus-carousel__price">
-                    {formatOrderMoney(current.price, current.currency || 'CDF')}
+                    {formatOrderMoney(current.price_fc, 'CDF')}
                   </p>
                 )}
               </div>

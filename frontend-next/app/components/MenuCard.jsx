@@ -38,7 +38,7 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
   const isAvailable = menu.is_available !== false && menu.status === 'approved'
   const isPopular = menu.is_popular === true
   const linkHref = `/client/orders/create?menu_id=${menu.id}`
-  const displayPrice = convertMenuPrice(menu, preferredCurrency, usdCdfRate)
+  const displayPrice = { price: menu.price_fc, currency: 'CDF' }
 
   const handleAddToCart = (e) => {
     e.preventDefault()
