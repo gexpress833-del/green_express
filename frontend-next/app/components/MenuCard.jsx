@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/contexts/CartContext'
 import { convertMenuPrice } from '@/lib/currencyPreference'
+import { resolveMediaUrl } from '@/lib/imageLoader'
 
 function formatCurrency(amount, currency) {
   const num = typeof amount === 'number' ? amount : parseFloat(amount)
@@ -67,7 +68,7 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
         <div className="card-image-fixed client-menu-card__media">
           {menu.image && !imageError ? (
             <img
-              src={menu.image}
+              src={resolveMediaUrl(menu.image)}
               alt={menu.name || menu.title || ''}
               className="client-menu-card__img"
               onError={() => setImageError(true)}
@@ -132,7 +133,7 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
         <div className="card-image-fixed client-menu-card__media">
           {menu.image && !imageError ? (
             <img
-              src={menu.image}
+              src={resolveMediaUrl(menu.image)}
               alt={menu.name || menu.title || ''}
               className="client-menu-card__img"
               onError={() => setImageError(true)}
@@ -199,7 +200,7 @@ export default function MenuCard({ menu, onSelect, variant = 'default', onDelete
       <div className="relative card-image-fixed w-full bg-gray-200 dark:bg-slate-700">
         {menu.image && !imageError ? (
           <img
-            src={menu.image}
+            src={resolveMediaUrl(menu.image)}
             alt={menu.name || menu.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
             onError={() => setImageError(true)}

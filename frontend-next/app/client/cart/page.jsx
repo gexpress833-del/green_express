@@ -13,6 +13,7 @@ import { PROVIDER_OPTIONS } from '@/lib/rdcMobileMoneyProviders';
 import { analyzeRdcMobileMoneyPhone, buildRdcOperatorHint } from '@/lib/phoneRdc';
 import { fetchDeliveryZone, isWithinZone } from '@/lib/geo';
 import Image from 'next/image';
+import { resolveMediaUrl } from '@/lib/imageLoader';
 
 function formatCurrency(amount, currency) {
   const num = typeof amount === 'number' ? amount : parseFloat(amount);
@@ -225,7 +226,7 @@ export default function CartPage() {
                         {item.image && (
                           <div className="w-full sm:w-24 h-24 rounded-lg overflow-hidden bg-slate-700 flex-shrink-0">
                             <Image
-                              src={item.image}
+                              src={resolveMediaUrl(item.image)}
                               alt={item.title}
                               width={96}
                               height={96}

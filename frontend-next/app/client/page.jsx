@@ -11,6 +11,7 @@ import { useCart } from '@/contexts/CartContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useUnreadNotifications } from '@/lib/useUnreadNotifications'
 import Link from 'next/link'
+import { resolveMediaUrl } from '@/lib/imageLoader'
 
 function subscriptionBannerCopy(ongoing) {
   if (!ongoing || ongoing.length === 0) return null
@@ -109,7 +110,7 @@ function MobileMenuCard({ menu }) {
       {/* Image */}
       <div style={{ position: 'relative', height: 120, background: '#1a2e4a', flexShrink: 0 }}>
         {menu.image && !imgErr
-          ? <img src={menu.image} alt={menu.name} onError={() => setImgErr(true)}
+          ? <img src={resolveMediaUrl(menu.image)} alt={menu.name} onError={() => setImgErr(true)}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>🍽️</div>
         }

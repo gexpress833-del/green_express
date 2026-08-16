@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { formatDate, formatCurrencyCDF } from '@/lib/helpers'
+import { resolveMediaUrl } from '@/lib/imageLoader'
 
 const STATUS_LABELS = {
   pending: 'En attente de paiement',
@@ -216,7 +217,7 @@ export default function ClientOngoingSubscriptionCard({ subscription: s, onPayCl
               <div className={`client-sub-dayplate__frame${heroItem?.image ? ' client-sub-dayplate__frame--split' : ''}`}>
                 {heroItem?.image ? (
                   <div className="client-sub-dayplate__photo">
-                    <img src={heroItem.image} alt="" className="client-sub-dayplate__photo-img" loading="lazy" />
+                    <img src={resolveMediaUrl(heroItem.image)} alt="" className="client-sub-dayplate__photo-img" loading="lazy" />
                     <div className="client-sub-dayplate__photo-scrim" aria-hidden />
                   </div>
                 ) : null}
@@ -264,8 +265,8 @@ export default function ClientOngoingSubscriptionCard({ subscription: s, onPayCl
             <div className="client-sub-ongoing__thumbs">
               {items.map((it) => (
                 <div key={it.id} className="client-sub-ongoing__thumb-wrap" title={it.title || ''}>
-                  {it.image ? (
-                    <img src={it.image} alt="" className="client-sub-ongoing__thumb-img" loading="lazy" />
+                  {it?.image ? (
+                    <img src={resolveMediaUrl(it.image)} alt="" className="client-sub-ongoing__thumb-img" loading="lazy" />
                   ) : (
                     <span className="client-sub-ongoing__thumb-fallback" aria-hidden>
                       🍽️

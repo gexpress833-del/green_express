@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { apiRequest } from '@/lib/api'
 import { formatOrderMoney } from '@/lib/helpers'
+import { resolveMediaUrl } from '@/lib/imageLoader'
 
 const ROTATION_MS = 7000
 
@@ -103,7 +104,7 @@ export default function LandingMenusCarousel({ poster }) {
               transition={{ duration: 1.4, ease: [0.25, 0.1, 0.25, 1] }}
             >
               <motion.img
-                src={current.image}
+                src={resolveMediaUrl(current.image)}
                 alt={current.name || current.title || 'Menu Green Express'}
                 className="landing-menus-carousel__img"
                 loading="lazy"
