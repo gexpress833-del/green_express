@@ -41,11 +41,15 @@ const nextConfig = {
   },
   async rewrites() {
     const backend = API_PROXY_TARGET.replace(/\/$/, '')
-    return [
+    const rewrites = [
       { source: '/favicon.ico', destination: '/favicon.svg' },
-      // /api/* : proxy via app/api/[[...path]]/route.js (cookies + X-Forwarded-* pour Laravel)
-      { source: '/storage/:path*', destination: `${backend}/storage/:path*` },
     ]
+    // /api/* : proxy via app/api/[[...path]]/route.js (cookies + X-Forwarded-* pour Laravel)
+    // /storage/* : proxy vers Laravel si API_PROXY_TARGET est configuré
+    if (backend && (backend.startsWith('http://') || backend.startsWith('https://'))) {
+      rewrites.push({ source: '/storage/:path*', destination: `${backend}/storage/:path*` })
+    }
+    return rewrites
   },
   images: {
     loader: 'custom',
