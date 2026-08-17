@@ -4,6 +4,9 @@
 const API_PROXY_TARGET =
   process.env.API_PROXY_TARGET || process.env.NEXT_PUBLIC_API_PROXY_TARGET || 'http://localhost:8000'
 
+// API_PROXY_TARGET est une variable privée (server-side) pour sécuriser l'URL de l'API backend
+// NEXT_PUBLIC_API_URL est utilisée côté client pour les appels directs si nécessaire
+
 const nextConfig = {
   /** Masque le badge « N » / overlay en bas à gauche (uniquement en `next dev`). */
   devIndicators: process.env.NODE_ENV === 'development' ? false : undefined,
