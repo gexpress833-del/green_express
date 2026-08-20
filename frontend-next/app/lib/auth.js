@@ -82,3 +82,17 @@ export async function getMe() {
   const result = await apiRequest('/api/user', { method: 'GET' });
   return result;
 }
+
+/**
+ * Connexion via Google : échange id_token NextAuth → session Sanctum Laravel.
+ */
+export async function linkGoogleAccount(idToken) {
+  const data = await apiRequest('/api/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ id_token: idToken }),
+  });
+  if (data?.token) {
+    setAuthToken(data.token);
+  }
+  return data;
+}
