@@ -1,6 +1,6 @@
 import GoogleProvider from 'next-auth/providers/google'
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID || ''
+const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || ''
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || ''
 
 if (
@@ -12,6 +12,13 @@ if (
   console.error(
     '[NextAuth] GOOGLE_CLIENT_SECRET ne doit pas être identique à GOOGLE_CLIENT_ID. Utilisez le « Code secret du client » (GOCSPX-…).',
   )
+}
+
+if (!googleClientId || !googleClientSecret) {
+  console.error('[NextAuth] Variables Google manquantes:', {
+    hasClientId: !!googleClientId,
+    hasClientSecret: !!googleClientSecret,
+  })
 }
 
 /** @type {import('next-auth').NextAuthOptions} */
