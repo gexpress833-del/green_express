@@ -1,36 +1,56 @@
 /**
- * Auth API (Sanctum SPA : session via cookies, pas de token).
+ * Auth API (Sanctum Bearer Token).
  */
-import { apiRequest, getCsrfCookie } from './api';
+import { apiRequest } from './api';
 
 /**
- * Connexion : csrf puis POST /api/login.
- * @param {string} loginIdentifier — e-mail ou numéro de téléphone (RDC : ex. 08… ou +243…)
+ * Stocke le token dans localStorage
  */
-/** Connexion via Google : échange id_token NextAuth → session Sanctum Laravel. */
-export async function linkGoogleAccount(idToken) {
-  await getCsrfCookie();
-  return apiRequest('/api/auth/google', {
-    method: 'POST',
-    body: JSON.stringify({ id_token: idToken }),
-  });
+function setAuthToken(token) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (token) {
+      localStorage.setItem('green_express_auth_token', token);
+    } else {
+      localStorage.removeItem('green_express_auth_token');
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
+/**
+ * Récupère le token depuis localStorage
+ */
+function getAuthToken() {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem('green_express_auth_token');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Connexion : POST /api/login.
+ * @param {string} loginIdentifier — e-mail ou numéro de téléphone (RDC : ex. 08… ou +243…)
+ */
 export async function login(loginIdentifier, password) {
-  await getCsrfCookie();
   const data = await apiRequest('/api/login', {
     method: 'POST',
-    body: JSON.stringify({ login: loginIdentifier, password }),
+    body: JSON.stringify({ email: loginIdentifier, password }),
   });
+  if (data?.token) {
+    setAuthToken(data.token);
+  }
   return data;
 }
 
 /**
- * Inscription client : csrf puis POST /api/register. Retourne { user }.
+ * Inscription client : POST /api/register. Retourne { user }.
  * @param {string} phone — mobile RDC obligatoire (connexion par numéro)
  */
 export async function register(email, password, name, phone) {
-  await getCsrfCookie();
   const data = await apiRequest('/api/register', {
     method: 'POST',
     body: JSON.stringify({
@@ -40,6 +60,9 @@ export async function register(email, password, name, phone) {
       phone: String(phone || '').trim(),
     }),
   });
+  if (data?.token) {
+    setAuthToken(data.token);
+  }
   return data;
 }
 
@@ -49,6 +72,8 @@ export async function logout() {
     await apiRequest('/api/logout', { method: 'POST' });
   } catch (err) {
     console.warn('Logout request failed:', err.message);
+  } finally {
+    setAuthToken(null);
   }
 }
 
@@ -56,23 +81,4 @@ export async function logout() {
 export async function getMe() {
   const result = await apiRequest('/api/user', { method: 'GET' });
   return result;
-}
-
-export async function registerCompany(contactName, contactEmail, contactPassword, companyData) {
-  await getCsrfCookie();
-  const data = await apiRequest('/api/register-company', {
-    method: 'POST',
-    body: JSON.stringify({
-      contact_name: contactName,
-      contact_email: contactEmail,
-      contact_password: contactPassword,
-      company_name: companyData.companyName,
-      institution_type: companyData.institutionType,
-      company_phone: companyData.companyPhone,
-      company_address: companyData.companyAddress,
-      employee_count: companyData.employeeCount,
-      employees: companyData.employees || [],
-    }),
-  });
-  return data;
 }

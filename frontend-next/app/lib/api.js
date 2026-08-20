@@ -1,9 +1,8 @@
 import { API_BASE } from './apiBase';
 
 /**
- * Client API pour le backend Laravel (Sanctum SPA).
- * Session portée par cookies httpOnly : toutes les requêtes en credentials: 'include'.
- * Pas de token en localStorage.
+ * Client API pour le backend Laravel (Sanctum Bearer Token).
+ * Authentification par token Bearer stocké dans localStorage.
  */
 
 const defaultHeaders = {
@@ -12,25 +11,31 @@ const defaultHeaders = {
 };
 
 /**
- * Extrait le token XSRF du cookie XSRF-TOKEN.
+ * Récupère le token d'authentification depuis localStorage.
  */
-function getXsrfToken() {
-  if (typeof document === 'undefined') return null;
-  const name = 'XSRF-TOKEN';
-  const cookieArray = document.cookie.split(';');
-  for (let cookie of cookieArray) {
-    cookie = cookie.trim();
-    if (cookie.startsWith(name + '=')) {
-      let v = cookie.substring(name.length + 1);
-      try {
-        v = decodeURIComponent(v);
-      } catch {
-        /* valeur déjà lisible */
-      }
-      return v;
-    }
+function getAuthToken() {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem('green_express_auth_token');
+  } catch {
+    return null;
   }
-  return null;
+}
+
+/**
+ * Stocke le token d'authentification dans localStorage.
+ */
+function setAuthToken(token) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (token) {
+      localStorage.setItem('green_express_auth_token', token);
+    } else {
+      localStorage.removeItem('green_express_auth_token');
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
@@ -38,57 +43,8 @@ function getXsrfToken() {
  * À appeler avant login / register.
  */
 export async function getCsrfCookie() {
-  // Contexte : uniquement l'hote courant (localhost => dev). En prod on ne divulgue
-  // aucune information technique (ports, .env, WAMP, MySQL, etc.) dans les messages UX.
-  const isLocalHost =
-    typeof window !== 'undefined' &&
-    /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
-
-  let res;
-  try {
-    res = await fetch(`${API_BASE}/sanctum/csrf-cookie`, {
-      method: 'GET',
-      credentials: 'include',
-    });
-  } catch (err) {
-    if (isLocalHost) {
-      const base = typeof window !== 'undefined' ? API_BASE : '(build-time)';
-      throw new Error(
-        `Impossible de contacter le serveur (${base}). Démarrez l’API : cd backend puis php artisan serve.`,
-      );
-    }
-    throw new Error(
-      'Connexion au service indisponible. Merci de réessayer dans quelques instants.',
-    );
-  }
-  if (!res.ok) {
-    let detail = '';
-    try {
-      const ct = res.headers.get('content-type') || '';
-      if (ct.includes('application/json')) {
-        const j = await res.json();
-        // On n'affiche les "hints" serveurs qu'en local.
-        if (isLocalHost) {
-          detail = j?.hint ? ` ${j.hint}` : j?.message ? ` (${j.message})` : '';
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-    if (isLocalHost) {
-      const extra500 =
-        res.status === 500
-          ? ' (500 souvent dû à MySQL/SESSION_DRIVER en local).'
-          : '';
-      throw new Error(
-        `Cookie CSRF indisponible (HTTP ${res.status}).${detail}${extra500}`,
-      );
-    }
-    // Production : message générique sans détails techniques.
-    throw new Error(
-      'Le service est temporairement indisponible. Merci de réessayer dans un instant.',
-    );
-  }
+  // Plus nécessaire avec l'authentification par token Bearer
+  return;
 }
 
 /**
@@ -137,25 +93,15 @@ export function getApiErrorMessage(err) {
   return humanizeLaravelValidationMessage(err?.data?.error) || 'Une erreur est survenue';
 }
 
-/** Méthodes sans jeton CSRF (Laravel). */
-function methodNeedsCsrf(method) {
-  const m = (method || 'GET').toUpperCase();
-  return m !== 'GET' && m !== 'HEAD';
-}
-
 /**
- * Prépare les en-têtes avec X-XSRF-TOKEN pour POST/PUT/PATCH/DELETE.
- * Si le cookie XSRF est absent (nouvel onglet, session longue), appelle /sanctum/csrf-cookie d’abord.
+ * Prépare les en-têtes avec Authorization Bearer token.
  */
-async function buildHeadersWithXsrf(method, fetchOptions) {
+async function buildHeadersWithAuth(method, fetchOptions) {
   const headers = { ...defaultHeaders, ...fetchOptions.headers };
-  if (!methodNeedsCsrf(method)) return headers;
-
-  if (typeof window !== 'undefined' && !getXsrfToken()) {
-    await getCsrfCookie();
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
-  const xsrfToken = getXsrfToken();
-  if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
 
   if (fetchOptions.body instanceof FormData) {
     delete headers['Content-Type'];
@@ -164,7 +110,7 @@ async function buildHeadersWithXsrf(method, fetchOptions) {
 }
 
 /**
- * Requête API authentifiée par session (cookies).
+ * Requête API authentifiée par token Bearer.
  * @param {string} path - Chemin (ex: '/api/login', '/api/user')
  * @param {object} options - fetch options (method, body, headers)
  */
@@ -173,24 +119,12 @@ export async function apiRequest(path, options = {}) {
   const fullURL = path.startsWith('http') ? path : `${API_BASE}${path}`;
   const method = fetchOptions.method || 'GET';
 
-  let headers = await buildHeadersWithXsrf(method, fetchOptions);
+  let headers = await buildHeadersWithAuth(method, fetchOptions);
 
   let res = await fetch(fullURL, {
     ...fetchOptions,
-    credentials: 'include',
     headers,
   });
-
-  // Jeton CSRF expiré ou absent au moment du fetch : une seconde tentative après rafraîchissement
-  if (res.status === 419 && typeof window !== 'undefined' && methodNeedsCsrf(method)) {
-    await getCsrfCookie();
-    headers = await buildHeadersWithXsrf(method, fetchOptions);
-    res = await fetch(fullURL, {
-      ...fetchOptions,
-      credentials: 'include',
-      headers,
-    });
-  }
 
   if (res.status === 401) {
     const errorData = await res.json().catch(() => null);
@@ -213,6 +147,7 @@ export async function apiRequest(path, options = {}) {
         }
       })();
     if (!isLoginOrRegister && typeof window !== 'undefined' && !skipSessionExpired && !hasCachedUser) {
+      setAuthToken(null); // Clear invalid token
       const returnUrl = encodeURIComponent(window.location.pathname || '/');
       window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { returnUrl } }));
     }
@@ -255,20 +190,12 @@ export async function fetchApiBlob(path, options = {}) {
   const method = options.method || 'GET';
   const headers = { ...options.headers };
   if (!headers.Accept) headers.Accept = 'application/pdf';
-  if (methodNeedsCsrf(method) && typeof window !== 'undefined') {
-    if (!getXsrfToken()) await getCsrfCookie();
-    const xsrfToken = getXsrfToken();
-    if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
-  }
-  let res = await fetch(fullURL, { ...options, credentials: 'include', headers });
-  if (res.status === 419 && methodNeedsCsrf(method) && typeof window !== 'undefined') {
-    await getCsrfCookie();
-    const xsrfToken = getXsrfToken();
-    if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
-    res = await fetch(fullURL, { ...options, credentials: 'include', headers });
-  }
+  const token = getAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  let res = await fetch(fullURL, { ...options, headers });
   if (res.status === 401) {
     if (typeof window !== 'undefined') {
+      setAuthToken(null);
       const returnUrl = encodeURIComponent(window.location.pathname || '/');
       window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { returnUrl } }));
     }
@@ -293,34 +220,18 @@ export async function uploadImageFile(file, folder = 'uploads') {
   formData.append('folder', folder);
 
   const headers = { Accept: 'application/json' };
-  if (typeof document !== 'undefined') {
-    if (!getXsrfToken()) await getCsrfCookie();
-    const xsrfToken = getXsrfToken();
-    if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
-  }
+  const token = getAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   let res = await fetch(`${API_BASE}/api/upload-image`, {
     method: 'POST',
-    credentials: 'include',
     headers,
     body: formData,
   });
 
-  if (res.status === 419 && typeof document !== 'undefined') {
-    await getCsrfCookie();
-    const xsrf2 = getXsrfToken();
-    const h2 = { Accept: 'application/json' };
-    if (xsrf2) h2['X-XSRF-TOKEN'] = xsrf2;
-    res = await fetch(`${API_BASE}/api/upload-image`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: h2,
-      body: formData,
-    });
-  }
-
   if (res.status === 401) {
     if (typeof window !== 'undefined') {
+      setAuthToken(null);
       const returnUrl = encodeURIComponent(window.location.pathname || '/');
       window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { returnUrl } }));
     }
