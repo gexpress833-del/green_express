@@ -50,12 +50,13 @@ export async function login(loginIdentifier, password) {
  * Inscription client : POST /api/register. Retourne { user }.
  * @param {string} phone — mobile RDC obligatoire (connexion par numéro)
  */
-export async function register(email, password, name, phone) {
+export async function register(email, password, name, phone, passwordConfirmation) {
   const data = await apiRequest('/api/register', {
     method: 'POST',
     body: JSON.stringify({
       email,
       password,
+      password_confirmation: passwordConfirmation,
       name,
       phone: String(phone || '').trim(),
     }),

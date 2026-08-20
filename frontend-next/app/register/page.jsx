@@ -114,7 +114,7 @@ export default function RegisterPage() {
 
     try {
       if (accountType === 'client') {
-        await register(email, password, name, clientPhone.trim())
+        await register(email, password, name, clientPhone.trim(), confirmPassword)
         await refreshUser()
         router.push('/client')
       } else {
